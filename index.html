@@ -641,18 +641,26 @@ auth.onAuthStateChanged(function(user) {
       }
       var data = snap.data();
       console.log("User doc:", JSON.stringify(data));
-      if (!data.active) {
-        auth.signOut(); hideLoad();
-        showErr("هذا الحساب غير مفعل."); showScreen('login'); return;
-      }
+      if (data.active !== true) {
+  auth.signOut();
+  hideLoad();
+  showErr(
+    "هذا الحساب غير مفعل\n\n" +
+    "UID: " + user.uid + "\n" +
+    "active value: " + data.active + "\n" +
+    "full data: " + JSON.stringify(data)
+  );
+  showScreen('login');
+  return;
+}
       S.profile = data;
-      seedDefaults().then(function() {
-        return Promise.all([loadItems(), loadExpTypes()]);
-      }).then(function() {
-        hideLoad();
-        if (data.role === 'manager') { showManagerScreen(); }
-        else { showShiftScreen(); }
-      });
+      hideLoad();
+
+if (data.role === 'manager') {
+  showManagerScreen();
+} else {
+  showShiftScreen();
+}
     })
     .catch(function(e) {
       hideLoad();
