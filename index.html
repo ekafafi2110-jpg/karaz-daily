@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a0a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="كرز وعنب">
+<title>كرز وعنب - المزلوب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+<!-- Firebase Compat SDK (no import/module needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+<style>
+:root{
+  --bg:#0d0d0d;--bg2:#161616;--bg3:#1e1e1e;--card:#1a1a1a;--border:#2a2a2a;
+  --cherry:#c0392b;--cherry2:#e74c3c;--grape:#6c3483;--grape2:#8e44ad;
+  --gold:#d4af37;--green:#27ae60;--orange:#e67e22;--red:#e74c3c;
+  --text:#f0f0f0;--text2:#aaaaaa;--text3:#555555;--r:16px;--rs:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden;}
+
+.screen{display:none;min-height:100vh;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* LOGIN */
+#loginScreen{background:linear-gradient(160deg,#1a0a0e,#0d0d0d 50%,#0a0616);
+  align-items:center;justify-content:center;padding:28px 24px;gap:28px;}
+.logo-wrap{text-align:center;}
+.logo-icon{width:88px;height:88px;margin:0 auto 12px;
+  background:linear-gradient(135deg,var(--cherry),var(--grape));
+  border-radius:24px;display:flex;align-items:center;justify-content:center;
+  font-size:44px;box-shadow:0 8px 32px rgba(192,57,43,.45);}
+.logo-title{font-size:26px;font-weight:900;
+  background:linear-gradient(135deg,var(--cherry2),var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
+.logo-sub{color:var(--text2);font-size:14px;}
+.login-form{width:100%;display:flex;flex-direction:column;gap:14px;}
+.lbl{font-size:13px;color:var(--text2);font-weight:600;display:block;margin-bottom:5px;}
+.f-input{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rs);
+  padding:14px 16px;color:var(--text);font-family:'Cairo',sans-serif;font-size:16px;
+  width:100%;text-align:right;transition:border-color .2s;}
+.f-input:focus{outline:none;border-color:var(--cherry);}
+.btn-main{background:linear-gradient(135deg,var(--cherry),var(--cherry2));color:#fff;
+  border:none;border-radius:var(--rs);padding:16px;font-family:'Cairo',sans-serif;
+  font-size:17px;font-weight:700;cursor:pointer;width:100%;
+  box-shadow:0 4px 16px rgba(192,57,43,.4);transition:all .2s;}
+.btn-main:active{transform:scale(.97);}
+.err-box{display:none;background:rgba(231,76,60,.1);border:1px solid var(--red);
+  border-radius:var(--rs);padding:12px;font-size:11px;color:var(--red);
+  white-space:pre-wrap;word-break:break-all;font-family:monospace;text-align:left;direction:ltr;}
+
+/* SHIFT */
+#shiftScreen{align-items:center;justify-content:center;padding:24px;gap:28px;}
+.shift-cards{display:flex;gap:14px;width:100%;}
+.shift-card{flex:1;background:var(--card);border:2px solid var(--border);border-radius:var(--r);
+  padding:30px 12px;text-align:center;cursor:pointer;transition:all .2s;
+  display:flex;flex-direction:column;align-items:center;gap:10px;}
+.shift-card:active{transform:scale(.95);}
+.shift-card.SA{border-color:var(--cherry);}
+.shift-card.SB{border-color:var(--grape);}
+.shift-letter{font-size:52px;font-weight:900;line-height:1;}
+.shift-card.SA .shift-letter{color:var(--cherry2);}
+.shift-card.SB .shift-letter{color:var(--grape2);}
+.shift-name{font-size:15px;font-weight:700;}
+.shift-time{font-size:12px;color:var(--text3);}
+.btn-sec{background:var(--bg3);color:var(--text);border:1.5px solid var(--border);
+  border-radius:var(--rs);padding:13px;font-family:'Cairo',sans-serif;font-size:15px;
+  font-weight:600;cursor:pointer;width:100%;transition:all .2s;}
+.btn-sec:active{opacity:.7;}
+
+/* HEADER */
+.app-header{background:linear-gradient(135deg,#1a0a0e,#0a0616);
+  padding:11px 16px 9px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;}
+.h-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+.h-logo{display:flex;align-items:center;gap:8px;}
+.h-logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--cherry),var(--grape));
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.h-brand{font-size:15px;font-weight:900;}
+.h-brand span{color:var(--cherry2);}
+.h-right{display:flex;align-items:center;gap:8px;}
+.sbadge{padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700;}
+.sbadge.A{background:rgba(192,57,43,.2);color:var(--cherry2);border:1px solid var(--cherry);}
+.sbadge.B{background:rgba(108,52,131,.2);color:var(--grape2);border:1px solid var(--grape);}
+.sbadge.MGR{background:rgba(212,175,55,.2);color:var(--gold);border:1px solid var(--gold);}
+.h-info{display:flex;justify-content:space-between;}
+.h-date{font-size:12px;color:var(--text2);}
+.h-user{font-size:12px;color:var(--text3);}
+.btn-logout{background:none;border:1px solid rgba(231,76,60,.3);border-radius:8px;
+  padding:4px 9px;color:var(--cherry2);font-family:'Cairo',sans-serif;font-size:12px;cursor:pointer;}
+
+/* TABS */
+.tabs-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);}
+.tab-btn{flex:1;padding:12px 6px;background:none;border:none;color:var(--text3);
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;cursor:pointer;
+  border-bottom:3px solid transparent;transition:all .2s;}
+.tab-btn.active{color:var(--cherry2);border-bottom-color:var(--cherry2);background:rgba(231,76,60,.05);}
+.tab-pane{display:none;flex:1;overflow-y:auto;padding:14px 14px 90px;}
+.tab-pane.active{display:block;}
+
+/* INVENTORY */
+.inv-nav{display:flex;align-items:center;justify-content:space-between;
+  background:var(--card);border-radius:var(--rs);padding:10px 13px;margin-bottom:14px;}
+.inv-prog{font-size:13px;color:var(--text2);}
+.inv-prog strong{color:var(--gold);}
+.nav-btns{display:flex;gap:7px;}
+.nav-btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:7px 13px;color:var(--text);font-family:'Cairo',sans-serif;font-size:13px;
+  cursor:pointer;transition:all .2s;}
+.nav-btn:active{opacity:.7;}
+.nav-btn.primary{background:var(--cherry);border-color:var(--cherry);}
+.item-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:20px;margin-bottom:12px;}
+.item-card.filled{border-color:var(--green);}
+.item-card.current{border-color:var(--cherry);box-shadow:0 0 0 2px rgba(231,76,60,.15);}
+.item-name{font-size:21px;font-weight:700;text-align:center;margin-bottom:14px;}
+.item-inputs{display:flex;gap:10px;}
+.item-inp-g{flex:1;text-align:center;}
+.inp-lbl{font-size:11px;font-weight:700;margin-bottom:5px;}
+.inp-lbl.A{color:var(--cherry2);}
+.inp-lbl.B{color:var(--grape2);}
+.big-inp{background:var(--bg3);border:2px solid var(--border);border-radius:var(--rs);
+  padding:14px 6px;color:var(--text);font-family:'Cairo',sans-serif;
+  font-size:28px;font-weight:700;width:100%;text-align:center;transition:border-color .2s;}
+.big-inp:focus{outline:none;border-color:var(--cherry);}
+.big-inp:disabled{color:var(--text3);background:var(--bg2);}
+.ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px;}
+.ov-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);
+  padding:9px 11px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;transition:all .2s;}
+.ov-item:active{opacity:.7;}
+.ov-item.filled{border-color:var(--green);}
+.ov-item.missing{border-color:var(--red);}
+.ov-name{font-size:12px;color:var(--text2);font-weight:600;}
+.ov-val{font-size:14px;font-weight:700;color:var(--gold);}
+.ov-val.empty{color:var(--text3);}
+
+/* EXPENSES */
+.sec-title{font-size:16px;font-weight:700;color:var(--gold);
+  margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.exp-form{background:var(--card);border-radius:var(--r);padding:15px;
+  margin-bottom:14px;border:1px solid var(--border);}
+.f-row{display:flex;gap:9px;margin-bottom:9px;}
+.f-grp{flex:1;display:flex;flex-direction:column;gap:4px;}
+.f-lbl{font-size:12px;color:var(--text2);font-weight:600;}
+.f-sel{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rs);
+  padding:11px 9px;color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;
+  width:100%;text-align:right;}
+.f-sel:focus{outline:none;border-color:var(--cherry);}
+.f-inp2{background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rs);
+  padding:11px 9px;color:var(--text);font-family:'Cairo',sans-serif;font-size:14px;
+  width:100%;text-align:right;}
+.f-inp2:focus{outline:none;border-color:var(--cherry);}
+.btn-add{background:linear-gradient(135deg,var(--cherry),var(--cherry2));color:#fff;
+  border:none;border-radius:var(--rs);padding:13px;font-family:'Cairo',sans-serif;
+  font-size:15px;font-weight:700;cursor:pointer;width:100%;transition:all .2s;}
+.btn-add:active{transform:scale(.97);}
+.exp-item{background:var(--card);border-radius:var(--rs);padding:11px 13px;margin-bottom:7px;
+  display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);}
+.exp-name{font-size:14px;font-weight:700;}
+.exp-note{font-size:12px;color:var(--text3);}
+.exp-amt{font-size:18px;font-weight:700;color:var(--gold);margin-left:10px;}
+.btn-del{background:rgba(231,76,60,.15);border:1px solid var(--cherry);border-radius:8px;
+  padding:5px 9px;color:var(--cherry2);font-family:'Cairo',sans-serif;font-size:12px;
+  cursor:pointer;margin-right:7px;}
+.total-bar{background:linear-gradient(135deg,rgba(212,175,55,.1),rgba(212,175,55,.05));
+  border:1.5px solid var(--gold);border-radius:var(--rs);padding:13px 15px;
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.total-lbl{font-size:15px;font-weight:700;}
+.total-amt{font-size:22px;font-weight:900;color:var(--gold);}
+.upload-zone{background:var(--card);border:2px dashed var(--border);border-radius:var(--r);
+  padding:20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:10px;}
+.upload-zone:active{border-color:var(--cherry);background:rgba(192,57,43,.05);}
+.upload-icon{font-size:30px;margin-bottom:7px;}
+.upload-txt{font-size:14px;color:var(--text2);font-weight:600;}
+.upload-hint{font-size:12px;color:var(--text3);margin-top:3px;}
+.imgs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px;}
+.img-wrap{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--bg3);}
+.img-wrap img{width:100%;height:100%;object-fit:cover;}
+.img-rm{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.7);border:none;
+  border-radius:50%;width:22px;height:22px;color:#fff;font-size:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;}
+
+/* CASH */
+.cash-card{background:var(--card);border-radius:var(--r);padding:18px;
+  margin-bottom:13px;border:1px solid var(--border);}
+.cash-lbl{font-size:14px;color:var(--text2);font-weight:600;margin-bottom:6px;}
+.cash-inp{background:var(--bg3);border:2px solid var(--border);border-radius:var(--rs);
+  padding:15px;color:var(--text);font-family:'Cairo',sans-serif;font-size:24px;
+  font-weight:700;width:100%;text-align:center;transition:border-color .2s;margin-bottom:14px;}
+.cash-inp:focus{outline:none;border-color:var(--cherry);}
+.cash-row{background:var(--bg3);border-radius:var(--rs);padding:13px 15px;
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.cash-row-lbl{font-size:14px;color:var(--text2);font-weight:600;}
+.cash-val{font-size:22px;font-weight:700;}
+.cash-val.green{color:var(--green);}
+.cash-val.red{color:var(--red);}
+.cash-val.orange{color:var(--orange);}
+.cash-val.neu{color:var(--text);}
+.status-pill{display:inline-block;padding:3px 10px;border-radius:20px;
+  font-size:13px;font-weight:700;margin-right:8px;}
+.sp-match{background:rgba(39,174,96,.2);color:var(--green);border:1px solid var(--green);}
+.sp-shortage{background:rgba(231,76,60,.2);color:var(--red);border:1px solid var(--red);}
+.sp-excess{background:rgba(230,126,34,.2);color:var(--orange);border:1px solid var(--orange);}
+.submit-box{background:linear-gradient(135deg,rgba(212,175,55,.15),rgba(212,175,55,.05));
+  border:2px solid var(--gold);border-radius:var(--r);padding:18px;
+  text-align:center;margin-bottom:13px;}
+.submit-lbl{font-size:14px;color:var(--text2);margin-bottom:5px;}
+.submit-amt{font-size:36px;font-weight:900;color:var(--gold);}
+.submit-unit{font-size:13px;color:var(--text3);}
+
+/* SAVE BAR */
+.save-bar{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;
+  background:var(--bg2);border-top:1px solid var(--border);padding:11px 14px;z-index:200;}
+.save-btn{background:linear-gradient(135deg,var(--cherry),var(--cherry2));color:#fff;
+  border:none;border-radius:var(--rs);padding:16px;font-family:'Cairo',sans-serif;
+  font-size:17px;font-weight:700;cursor:pointer;width:100%;
+  box-shadow:0 4px 16px rgba(192,57,43,.4);transition:all .2s;}
+.save-btn:active{transform:scale(.97);}
+
+/* MANAGER */
+.mgr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;
+  padding:14px;flex:1;overflow-y:auto;padding-bottom:20px;}
+.mgr-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:22px 14px;text-align:center;cursor:pointer;transition:all .2s;
+  display:flex;flex-direction:column;align-items:center;gap:9px;}
+.mgr-card:active{transform:scale(.95);}
+.mgr-card.cherry{border-color:var(--cherry);}
+.mgr-card.gold{border-color:var(--gold);}
+.mgr-card.grape{border-color:var(--grape);}
+.mgr-card.green{border-color:var(--green);}
+.mgr-icon{font-size:30px;}
+.mgr-lbl{font-size:13px;font-weight:700;}
+
+/* MODAL */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;
+  display:none;align-items:flex-end;justify-content:center;
+  max-width:480px;margin:0 auto;}
+.modal-ov.active{display:flex;}
+.modal-sheet{background:var(--bg2);border-radius:20px 20px 0 0;padding:18px 14px;
+  width:100%;max-height:88vh;overflow-y:auto;animation:slideUp .28s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:38px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
+.modal-title{font-size:17px;font-weight:700;text-align:center;margin-bottom:14px;
+  position:relative;padding:0 32px;}
+.modal-x{position:absolute;top:50%;left:0;transform:translateY(-50%);
+  background:var(--bg3);border:none;border-radius:50%;width:28px;height:28px;
+  color:var(--text2);font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;}
+
+/* REPORT */
+.rpt-table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px;}
+.rpt-table th{background:var(--bg3);color:var(--gold);padding:9px 5px;
+  text-align:center;font-weight:700;border:1px solid var(--border);}
+.rpt-table td{padding:7px 5px;text-align:center;border:1px solid var(--border);color:var(--text);}
+.rpt-table tr:nth-child(even) td{background:rgba(255,255,255,.02);}
+.d-pos{color:var(--green);font-weight:700;}
+.d-neg{color:var(--red);font-weight:700;}
+.d-zer{color:var(--text3);}
+.acc-inp{background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  padding:5px 5px;color:var(--text);font-family:'Cairo',sans-serif;
+  font-size:12px;width:52px;text-align:center;}
+.acc-inp:focus{outline:none;border-color:var(--gold);}
+.wa-btn{background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;
+  border-radius:var(--rs);padding:14px;font-family:'Cairo',sans-serif;
+  font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.wa-btn:active{transform:scale(.97);}
+.sess-item{background:var(--card);border:1px solid var(--border);border-radius:var(--rs);
+  padding:13px;margin-bottom:7px;cursor:pointer;transition:all .2s;}
+.sess-item:active{opacity:.7;}
+.sess-date{font-size:16px;font-weight:700;}
+.manage-item{background:var(--card);border:1px solid var(--border);border-radius:var(--rs);
+  padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;}
+.manage-name{font-size:15px;font-weight:600;}
+.add-row{display:flex;gap:7px;margin-bottom:14px;}
+.add-row input{flex:1;background:var(--bg3);border:1.5px solid var(--border);
+  border-radius:var(--rs);padding:11px;color:var(--text);font-family:'Cairo',sans-serif;
+  font-size:14px;text-align:right;}
+.add-row input:focus{outline:none;border-color:var(--green);}
+.btn-sm-add{background:var(--green);border:none;border-radius:var(--rs);padding:11px 15px;
+  color:#fff;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;white-space:nowrap;}
+.btn-stop{background:rgba(231,76,60,.15);border:1px solid var(--cherry);
+  border-radius:8px;padding:5px 10px;color:var(--cherry2);
+  font-size:12px;cursor:pointer;font-family:'Cairo',sans-serif;}
+.sb{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:600;}
+.sb-new{background:rgba(85,85,85,.2);color:var(--text3);}
+.sb-wait{background:rgba(230,126,34,.2);color:var(--orange);}
+.sb-done{background:rgba(39,174,96,.2);color:var(--green);}
+.sb-appr{background:rgba(212,175,55,.2);color:var(--gold);}
+.detail-sec{background:var(--card);border-radius:var(--r);padding:14px;
+  margin-bottom:14px;border:1px solid var(--border);overflow-x:auto;}
+.empty{text-align:center;padding:36px 16px;color:var(--text3);}
+.empty-icon{font-size:44px;margin-bottom:10px;}
+.empty-txt{font-size:15px;font-weight:600;}
+.divider{height:1px;background:var(--border);margin:14px 0;}
+.miss-item{background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:5px;
+  cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  border:1px solid var(--border);}
+.miss-item:active{opacity:.7;}
+.miss-name{font-size:14px;font-weight:600;}
+
+/* LOADING */
+.loading-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;
+  display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:11px;max-width:480px;margin:0 auto;}
+.loading-ov.active{display:flex;}
+.spinner{width:38px;height:38px;border:3px solid var(--border);
+  border-top-color:var(--cherry);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-size:14px;color:var(--text2);font-weight:600;}
+
+/* TOAST */
+.toast{position:fixed;top:18px;left:50%;
+  transform:translateX(-50%) translateY(-80px);background:var(--bg3);
+  border-radius:var(--rs);padding:11px 18px;font-size:14px;font-weight:600;
+  z-index:999;transition:transform .3s ease;max-width:310px;text-align:center;
+  border:1px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:var(--green);color:var(--green);}
+.toast.error{border-color:var(--red);color:var(--red);}
+.toast.info{border-color:var(--gold);color:var(--gold);}
+
+/* FULLSCREEN */
+.fs-img{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:1000;
+  display:none;align-items:center;justify-content:center;
+  max-width:480px;margin:0 auto;}
+.fs-img.active{display:flex;}
+.fs-img img{max-width:100%;max-height:90vh;object-fit:contain;border-radius:12px;}
+.fs-close{position:absolute;top:18px;left:18px;background:rgba(0,0,0,.6);
+  border:none;border-radius:50%;width:38px;height:38px;color:#fff;font-size:18px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;}
+</style>
+</head>
+<body>
+
+<div class="loading-ov" id="loadingOv">
+  <div class="spinner"></div>
+  <div class="loading-txt" id="loadingTxt">جاري التحميل...</div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<div class="fs-img" id="fsImg">
+  <button class="fs-close" onclick="closeFsImg()">x</button>
+  <img id="fsImgSrc" src="" alt="">
+</div>
+
+<!-- LOGIN -->
+<div class="screen active" id="loginScreen">
+  <div class="logo-wrap">
+    <div class="logo-icon">&#127811;</div>
+    <div class="logo-title">كرز وعنب</div>
+    <div class="logo-sub">المزلوب - نظام الجرد اليومي</div>
+  </div>
+  <div class="login-form">
+    <div>
+      <label class="lbl">البريد الإلكتروني</label>
+      <input type="email" class="f-input" id="loginEmail" placeholder="example@email.com" autocomplete="email">
+    </div>
+    <div>
+      <label class="lbl">كلمة السر</label>
+      <input type="password" class="f-input" id="loginPass" placeholder="..." autocomplete="current-password">
+    </div>
+    <button class="btn-main" onclick="doLogin()">دخول</button>
+    <pre class="err-box" id="errBox"></pre>
+  </div>
+</div>
+
+<!-- SHIFT -->
+<div class="screen" id="shiftScreen">
+  <div style="padding:24px;flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px;">
+    <div style="text-align:center;">
+      <div style="font-size:22px;font-weight:900;">اختر شفتك</div>
+      <div style="font-size:14px;color:var(--text2);margin-top:6px;" id="shiftDateLbl"></div>
+    </div>
+    <div class="shift-cards">
+      <div class="shift-card SA" onclick="selectShift('A')">
+        <div class="shift-letter">A</div>
+        <div class="shift-name">شفت الصباح</div>
+        <div class="shift-time">الدوام الاول</div>
+      </div>
+      <div class="shift-card SB" onclick="selectShift('B')">
+        <div class="shift-letter">B</div>
+        <div class="shift-name">شفت المساء</div>
+        <div class="shift-time">الدوام الثاني</div>
+      </div>
+    </div>
+    <button class="btn-sec" onclick="doLogout()">تسجيل خروج</button>
+  </div>
+</div>
+
+<!-- MAIN EMPLOYEE -->
+<div class="screen" id="mainScreen">
+  <div class="app-header">
+    <div class="h-top">
+      <div class="h-logo">
+        <div class="h-logo-icon">&#127811;</div>
+        <div class="h-brand">كرز <span>&</span> عنب</div>
+      </div>
+      <div class="h-right">
+        <span class="sbadge" id="shiftBadge">A</span>
+        <button class="btn-logout" onclick="doLogout()">خروج</button>
+      </div>
+    </div>
+    <div class="h-info">
+      <div class="h-date" id="hDate"></div>
+      <div class="h-user" id="hUser"></div>
+    </div>
+  </div>
+  <div class="tabs-bar">
+    <button class="tab-btn active" id="tab-inventory" onclick="switchTab('inventory')">الجرد</button>
+    <button class="tab-btn" id="tab-expenses" onclick="switchTab('expenses')">المصاريف</button>
+    <button class="tab-btn" id="tab-cash" onclick="switchTab('cash')">الكاش</button>
+  </div>
+
+  <!-- INVENTORY PANE -->
+  <div class="tab-pane active" id="pane-inventory">
+    <div class="inv-nav">
+      <div class="inv-prog">الصنف <strong id="invCur">1</strong> من <strong id="invTot">21</strong></div>
+      <div class="nav-btns">
+        <button class="nav-btn" onclick="prevItem()">السابق</button>
+        <button class="nav-btn primary" onclick="nextItem()">التالي</button>
+      </div>
+    </div>
+    <div id="itemCards"></div>
+    <div class="divider"></div>
+    <div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:9px;">نظرة عامة:</div>
+    <div class="ov-grid" id="ovGrid"></div>
+  </div>
+
+  <!-- EXPENSES PANE -->
+  <div class="tab-pane" id="pane-expenses">
+    <div class="exp-form">
+      <div class="sec-title">اضافة مصروف</div>
+      <div class="f-row">
+        <div class="f-grp">
+          <label class="f-lbl">نوع المصروف</label>
+          <select class="f-sel" id="expType" onchange="onExpTypeChange()"></select>
+        </div>
+        <div class="f-grp" style="max-width:115px;">
+          <label class="f-lbl">المبلغ (دينار)</label>
+          <input type="number" class="f-inp2" id="expAmt" placeholder="0.00" step="0.01" min="0">
+        </div>
+      </div>
+      <div id="customExpRow" style="display:none;margin-bottom:9px;">
+        <input type="text" class="f-inp2" id="customExpName" placeholder="اكتب نوع المصروف..." style="width:100%;">
+      </div>
+      <div style="margin-bottom:9px;">
+        <input type="text" class="f-inp2" id="expNote" placeholder="ملاحظة (اختياري)" style="width:100%;">
+      </div>
+      <button class="btn-add" onclick="addExpense()">+ اضافة المصروف</button>
+    </div>
+    <div id="expList"></div>
+    <div class="total-bar">
+      <div class="total-lbl">مجموع مصاريف الشفت</div>
+      <div class="total-amt"><span id="expTotal">0.00</span> دينار</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sec-title">ارفاق الفواتير</div>
+    <div class="upload-zone" onclick="document.getElementById('invImgInput').click()">
+      <div class="upload-icon">&#128221;</div>
+      <div class="upload-txt">اضغط لارفاق صور الفواتير</div>
+      <div class="upload-hint">يمكنك ارفاق اكثر من صورة</div>
+    </div>
+    <input type="file" id="invImgInput" accept="image/*" multiple style="display:none" onchange="handleInvImgs(event)">
+    <div class="imgs-grid" id="invImgGrid"></div>
+  </div>
+
+  <!-- CASH PANE -->
+  <div class="tab-pane" id="pane-cash">
+    <div class="cash-card">
+      <div class="cash-lbl">النقد حسب الجهاز (دينار)</div>
+      <input type="number" class="cash-inp" id="sysCash" placeholder="0" step="0.01" oninput="calcCash()">
+      <div class="cash-lbl">النقد الفعلي (دينار)</div>
+      <input type="number" class="cash-inp" id="actCash" placeholder="0" step="0.01" oninput="calcCash()">
+      <div class="cash-row">
+        <div class="cash-row-lbl">الفرق</div>
+        <div>
+          <span class="status-pill" id="cashPill" style="display:none"></span>
+          <span class="cash-val neu" id="cashDiff">-</span>
+        </div>
+      </div>
+    </div>
+    <div class="submit-box">
+      <div class="submit-lbl">النقد المراد تسليمه</div>
+      <div class="submit-amt" id="cashSubmit">-</div>
+      <div class="submit-unit">دينار (بعد خصم 20 ارضية)</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sec-title">صورة تقرير POS</div>
+    <div class="upload-zone" onclick="document.getElementById('posImgInput').click()">
+      <div class="upload-icon">&#128424;</div>
+      <div class="upload-txt">ارفاق صورة تقرير الجهاز</div>
+      <div class="upload-hint">صورة POS + اي صور اضافية</div>
+    </div>
+    <input type="file" id="posImgInput" accept="image/*" multiple style="display:none" onchange="handlePosImgs(event)">
+    <div class="imgs-grid" id="posImgGrid"></div>
+  </div>
+
+  <div class="save-bar">
+    <button class="save-btn" onclick="saveAndFinalize()">حفظ واعتماد الشفت</button>
+  </div>
+</div>
+
+<!-- MANAGER -->
+<div class="screen" id="managerScreen">
+  <div class="app-header">
+    <div class="h-top">
+      <div class="h-logo">
+        <div class="h-logo-icon">&#127811;</div>
+        <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
+      </div>
+      <div class="h-right">
+        <span class="sbadge MGR">مدير</span>
+        <button class="btn-logout" onclick="doLogout()">خروج</button>
+      </div>
+    </div>
+    <div class="h-info">
+      <div class="h-date" id="mgrDate"></div>
+      <div class="h-user" id="mgrUser"></div>
+    </div>
+  </div>
+  <div class="mgr-grid">
+    <div class="mgr-card cherry" onclick="mgrOpen('today')">
+      <div class="mgr-icon">&#128203;</div><div class="mgr-lbl">جرد اليوم</div>
+    </div>
+    <div class="mgr-card gold" onclick="mgrOpen('sessions')">
+      <div class="mgr-icon">&#128197;</div><div class="mgr-lbl">السجل الكامل</div>
+    </div>
+    <div class="mgr-card grape" onclick="mgrOpen('items')">
+      <div class="mgr-icon">&#128230;</div><div class="mgr-lbl">ادارة الاصناف</div>
+    </div>
+    <div class="mgr-card green" onclick="mgrOpen('expTypes')">
+      <div class="mgr-icon">&#128179;</div><div class="mgr-lbl">ادارة المصاريف</div>
+    </div>
+    <div class="mgr-card" onclick="mgrOpen('users')">
+      <div class="mgr-icon">&#128100;</div><div class="mgr-lbl">المستخدمون</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-ov" id="modalOv" onclick="modalOvClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">
+      <button class="modal-x" onclick="closeModal()">x</button>
+      <span id="modalTitleTxt"></span>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ==================== FIREBASE INIT ====================
+var firebaseConfig = {
+  apiKey:            "AIzaSyAwYy5h1CdTJ5SGHQlO60MHOR9MZ5sEV_U",
+  authDomain:        "karaz-daily.firebaseapp.com",
+  projectId:         "karaz-daily",
+  storageBucket:     "karaz-daily.firebasestorage.app",
+  messagingSenderId: "788945560488",
+  appId:             "1:788945560488:web:b534f6c3ce31327128f39d"
+};
+firebase.initializeApp(firebaseConfig);
+var auth    = firebase.auth();
+var db      = firebase.firestore();
+var storage = firebase.storage();
+var FS      = firebase.firestore.FieldValue;
+
+console.log("Firebase initialized - projectId:", firebaseConfig.projectId);
+
+// ==================== WORK DATE ====================
+function getWorkDate() {
+  var now = new Date();
+  if (now.getHours() >= 0 && now.getHours() < 2) {
+    var y = new Date(now); y.setDate(y.getDate() - 1);
+    return y.toISOString().split('T')[0];
+  }
+  return now.toISOString().split('T')[0];
+}
+function fmtDate(d) { var p=d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+// ==================== STATE ====================
+var S = {
+  user:null, profile:null, shift:null,
+  workDate:getWorkDate(), sessionId:null, sessionData:null,
+  items:[], expTypes:[],
+  invData:{}, expenses:[], cashData:{},
+  invImgs:[], posImgs:[],
+  curItemIdx:0
+};
+
+// ==================== UTILS ====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id+'Screen').classList.add('active');
+}
+var toastTimer;
+function toast(msg, type) {
+  var el=document.getElementById('toastEl');
+  el.textContent=msg;
+  el.className='toast '+(type||'info')+' show';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ el.classList.remove('show'); },3500);
+}
+function showLoad(txt) {
+  document.getElementById('loadingTxt').textContent=txt||'جاري التحميل...';
+  document.getElementById('loadingOv').classList.add('active');
+}
+function hideLoad() { document.getElementById('loadingOv').classList.remove('active'); }
+function showErr(msg) { var b=document.getElementById('errBox'); b.textContent=msg; b.style.display='block'; }
+function hideErr()    { document.getElementById('errBox').style.display='none'; }
+function closeFsImg() { document.getElementById('fsImg').classList.remove('active'); }
+function openFsImg(src) { document.getElementById('fsImgSrc').src=src; document.getElementById('fsImg').classList.add('active'); }
+
+// ==================== AUTH ====================
+auth.onAuthStateChanged(function(user) {
+  if (!user) { hideLoad(); showScreen('login'); return; }
+  S.user = user;
+  console.log("Auth OK | uid:", user.uid, "| email:", user.email);
+  showLoad('جاري تحميل بيانات المستخدم...');
+  db.collection('users').doc(user.uid).get()
+    .then(function(snap) {
+      if (!snap.exists) {
+        console.warn("No Firestore doc for uid:", user.uid);
+        auth.signOut();
+        hideLoad();
+        showErr("لا توجد صلاحية في النظام.\nUID: "+user.uid+"\n\nتاكد من اضافة المستخدم في Firestore > users > {uid}");
+        showScreen('login');
+        return;
+      }
+      var data = snap.data();
+      console.log("User doc:", JSON.stringify(data));
+      if (!data.active) {
+        auth.signOut(); hideLoad();
+        showErr("هذا الحساب غير مفعل."); showScreen('login'); return;
+      }
+      S.profile = data;
+      seedDefaults().then(function() {
+        return Promise.all([loadItems(), loadExpTypes()]);
+      }).then(function() {
+        hideLoad();
+        if (data.role === 'manager') { showManagerScreen(); }
+        else { showShiftScreen(); }
+      });
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error("Firestore read error:", e.code, e.message);
+      showErr("خطا Firestore:\ncode: "+e.code+"\n"+e.message+"\n\nتاكد من Firestore Security Rules");
+      showScreen('login');
+    });
+});
+
+function doLogin() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var pass  = document.getElementById('loginPass').value;
+  if (!email || !pass) { toast('يرجى تعبئة جميع الحقول','error'); return; }
+  hideErr();
+  showLoad('جاري تسجيل الدخول...');
+  console.log("Attempting login for:", email);
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(function(cred) {
+      console.log("signInWithEmailAndPassword OK | uid:", cred.user.uid);
+      // onAuthStateChanged will handle the rest
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error("Login error | code:", e.code, "| message:", e.message);
+      var map = {
+        'auth/user-not-found':        'البريد الإلكتروني غير مسجل',
+        'auth/wrong-password':        'كلمة السر غير صحيحة',
+        'auth/invalid-email':         'صيغة البريد الإلكتروني غير صحيحة',
+        'auth/invalid-credential':    'البريد أو كلمة السر غير صحيحة',
+        'auth/too-many-requests':     'تم تجميد الحساب مؤقتا. حاول لاحقا.',
+        'auth/network-request-failed':'لا يوجد اتصال بالإنترنت',
+        'auth/user-disabled':         'هذا الحساب موقوف'
+      };
+      var msg = map[e.code] || ('خطا: '+e.code);
+      toast(msg, 'error');
+      showErr("code: "+e.code+"\n"+e.message);
+    });
+}
+
+function doLogout() {
+  showLoad('جاري الخروج...');
+  auth.signOut().then(function() {
+    S.user=null; S.profile=null; S.shift=null;
+    S.invData={}; S.expenses=[]; S.cashData={};
+    S.invImgs=[]; S.posImgs=[];
+    hideLoad();
+  });
+}
+
+// ==================== SEED ====================
+function seedDefaults() {
+  return db.collection('items').limit(1).get().then(function(snap) {
+    if (snap.empty) {
+      var names=['علب أسود','علب فلين','كاسات صغير','كاسات وسط','كاسات كبير',
+        'لتر','بسكويت بوظة','علب بوظة صغير','علب بوظة كبير','علب صحن',
+        'شاورما سوبر','بيج / سموثي','أسود مدور','بلاستيك شفاف','سفن',
+        'بي ام','بوب بوم','مكسرات','ريد بول','عجين وافل','عجين كريب'];
+      var batch=db.batch();
+      names.forEach(function(n,i){
+        batch.set(db.collection('items').doc(), {name:n,active:true,sort_order:i,created_at:FS.serverTimestamp()});
+      });
+      return batch.commit();
+    }
+  }).then(function() {
+    return db.collection('expenseTypes').limit(1).get();
+  }).then(function(snap) {
+    if (snap.empty) {
+      var types=['زيت','بيض','منجا','فواكه','حليب مكثف','طحين','سلف موظفين','أخرى'];
+      var batch=db.batch();
+      types.forEach(function(n,i){
+        batch.set(db.collection('expenseTypes').doc(), {name:n,active:true,sort_order:i,created_at:FS.serverTimestamp()});
+      });
+      return batch.commit();
+    }
+  });
+}
+
+function loadItems() {
+  return db.collection('items').where('active','==',true).orderBy('sort_order').get()
+    .then(function(snap){ S.items=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); });
+}
+function loadExpTypes() {
+  return db.collection('expenseTypes').where('active','==',true).orderBy('sort_order').get()
+    .then(function(snap){ S.expTypes=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); });
+}
+
+// ==================== SHIFT SCREEN ====================
+function showShiftScreen() {
+  document.getElementById('shiftDateLbl').textContent='تاريخ يوم العمل: '+fmtDate(S.workDate);
+  showScreen('shift');
+}
+function selectShift(shift) {
+  S.shift=shift;
+  showLoad('جاري تحميل الجرد...');
+  loadOrCreateSession().then(function(ok) {
+    if (!ok) { hideLoad(); return; }
+    initMainScreen();
+    showScreen('main');
+    hideLoad();
+  }).catch(function(e) {
+    hideLoad();
+    toast('خطا: '+e.message,'error');
+    console.error(e);
+  });
+}
+
+// ==================== SESSION ====================
+function loadOrCreateSession() {
+  S.sessionId='ALMAZLOUB-'+S.workDate;
+  var ref=db.collection('inventorySessions').doc(S.sessionId);
+  return ref.get().then(function(snap) {
+    if (snap.exists) {
+      S.sessionData=snap.data();
+    } else {
+      if (S.shift==='B') {
+        toast('لا يوجد جرد مفتوح لشفت A. يرجى مراجعة المدير.','error');
+        return false;
+      }
+      return ref.set({
+        branch_id:'ALMAZLOUB', work_date:S.workDate, status:'new',
+        created_by:S.user.uid,
+        created_at:FS.serverTimestamp(), updated_at:FS.serverTimestamp()
+      }).then(function(){ S.sessionData={status:'new'}; return true; });
+    }
+    return true;
+  }).then(function(ok) {
+    if (!ok) return false;
+    return loadExistingEntries().then(function(){ return true; });
+  });
+}
+
+function loadExistingEntries() {
+  return Promise.all([
+    db.collection('inventoryEntries').where('inventory_session_id','==',S.sessionId).get(),
+    db.collection('expenses').where('inventory_session_id','==',S.sessionId).where('shift','==',S.shift).get(),
+    db.collection('cashEntries').where('inventory_session_id','==',S.sessionId).where('shift','==',S.shift).get()
+  ]).then(function(results) {
+    S.invData={};
+    results[0].docs.forEach(function(d){
+      var data=d.data();
+      S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);
+    });
+    S.expenses=results[1].docs.map(function(d){return Object.assign({docId:d.id},d.data());});
+    S.cashData={};
+    if (!results[2].empty) S.cashData=Object.assign({docId:results[2].docs[0].id},results[2].docs[0].data());
+  });
+}
+
+// ==================== MAIN ====================
+function initMainScreen() {
+  var sb=document.getElementById('shiftBadge');
+  sb.textContent='شفت '+S.shift; sb.className='sbadge '+S.shift;
+  document.getElementById('hDate').textContent=fmtDate(S.workDate);
+  document.getElementById('hUser').textContent=S.profile.name||S.user.email;
+  renderInventory(); renderExpenses(); renderCash();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('pane-'+tab).classList.add('active');
+}
+
+// ==================== INVENTORY ====================
+function renderInventory() {
+  var idx=S.curItemIdx;
+  document.getElementById('invTot').textContent=S.items.length;
+  document.getElementById('invCur').textContent=idx+1;
+  var start=Math.floor(idx/2)*2;
+  var html='';
+  for (var i=start; i<Math.min(start+2,S.items.length); i++) {
+    var item=S.items[i];
+    var kA=item.id+'_A', kB=item.id+'_B';
+    var vA=S.invData[kA] ? S.invData[kA].quantity : '';
+    var vB=S.invData[kB] ? S.invData[kB].quantity : '';
+    var filled=S.shift==='A' ? vA!=='' : vB!=='';
+    var cur=(i===idx);
+    html+='<div class="item-card'+(filled?' filled':'')+(cur?' current':'')+'" id="ic_'+i+'">'+
+      '<div class="item-name">'+item.name+'</div>'+
+      '<div class="item-inputs">'+
+        '<div class="item-inp-g">'+
+          '<div class="inp-lbl A">شفت A</div>'+
+          '<input type="number" class="big-inp" id="inp_'+item.id+'_A"'+
+            ' value="'+(vA!==''?vA:'')+'" placeholder="0" min="0"'+
+            (S.shift==='B'?' disabled':'')+
+            ' oninput="onItemInp(\''+item.id+'\',\'A\',this.value)">'+
+        '</div>'+
+        '<div class="item-inp-g">'+
+          '<div class="inp-lbl B">شفت B</div>'+
+          '<input type="number" class="big-inp" id="inp_'+item.id+'_B"'+
+            ' value="'+(vB!==''?vB:'')+'" placeholder="0" min="0"'+
+            (S.shift==='A'?' disabled':'')+
+            ' oninput="onItemInp(\''+item.id+'\',\'B\',this.value)">'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }
+  document.getElementById('itemCards').innerHTML=html;
+  var cur2=S.items[idx];
+  if (cur2) {
+    setTimeout(function(){
+      var el=document.getElementById('inp_'+cur2.id+'_'+S.shift);
+      if (el&&!el.disabled) el.focus();
+    },120);
+  }
+  renderOvGrid();
+}
+
+function onItemInp(itemId,shift,val) {
+  var key=itemId+'_'+shift;
+  if (!S.invData[key]) S.invData[key]={};
+  S.invData[key].quantity=val;
+  S.invData[key]._dirty=true;
+  renderOvGrid();
+}
+
+function renderOvGrid() {
+  var html='';
+  S.items.forEach(function(item,i) {
+    var key=item.id+'_'+S.shift;
+    var val=S.invData[key] ? S.invData[key].quantity : undefined;
+    var ok=(val!==undefined&&val!=='');
+    html+='<div class="ov-item '+(ok?'filled':'missing')+'" onclick="jumpTo('+i+')">'+
+      '<span class="ov-name">'+item.name+'</span>'+
+      '<span class="ov-val'+(ok?'':' empty')+'">'+(ok?val:'-')+'</span>'+
+    '</div>';
+  });
+  document.getElementById('ovGrid').innerHTML=html;
+}
+
+function jumpTo(i) { S.curItemIdx=i; renderInventory(); document.getElementById('pane-inventory').scrollTop=0; }
+function nextItem() { if(S.curItemIdx<S.items.length-1){S.curItemIdx=Math.min(S.curItemIdx+2,S.items.length-1);renderInventory();} }
+function prevItem() { if(S.curItemIdx>0){S.curItemIdx=Math.max(S.curItemIdx-2,0);renderInventory();} }
+
+// ==================== EXPENSES ====================
+function renderExpenses() {
+  var sel=document.getElementById('expType');
+  sel.innerHTML=S.expTypes.map(function(t){return '<option value="'+t.id+'">'+t.name+'</option>';}).join('');
+  renderExpList();
+}
+function onExpTypeChange() {
+  var sel=document.getElementById('expType');
+  var nm=sel.options[sel.selectedIndex].text;
+  document.getElementById('customExpRow').style.display=(nm==='أخرى')?'block':'none';
+}
+function getExpNm(id) {
+  var t=S.expTypes.find(function(x){return x.id===id;});
+  return t?t.name:'غير محدد';
+}
+function renderExpList() {
+  var list=document.getElementById('expList');
+  if (!S.expenses.length) {
+    list.innerHTML='<div class="empty"><div class="empty-icon">&#128184;</div><div class="empty-txt">لا توجد مصاريف</div></div>';
+    document.getElementById('expTotal').textContent='0.00'; return;
+  }
+  var total=0, html='';
+  S.expenses.forEach(function(e,i) {
+    var nm=e.custom_expense_name||getExpNm(e.expense_type_id);
+    total+=Number(e.amount);
+    html+='<div class="exp-item">'+
+      '<div><div class="exp-name">'+nm+'</div>'+(e.note?'<div class="exp-note">'+e.note+'</div>':'')+'</div>'+
+      '<div style="display:flex;align-items:center;">'+
+        '<div class="exp-amt">'+Number(e.amount).toFixed(2)+'</div>'+
+        '<button class="btn-del" onclick="delExpense(\''+e.docId+'\')">حذف</button>'+
+      '</div></div>';
+  });
+  list.innerHTML=html;
+  document.getElementById('expTotal').textContent=total.toFixed(2);
+}
+
+function addExpense() {
+  var sel=document.getElementById('expType');
+  var typeId=sel.value;
+  var typeNm=sel.options[sel.selectedIndex].text;
+  var custom=typeNm==='أخرى'?document.getElementById('customExpName').value.trim():'';
+  var amt=document.getElementById('expAmt').value;
+  var note=document.getElementById('expNote').value.trim();
+  if (!amt||Number(amt)<=0) { toast('يرجى إدخال مبلغ صحيح','error'); return; }
+  if (typeNm==='أخرى'&&!custom) { toast('يرجى كتابة نوع المصروف','error'); return; }
+  showLoad('جاري الحفظ...');
+  var data={
+    inventory_session_id:S.sessionId, shift:S.shift,
+    expense_type_id:typeId, custom_expense_name:custom,
+    amount:Number(amt), note:note, created_by:S.user.uid,
+    created_at:FS.serverTimestamp()
+  };
+  db.collection('expenses').add(data)
+    .then(function(ref) {
+      S.expenses.push(Object.assign({docId:ref.id},data));
+      document.getElementById('expAmt').value='';
+      document.getElementById('expNote').value='';
+      document.getElementById('customExpName').value='';
+      renderExpList();
+      hideLoad();
+      toast('تم إضافة المصروف','success');
+    }).catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
+}
+
+function delExpense(docId) {
+  showLoad('جاري الحذف...');
+  db.collection('expenses').doc(docId).delete()
+    .then(function() {
+      S.expenses=S.expenses.filter(function(e){return e.docId!==docId;});
+      renderExpList(); hideLoad(); toast('تم حذف المصروف','info');
+    }).catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
+}
+
+// ==================== IMAGES ====================
+function handleInvImgs(ev) {
+  Array.from(ev.target.files).forEach(function(f){ S.invImgs.push({file:f,url:URL.createObjectURL(f)}); });
+  renderImgGrid('invImgGrid',S.invImgs,'invImgs');
+  ev.target.value='';
+}
+function handlePosImgs(ev) {
+  Array.from(ev.target.files).forEach(function(f){ S.posImgs.push({file:f,url:URL.createObjectURL(f)}); });
+  renderImgGrid('posImgGrid',S.posImgs,'posImgs');
+  ev.target.value='';
+}
+function renderImgGrid(gridId,imgs,arrKey) {
+  document.getElementById(gridId).innerHTML=imgs.map(function(img,i){
+    return '<div class="img-wrap"><img src="'+img.url+'" onclick="openFsImg(\''+img.url+'\')">'+
+      '<button class="img-rm" onclick="removeImg(\''+arrKey+'\','+i+',\''+gridId+'\')">x</button></div>';
+  }).join('');
+}
+function removeImg(arrKey,i,gridId){ S[arrKey].splice(i,1); renderImgGrid(gridId,S[arrKey],arrKey); }
+
+// ==================== CASH ====================
+function renderCash() {
+  if (S.cashData && S.cashData.system_cash!==undefined) {
+    document.getElementById('sysCash').value=S.cashData.system_cash;
+    document.getElementById('actCash').value=S.cashData.actual_cash;
+    calcCash();
+  }
+}
+function calcCash() {
+  var sys=parseFloat(document.getElementById('sysCash').value);
+  var act=parseFloat(document.getElementById('actCash').value);
+  if (isNaN(sys)||isNaN(act)) return;
+  var diff=act-sys, submit=act+diff-20;
+  var dEl=document.getElementById('cashDiff'), pill=document.getElementById('cashPill');
+  dEl.textContent=diff.toFixed(2)+' دينار';
+  pill.style.display='inline-block';
+  if (diff<0)      { dEl.className='cash-val red';    pill.textContent='نقص';   pill.className='status-pill sp-shortage'; }
+  else if (diff>0) { dEl.className='cash-val orange'; pill.textContent='زيادة'; pill.className='status-pill sp-excess';   }
+  else             { dEl.className='cash-val green';  pill.textContent='مطابق'; pill.className='status-pill sp-match';    }
+  document.getElementById('cashSubmit').textContent=submit.toFixed(2);
+}
+
+// ==================== SAVE ====================
+function saveAndFinalize() {
+  var missing=S.items.filter(function(item){
+    var v=S.invData[item.id+'_'+S.shift]; return !v||v.quantity===undefined||v.quantity==='';
+  });
+  if (missing.length){ showMissingModal(missing); return; }
+  var sys=document.getElementById('sysCash').value;
+  var act=document.getElementById('actCash').value;
+  if (!sys||!act){ toast('يرجى تعبئة بيانات الكاش','error'); switchTab('cash'); return; }
+
+  showLoad('جاري الحفظ...');
+  var batch=db.batch();
+  var promises=[];
+
+  // Inventory entries
+  S.items.forEach(function(item){
+    var key=item.id+'_'+S.shift;
+    var entry=S.invData[key];
+    if (entry&&entry._dirty) {
+      var data={inventory_session_id:S.sessionId,item_id:item.id,shift:S.shift,
+        quantity:Number(entry.quantity||0),created_by:S.user.uid,
+        updated_at:FS.serverTimestamp()};
+      if (entry.docId) {
+        promises.push(db.collection('inventoryEntries').doc(entry.docId).update(data));
+      } else {
+        data.created_at=FS.serverTimestamp();
+        promises.push(db.collection('inventoryEntries').add(data).then(function(ref){
+          S.invData[key].docId=ref.id; S.invData[key]._dirty=false;
+        }));
+      }
+    }
+  });
+
+  // Cash
+  var sysV=parseFloat(sys), actV=parseFloat(act);
+  var diff=actV-sysV, submit=actV+diff-20;
+  var cashData={inventory_session_id:S.sessionId,shift:S.shift,
+    system_cash:sysV,actual_cash:actV,difference:diff,cash_to_submit:submit,
+    created_by:S.user.uid,updated_at:FS.serverTimestamp()};
+  if (S.cashData&&S.cashData.docId) {
+    promises.push(db.collection('cashEntries').doc(S.cashData.docId).update(cashData));
+  } else {
+    cashData.created_at=FS.serverTimestamp();
+    promises.push(db.collection('cashEntries').add(cashData).then(function(ref){ S.cashData.docId=ref.id; }));
+  }
+
+  Promise.all(promises).then(function(){
+    // Upload images
+    var imgPromises=[];
+    S.invImgs.forEach(function(img){
+      var r=storage.ref('invoices/'+S.sessionId+'/'+S.shift+'/'+Date.now()+'_'+img.file.name);
+      imgPromises.push(r.put(img.file).catch(function(e){console.warn('img upload fail:',e);}));
+    });
+    S.posImgs.forEach(function(img){
+      var r=storage.ref('pos/'+S.sessionId+'/'+S.shift+'/'+Date.now()+'_'+img.file.name);
+      imgPromises.push(r.put(img.file).catch(function(e){console.warn('pos img fail:',e);}));
+    });
+    return Promise.all(imgPromises);
+  }).then(function(){
+    var newStatus=S.shift==='A'?'waiting_B':'complete';
+    return db.collection('inventorySessions').doc(S.sessionId).update({
+      status:newStatus,updated_at:FS.serverTimestamp()
+    });
+  }).then(function(){
+    hideLoad();
+    toast(S.shift==='A'?'تم حفظ شفت A بنجاح':'تم اكتمال الجرد اليومي','success');
+  }).catch(function(e){ hideLoad(); toast('خطا في الحفظ: '+e.message,'error'); console.error(e); });
+}
+
+function showMissingModal(missing) {
+  setModal('اصناف غير مكتملة');
+  var html='<div style="background:rgba(231,76,60,.1);border:1px solid var(--red);border-radius:var(--rs);padding:13px;margin-bottom:13px;">'+
+    '<div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:9px;">يوجد '+missing.length+' صنف بدون عدد:</div>';
+  missing.forEach(function(item){
+    var idx=S.items.findIndex(function(i){return i.id===item.id;});
+    html+='<div class="miss-item" onclick="jumpAndClose('+idx+')">'+
+      '<span class="miss-name">'+item.name+'</span><span style="color:var(--cherry2);">-</span></div>';
+  });
+  html+='</div>';
+  document.getElementById('modalBody').innerHTML=html;
+  openModal();
+}
+function jumpAndClose(idx){ closeModal(); switchTab('inventory'); jumpTo(idx); }
+
+// ==================== MANAGER ====================
+function showManagerScreen() {
+  document.getElementById('mgrDate').textContent=fmtDate(S.workDate);
+  document.getElementById('mgrUser').textContent=S.profile.name||S.user.email;
+  showScreen('manager');
+}
+
+function mgrOpen(type) {
+  openModal();
+  if (type==='today') {
+    setModal('جرد اليوم - '+fmtDate(S.workDate));
+    showLoad('جاري التحميل...');
+    loadSessionDetails('ALMAZLOUB-'+S.workDate)
+      .then(function(det){ document.getElementById('modalBody').innerHTML=renderReport(det,'ALMAZLOUB-'+S.workDate); hideLoad(); })
+      .catch(function(e){ document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">لا يوجد جرد لهذا اليوم</div></div>'; hideLoad(); console.error(e); });
+  }
+  else if (type==='sessions') {
+    setModal('سجل الجرد');
+    showLoad('جاري التحميل...');
+    db.collection('inventorySessions').orderBy('work_date','desc').get()
+      .then(function(snap){
+        hideLoad();
+        if (snap.empty) { document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">📅</div><div class="empty-txt">لا توجد سجلات</div></div>'; return; }
+        var stMap={new:'جديد',waiting_B:'بانتظار شفت B',complete:'مكتمل',approved:'معتمد'};
+        var stCls={new:'sb-new',waiting_B:'sb-wait',complete:'sb-done',approved:'sb-appr'};
+        document.getElementById('modalBody').innerHTML=snap.docs.map(function(d){
+          var s=d.data(), st=s.status||'new';
+          return '<div class="sess-item" onclick="openSessDet(\''+d.id+'\')">'+
+            '<div class="sess-date">'+fmtDate(s.work_date)+'</div>'+
+            '<div style="margin-top:4px;"><span class="sb '+(stCls[st]||'sb-new')+'">'+(stMap[st]||st)+'</span></div></div>';
+        }).join('');
+      }).catch(function(e){ hideLoad(); console.error(e); });
+  }
+  else if (type==='items') {
+    setModal('ادارة الاصناف');
+    loadItems().then(function(){ renderItemsMgr(); });
+  }
+  else if (type==='expTypes') {
+    setModal('ادارة المصاريف');
+    loadExpTypes().then(function(){ renderExpTypesMgr(); });
+  }
+  else if (type==='users') {
+    setModal('اضافة مستخدم');
+    document.getElementById('modalBody').innerHTML=
+      '<div style="background:var(--card);border-radius:var(--rs);padding:15px;border:1px solid var(--border);line-height:1.9;">'+
+      'لاضافة موظف جديد:<br>1. انشئه في <strong style="color:var(--gold)">Firebase Authentication</strong><br>'+
+      '2. احفظ سجله في Firestore:<br><code style="color:var(--cherry2);">users > {uid}</code><br><br>'+
+      'الحقول المطلوبة:<br>name / role (employee او manager) / active: true</div>';
+  }
+}
+
+function openSessDet(sessId) {
+  setModal('تفاصيل - '+fmtDate(sessId.replace('ALMAZLOUB-','')));
+  showLoad('جاري التحميل...');
+  loadSessionDetails(sessId)
+    .then(function(det){ document.getElementById('modalBody').innerHTML=renderReport(det,sessId); hideLoad(); })
+    .catch(function(e){ document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-txt">خطا في التحميل</div></div>'; hideLoad(); console.error(e); });
+}
+
+function loadSessionDetails(sessId) {
+  return Promise.all([
+    db.collection('inventoryEntries').where('inventory_session_id','==',sessId).get(),
+    db.collection('expenses').where('inventory_session_id','==',sessId).get(),
+    db.collection('cashEntries').where('inventory_session_id','==',sessId).get(),
+    db.collection('accountingQuantities').where('inventory_session_id','==',sessId).get()
+  ]).then(function(res){
+    return {
+      entries:res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      expenses:res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      cash:res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      accounting:res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+    };
+  });
+}
+
+function renderReport(det,sessId) {
+  var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
+  var accMap={}, invMap={};
+  accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
+  entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
+
+  var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>المجموع</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';
+  var hasAcc=false;
+  S.items.forEach(function(item){
+    var qA=Number(invMap[item.id]?invMap[item.id].A||0:0);
+    var qB=Number(invMap[item.id]?invMap[item.id].B||0:0);
+    var tot=qA+qB, acc=accMap[item.id];
+    if(acc!==undefined) hasAcc=true;
+    var diff=(acc!==undefined)?tot-acc:null;
+    var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
+    var dA=invMap[item.id]&&invMap[item.id].A!==''?invMap[item.id].A:'-';
+    var dB=invMap[item.id]&&invMap[item.id].B!==''?invMap[item.id].B:'-';
+    itemsHtml+='<tr><td style="text-align:right;font-size:11px;">'+item.name+'</td><td>'+dA+'</td><td>'+dB+'</td><td><strong>'+tot+'</strong></td>'+
+      '<td><input class="acc-inp" value="'+(acc!==undefined?acc:'')+'" placeholder="-" onchange="saveAccQty(\''+sessId+'\',\''+item.id+'\',this.value)"></td>'+
+      '<td>'+dHtml+'</td></tr>';
+  });
+  itemsHtml+='</tbody></table>';
+
+  var expMapAB={A:{},B:{}};
+  expenses.forEach(function(e){
+    var nm=e.custom_expense_name||getExpNm(e.expense_type_id);
+    if(!expMapAB[e.shift][nm]) expMapAB[e.shift][nm]=0;
+    expMapAB[e.shift][nm]+=Number(e.amount);
+  });
+  var allExpNms=[];
+  expenses.forEach(function(e){ var nm=e.custom_expense_name||getExpNm(e.expense_type_id); if(allExpNms.indexOf(nm)<0) allExpNms.push(nm); });
+  var expHtml='';
+  if (allExpNms.length) {
+    expHtml='<table class="rpt-table"><thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
+    allExpNms.forEach(function(nm){
+      var a=expMapAB.A[nm]||0, b=expMapAB.B[nm]||0;
+      expHtml+='<tr><td style="text-align:right;font-size:11px;">'+nm+'</td><td>'+a.toFixed(2)+'</td><td>'+b.toFixed(2)+'</td><td><strong>'+(a+b).toFixed(2)+'</strong></td></tr>';
+    });
+    expHtml+='</tbody></table>';
+  }
+
+  var cA=null,cB=null;
+  cash.forEach(function(c){ if(c.shift==='A') cA=c; if(c.shift==='B') cB=c; });
+  var cashHtml='';
+  if (cA||cB) {
+    cashHtml='<table class="rpt-table"><thead><tr><th>البيان</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
+    [['النقد حسب الجهاز','system_cash'],['النقد الفعلي','actual_cash'],['الفرق','difference'],['المراد تسليمه','cash_to_submit']].forEach(function(row){
+      var lbl=row[0], k=row[1];
+      var a=cA?Number(cA[k]).toFixed(2):'-';
+      var b=cB?Number(cB[k]).toFixed(2):'-';
+      var tot=(cA&&cB)?(Number(cA[k])+Number(cB[k])).toFixed(2):'-';
+      cashHtml+='<tr><td style="text-align:right;font-size:11px;">'+lbl+'</td><td>'+a+'</td><td>'+b+'</td><td><strong>'+tot+'</strong></td></tr>';
+    });
+    cashHtml+='</tbody></table>';
+  }
+
+  var waBtn=hasAcc?'<button class="wa-btn" onclick="sendWA(\''+sessId+'\')">ارسال تقرير الفروقات واتساب</button>':'';
+
+  return '<div class="detail-sec"><div class="sec-title">الاصناف</div>'+itemsHtml+'</div>'+
+    (allExpNms.length?'<div class="detail-sec"><div class="sec-title">المصاريف</div>'+expHtml+'</div>':'')+
+    ((cA||cB)?'<div class="detail-sec"><div class="sec-title">الكاش</div>'+cashHtml+'</div>':'')+waBtn;
+}
+
+function saveAccQty(sessId,itemId,val) {
+  if(!val) return;
+  db.collection('accountingQuantities')
+    .where('inventory_session_id','==',sessId).where('item_id','==',itemId).get()
+    .then(function(snap){
+      var data={inventory_session_id:sessId,item_id:itemId,
+        accounting_quantity:Number(val),updated_at:FS.serverTimestamp()};
+      if(!snap.empty){ return db.collection('accountingQuantities').doc(snap.docs[0].id).update(data); }
+      else { data.created_at=FS.serverTimestamp(); return db.collection('accountingQuantities').add(data); }
+    }).then(function(){ toast('تم حفظ الرقم المحاسبي','success'); openSessDet(sessId); })
+    .catch(function(e){ toast('خطا: '+e.message,'error'); });
+}
+
+function sendWA(sessId) {
+  loadSessionDetails(sessId).then(function(det){
+    var accMap={}, invMap={};
+    det.accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
+    det.entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:0,B:0}; invMap[e.item_id][e.shift]=Number(e.quantity); });
+    var diffs=[];
+    S.items.forEach(function(item){
+      var tot=(invMap[item.id]?invMap[item.id].A||0:0)+(invMap[item.id]?invMap[item.id].B||0:0);
+      var acc=accMap[item.id];
+      if(acc!==undefined&&tot!==acc) diffs.push({name:item.name,tot:tot,acc:acc,diff:tot-acc});
+    });
+    if(!diffs.length){ toast('جميع الاصناف مطابقة','info'); return; }
+    var date=fmtDate(sessId.replace('ALMAZLOUB-',''));
+    var msg='تقرير فروقات الجرد\nكرز وعنب - المزلوب\nالتاريخ: '+date+'\nالشفت: A + B\n\nالاصناف التي يوجد فيها فرق:\n\n';
+    diffs.forEach(function(d,i){ msg+=(i+1)+'. '+d.name+'\nالفعلي: '+d.tot+'\nالمحاسبي: '+d.acc+'\nالفرق: '+(d.diff>0?'زيادة':'نقص')+' '+Math.abs(d.diff)+'\n\n'; });
+    msg+='يرجى مراجعة الاصناف المذكورة.';
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  });
+}
+
+// ==================== MANAGE ====================
+function renderItemsMgr() {
+  var body=document.getElementById('modalBody');
+  var html='<div class="add-row"><input type="text" id="newItemInp" placeholder="اسم الصنف الجديد"><button class="btn-sm-add" onclick="addItem()">اضافة</button></div>';
+  S.items.forEach(function(item){
+    html+='<div class="manage-item"><span class="manage-name">'+item.name+'</span>'+
+      '<button class="btn-stop" onclick="deactivate(\'items\',\''+item.id+'\')">ايقاف</button></div>';
+  });
+  body.innerHTML=html;
+}
+function addItem() {
+  var nm=document.getElementById('newItemInp').value.trim();
+  if(!nm){ toast('يرجى إدخال اسم الصنف','error'); return; }
+  showLoad('جاري الاضافة...');
+  db.collection('items').add({name:nm,active:true,sort_order:S.items.length,created_at:FS.serverTimestamp()})
+    .then(function(){ return loadItems(); })
+    .then(function(){ document.getElementById('newItemInp').value=''; renderItemsMgr(); hideLoad(); toast('تم اضافة الصنف','success'); })
+    .catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
+}
+
+function renderExpTypesMgr() {
+  var body=document.getElementById('modalBody');
+  var html='<div class="add-row"><input type="text" id="newExpTypeInp" placeholder="اسم نوع المصروف"><button class="btn-sm-add" onclick="addExpType()">اضافة</button></div>';
+  S.expTypes.forEach(function(t){
+    if(t.name==='أخرى'){ html+='<div class="manage-item"><span class="manage-name">'+t.name+'</span><span style="font-size:12px;color:var(--text3);">ثابت</span></div>'; }
+    else { html+='<div class="manage-item"><span class="manage-name">'+t.name+'</span><button class="btn-stop" onclick="deactivate(\'expenseTypes\',\''+t.id+'\')">ايقاف</button></div>'; }
+  });
+  body.innerHTML=html;
+}
+function addExpType() {
+  var nm=document.getElementById('newExpTypeInp').value.trim();
+  if(!nm){ toast('يرجى إدخال الاسم','error'); return; }
+  showLoad('جاري الاضافة...');
+  db.collection('expenseTypes').add({name:nm,active:true,sort_order:S.expTypes.length,created_at:FS.serverTimestamp()})
+    .then(function(){ return loadExpTypes(); })
+    .then(function(){ document.getElementById('newExpTypeInp').value=''; renderExpTypesMgr(); hideLoad(); toast('تم اضافة نوع المصروف','success'); })
+    .catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
+}
+
+function deactivate(coll,id) {
+  showLoad('جاري التحديث...');
+  db.collection(coll).doc(id).update({active:false})
+    .then(function(){
+      if(coll==='items') return loadItems().then(function(){ renderItemsMgr(); });
+      else return loadExpTypes().then(function(){ renderExpTypesMgr(); });
+    }).then(function(){ hideLoad(); toast('تم ايقاف الصنف','info'); })
+    .catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
+}
+
+// ==================== MODAL ====================
+function setModal(title) { document.getElementById('modalTitleTxt').textContent=title; document.getElementById('modalBody').innerHTML=''; }
+function openModal()  { document.getElementById('modalOv').classList.add('active'); }
+function closeModal() { document.getElementById('modalOv').classList.remove('active'); }
+function modalOvClick(e) { if(e.target===document.getElementById('modalOv')) closeModal(); }
+</script>
+</body>
+</html>
