@@ -2371,63 +2371,28 @@ function mgrOpen(type) {
   openModal();
   if (type === 'today') {
   setModal('جرد اليوم - ' + fmtDate(S.workDate));
-  showLoad('جاري التحميل...');
+  showLoad('جاري تحميل جرد اليوم...');
 
-  db.collection('dailyInventorySnapshots')
-    .where('work_date', '==', S.workDate)
-    .where('manager_visible', '==', true)
-    .get()
-    .then(function(snap) {
+  var todaySessionId = 'ALMAZLOUB-' + S.workDate;
 
+  loadSessionDetails(todaySessionId)
+    .then(function(det) {
       hideLoad();
 
-      var pending = [];
-
-      snap.docs.forEach(function(d) {
-        var x = d.data();
-
-        if (x.archived === true) return;
-
-        pending.push({
-          id: d.id,
-          data: x
-        });
-      });
-
-      if (pending.length === 0) {
+      if ((!det.entries || !det.entries.length) && (!det.cash || !det.cash.length)) {
         document.getElementById('modalBody').innerHTML =
-          '<div class="empty">' +
-            'لا يوجد جرد جديد بانتظار المراجعة' +
-          '</div>';
+          '<div class="empty">لا يوجد جرد أو كاش لهذا اليوم بعد</div>';
         return;
       }
 
-      var html = '';
-
-      pending.forEach(function(row) {
-        var x = row.data;
-
-        html +=
-          '<div class="mgr-card cherry" onclick="openPendingDailyInventory(\'' + row.id + '\')">' +
-            '<div class="mgr-icon">📋</div>' +
-            '<div class="mgr-lbl">جرد بتاريخ ' + fmtDate(x.work_date) + '</div>' +
-            '<div class="expense-note">الموظف: ' + (x.employee || '-') + '</div>' +
-            '<div class="expense-note">الشفت: ' + (x.shift || '-') + '</div>' +
-          '</div>';
-      });
-
-      document.getElementById('modalBody').innerHTML = html;
-
+      document.getElementById('modalBody').innerHTML =
+        renderReport(det, todaySessionId);
     })
     .catch(function(e) {
-
       hideLoad();
-
       console.error(e);
-
       document.getElementById('modalBody').innerHTML =
         '<div class="empty">حدث خطأ أثناء تحميل جرد اليوم</div>';
-
     });
 }
   else if (type==='sessions') {
@@ -2562,7 +2527,7 @@ function renderReport(det,sessId) {
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
 
-  var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>المجموع</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';
+  var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>النهائي</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';
   var hasAcc=false;
   S.items.forEach(function(item){
     var rawA = invMap[item.id] ? invMap[item.id].A : undefined;
