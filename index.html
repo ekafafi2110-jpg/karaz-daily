@@ -338,7 +338,329 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 .fs-img img{max-width:100%;max-height:90vh;object-fit:contain;border-radius:12px;}
 .fs-close{position:absolute;top:18px;left:18px;background:rgba(0,0,0,.6);
   border:none;border-radius:50%;width:38px;height:38px;color:#fff;font-size:18px;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+
+}
+  /* أكواد CSS القديمة كلها فوق */
+
+  .admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    background: #111;
+    border: 1px solid #242424;
+    border-radius: 16px;
+    padding: 6px;
+    width: fit-content;
+  }
+
+  .admin-tab {
+    background: transparent;
+    color: #aaa;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 22px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .admin-tab:hover {
+    background: #1f1f1f;
+    color: #fff;
+  }
+
+  .admin-tab.active {
+    background: #f0c400;
+    color: #111;
+  }
+  .warehouse-box {
+  padding: 18px;
+}
+
+.warehouse-box h2 {
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.warehouse-action-btn {
+  width: 100%;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #f0c400;
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.warehouse-action-btn:hover {
+  background: #222;
+  
+}
+.warehouse-card-btn {
+  width: 100%;
+  background: #171717;
+  border: 1px solid #2d2d2d;
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: 0.2s;
+}
+
+.warehouse-card-btn:hover {
+  border-color: #f0c400;
+  background: #1d1d1d;
+}
+
+.warehouse-card-icon {
+  font-size: 26px;
+}
+
+.warehouse-card-title {
+  font-size: 16px;
+  font-weight: 800;
+}
+#warehousePurchaseSection {
+  margin-top: 24px;
+}
+
+#warehousePurchaseSection h3 {
+  color: #fff;
+  font-size: 24px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+#warehousePurchaseSection .input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  outline: none;
+}
+
+#warehousePurchaseSection .input:focus {
+  border-color: #f0c400;
+}
+
+#warehousePurchaseSection textarea.input {
+  min-height: 90px;
+  resize: vertical;
+}
+
+#warehousePurchaseSection .warehouse-action-btn {
+  margin-top: 8px;
+}
+.warehouse-opening-box {
+  background: #141414;
+  border: 1px solid #2d2d2d;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.warehouse-opening-box h3 {
+  color: #fff;
+  margin-bottom: 14px;
+  font-size: 20px;
+  #openingStockSection {
+  background: #141414;
+  border: 1px solid #2d2d2d;
+  border-radius: 18px;
+  padding: 18px;
+  margin: 18px 0;
+}
+
+#openingStockSection h3 {
+  color: #f0c400;
+  font-size: 22px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+#openingStockSection .input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  outline: none;
+}
+
+#openingStockSection .input:focus {
+  border-color: #f0c400;
+}
+
+#openingStockSection .warehouse-action-btn {
+  margin-top: 8px;
+}
+}
+#openingStockSection {
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 20px;
+  padding: 18px;
+  margin: 18px 0 22px;
+}
+
+#openingStockSection h3 {
+  color: #f0c400;
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+
+#openingStockSection select,
+#openingStockSection input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #3a3a3a;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  outline: none;
+}
+
+#openingStockSection select:focus,
+#openingStockSection input:focus {
+  border-color: #f0c400;
+}
+
+#openingStockSection button {
+  width: 100%;
+  margin-top: 8px;
+}
+#warehouseBalanceSection {
+  margin-top: 20px;
+}
+
+#warehouseBalanceSection h3 {
+  color: #f0c400;
+  text-align: center;
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.balance-card {
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.balance-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  color: #bbb;
+  padding: 8px 0;
+  border-bottom: 1px solid #242424;
+}
+
+.balance-row strong {
+  color: #fff;
+}
+
+.balance-row.total {
+  border-bottom: none;
+  color: #f0c400;
+  font-weight: 900;
+}
+
+.balance-row.total strong {
+  color: #f0c400;
+}
+.balance-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.balance-table th,
+.balance-table td {
+  padding: 12px;
+  text-align: center;
+  border-bottom: 1px solid #252525;
+  color: #fff;
+  font-size: 14px;
+}
+
+.balance-table th {
+  color: #f0c400;
+  background: #181818;
+  font-weight: 900;
+}
+
+.balance-table td:first-child {
+  text-align: right;
+  font-weight: 800;
+}
+
+.total-cell {
+  color: #f0c400 !important;
+  font-weight: 900;
+}
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(10,10,10,0), #101010 35%);
+  padding: 18px 0 14px;
+  margin-top: 14px;
+}
+
+.save-bar .btn-submit {
+  width: 100%;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(231, 76, 60, 0.22);
+}
+
+.save-bar .btn-submit:hover {
+  filter: brightness(1.08);
+}
+
+#snapshotMsg {
+  margin-top: 12px;
+  text-align: center;
+}
+</style>
 </style>
 </head>
 <body>
@@ -360,7 +682,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="logo-wrap">
     <div class="logo-icon">&#127811;</div>
     <div class="logo-title">كرز وعنب</div>
-    <div class="logo-sub">المزلوب - نظام الجرد اليومي</div>
+    <div class="logo-sub">القويسمة - نظام الجرد اليومي</div>
   </div>
   <div class="login-form">
     <div>
@@ -421,6 +743,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     <button class="tab-btn active" id="tab-inventory" onclick="switchTab('inventory')">الجرد</button>
     <button class="tab-btn" id="tab-expenses" onclick="switchTab('expenses')">المصاريف</button>
     <button class="tab-btn" id="tab-cash" onclick="switchTab('cash')">الكاش</button>
+    <button class="tab-btn" id="tab-withdrawals" onclick="switchTab('withdrawals')">📦 المستودع</button>
   </div>
 
   <!-- INVENTORY PANE -->
@@ -432,7 +755,16 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
         <button class="nav-btn primary" onclick="nextItem()">التالي</button>
       </div>
     </div>
+    <div class="save-bar">
+  <button onclick="saveDailyInventorySnapshot()" class="btn-submit">
+    حفظ واعتماد الشفت
+  </button>
+
+  <div id="snapshotMsg"></div>
+</div>
+
     <div id="itemCards"></div>
+    
     <div class="divider"></div>
     <div style="font-size:13px;color:var(--text2);font-weight:700;margin-bottom:9px;">نظرة عامة:</div>
     <div class="ov-grid" id="ovGrid"></div>
@@ -507,9 +839,31 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     <div class="imgs-grid" id="posImgGrid"></div>
   </div>
 
-  <div class="save-bar">
-    <button class="save-btn" onclick="saveAndFinalize()">حفظ واعتماد الشفت</button>
+  <div class="tab-pane" id="pane-withdrawals">
+  <div class="expense-form">
+    <div class="sec-title">📦 سحب من المستودع</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">الصنف</label>
+        <select class="form-select" id="withdrawItem" style="width:100%; padding:12px; border-radius:10px; font-size:15px; background:#1e1e1e; color:#f0f0f0; border:1.5px solid #2a2a2a;"></select>      </div>
+
+      <div class="form-group" style="max-width:120px;">
+        <label class="form-label">الكمية</label>
+        <input type="number" class="form-input" id="withdrawQty" placeholder="0" min="1" style="width:100%; padding:12px; border-radius:10px; font-size:15px;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <input type="text" class="form-input" id="withdrawNote" placeholder="ملاحظة اختيارية" style="width:100%; padding:12px; border-radius:10px; font-size:15px; margin-bottom:10px;">
+    </div>
+
+    <button class="btn-add" onclick="addWithdrawal()">+ حفظ السحب</button>
   </div>
+
+  <div class="expense-list" id="withdrawList"></div>
+</div>
+  
 </div>
 
 <!-- MANAGER -->
@@ -520,7 +874,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
         <div class="h-logo-icon">&#127811;</div>
         <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
       </div>
-      <div class="h-right">
+      <div class="admin-tabs">
+  <button class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
+  <button class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
+</div>      <div class="h-right">
         <span class="sbadge MGR">مدير</span>
         <button class="btn-logout" onclick="doLogout()">خروج</button>
       </div>
@@ -530,10 +887,82 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
       <div class="h-user" id="mgrUser"></div>
     </div>
   </div>
+  <div id="warehouseAdminSection" style="display:none;">
+  <div class="warehouse-box">
+    <h2>المستودع</h2>
+    <button onclick="showOpeningStockForm()" class="warehouse-card-btn">
+  <div class="warehouse-card-icon">📊</div>
+  <div class="warehouse-card-title">الرصيد الافتتاحي</div>
+</button>
+<button onclick="showWarehouseBalance()" class="warehouse-card-btn">
+  <div class="warehouse-card-icon">📈</div>
+  <div class="warehouse-card-title">رصيد الأصناف</div>
+</button>
+    <div id="openingStockSection" style="display:none;">
+
+  <h3>الرصيد الافتتاحي</h3>
+
+  <select id="openingItemName" class="input">
+    <option value="">اختر الصنف</option>
+    <div id="warehouseBalanceSection" style="display:none;">
+  <h3>رصيد الأصناف</h3>
+  <div id="warehouseBalanceList"></div>
+  <div id="warehouseBalanceDebug" class="empty"></div>
+</div>
+  </select>
+
+  <input id="openingQuantity" class="input" type="number" placeholder="الكمية الافتتاحية">
+
+  <button onclick="saveOpeningStock()" class="warehouse-action-btn">
+    حفظ الرصيد الافتتاحي
+  </button>
+
+  <div id="openingStockMsg"></div>
+
+</div>
+<div id="warehouseBalanceSection" style="display:none;">
+  <h3>رصيد الأصناف</h3>
+  <div id="warehouseBalanceList"></div>
+</div>
+
+    <button onclick="showAdminWithdrawals()" class="warehouse-action-btn">
+      📦 سجل سحوبات المستودع
+    </button>
+    <button onclick="showWarehousePurchaseForm()" class="warehouse-card-btn">
+  <div class="warehouse-card-icon">🧾</div>
+  <div class="warehouse-card-title">مشتريات المستودع</div>
+</button>
+
+
+    <div id="adminWithdrawalsSection" style="display:none;">
+      <h3>سجل سحوبات المستودع</h3>
+      <div id="adminWithdrawalsList"></div>
+    </div>
+  </div>
+</div>
+<div id="warehousePurchaseSection" style="display:none;">
+  <h3>مشتريات المستودع</h3>
+
+  <select id="purchaseItemName" class="input">
+  <option value="">اختر الصنف</option>
+</select>
+  <input id="purchaseQuantity" class="input" type="number" placeholder="الكمية">
+  <input id="purchasePrice" class="input" type="number" placeholder="السعر اختياري">
+  <textarea id="purchaseNote" class="input" placeholder="ملاحظة"></textarea>
+
+  <button onclick="saveWarehousePurchase()" class="warehouse-action-btn">
+    حفظ المشتريات
+  </button>
+
+  <div id="warehousePurchaseMsg"></div>
+</div>
+
+ 
   <div class="mgr-grid">
     <div class="mgr-card cherry" onclick="mgrOpen('today')">
       <div class="mgr-icon">&#128203;</div><div class="mgr-lbl">جرد اليوم</div>
     </div>
+    
     <div class="mgr-card gold" onclick="mgrOpen('sessions')">
       <div class="mgr-icon">&#128197;</div><div class="mgr-lbl">السجل الكامل</div>
     </div>
@@ -543,6 +972,11 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     <div class="mgr-card green" onclick="mgrOpen('expTypes')">
       <div class="mgr-icon">&#128179;</div><div class="mgr-lbl">ادارة المصاريف</div>
     </div>
+    <div class="mgr-card" onclick="mgrOpen('cash')">
+  <div class="mgr-icon">💵</div>
+  <div class="mgr-lbl">الكاش</div>
+</div>
+
     <div class="mgr-card" onclick="mgrOpen('users')">
       <div class="mgr-icon">&#128100;</div><div class="mgr-lbl">المستخدمون</div>
     </div>
@@ -654,13 +1088,29 @@ auth.onAuthStateChanged(function(user) {
   return;
 }
       S.profile = data;
-      hideLoad();
+      S.profile = data;
 
-if (data.role === 'manager') {
-  showManagerScreen();
-} else {
-  showShiftScreen();
-}
+seedDefaults()
+  .then(function () {
+    return loadItems();
+  })
+  .then(function () {
+    return loadExpTypes();
+  })
+  .then(function () {
+    hideLoad();
+
+    if (data.role === 'manager') {
+      showManagerScreen();
+    } else {
+      showShiftScreen();
+    }
+  })
+  .catch(function (e) {
+    hideLoad();
+    console.error("Init error:", e);
+    showErr("خطأ أثناء تحميل بيانات النظام:\n" + e.message);
+  });
     })
     .catch(function(e) {
       hideLoad();
@@ -775,11 +1225,10 @@ function loadOrCreateSession() {
     if (snap.exists) {
       S.sessionData=snap.data();
     } else {
-      if (S.shift==='B') {
-        toast('لا يوجد جرد مفتوح لشفت A. يرجى مراجعة المدير.','error');
-        return false;
-      }
-      return ref.set({
+      if (S.shift === 'B' && !(S.user && (S.user.role === 'manager' || S.user.role === 'admin'))) {
+  toast('يرجى مراجعة شفت A. لا يوجد جرد مفتوح لشفت A', 'error');
+  return false;
+}      return ref.set({
         branch_id:'ALMAZLOUB', work_date:S.workDate, status:'new',
         created_by:S.user.uid,
         created_at:FS.serverTimestamp(), updated_at:FS.serverTimestamp()
@@ -794,18 +1243,31 @@ function loadOrCreateSession() {
 
 function loadExistingEntries() {
   return Promise.all([
-    db.collection('inventoryEntries').where('inventory_session_id','==',S.sessionId).get(),
-    db.collection('expenses').where('inventory_session_id','==',S.sessionId).where('shift','==',S.shift).get(),
-    db.collection('cashEntries').where('inventory_session_id','==',S.sessionId).where('shift','==',S.shift).get()
-  ]).then(function(results) {
+  db.collection('inventoryEntries').where('inventory_session_id','==',S.sessionId).get(),
+  db.collection('expenses').where('inventory_session_id','==',S.sessionId).where('shift','==',S.shift).get(),
+  db.collection('cashEntries').where('inventory_session_id','==',S.sessionId).get()
+]).then(function(results) {
     S.invData={};
     results[0].docs.forEach(function(d){
       var data=d.data();
       S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);
     });
     S.expenses=results[1].docs.map(function(d){return Object.assign({docId:d.id},d.data());});
-    S.cashData={};
-    if (!results[2].empty) S.cashData=Object.assign({docId:results[2].docs[0].id},results[2].docs[0].data());
+   S.cashEntries = [];
+
+results[2].docs.forEach(function(d) {
+  S.cashEntries.push(Object.assign({ docId: d.id }, d.data()));
+});
+
+S.cashData = {};
+
+var currentCash = S.cashEntries.find(function(c) {
+  return c.shift === S.shift;
+});
+
+if (currentCash) {
+  S.cashData = currentCash;
+}
   });
 }
 
@@ -823,6 +1285,9 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab-'+tab).classList.add('active');
   document.getElementById('pane-'+tab).classList.add('active');
+  if (tab === 'withdrawals') {
+  renderWithdrawals();
+}
 }
 
 // ==================== INVENTORY ====================
@@ -990,10 +1455,22 @@ function removeImg(arrKey,i,gridId){ S[arrKey].splice(i,1); renderImgGrid(gridId
 
 // ==================== CASH ====================
 function renderCash() {
-  if (S.cashData && S.cashData.system_cash!==undefined) {
-    document.getElementById('sysCash').value=S.cashData.system_cash;
-    document.getElementById('actCash').value=S.cashData.actual_cash;
+  if (S.cashData && S.cashData.system_cash !== undefined) {
+    document.getElementById('sysCash').value = S.cashData.system_cash;
+    document.getElementById('actCash').value = S.cashData.actual_cash;
     calcCash();
+  } else {
+    document.getElementById('sysCash').value = '';
+    document.getElementById('actCash').value = '';
+
+    document.getElementById('cashDiff').textContent = '0.00';
+    document.getElementById('cashSubmit').textContent = '0.00';
+
+    var pill = document.getElementById('cashPill');
+    if (pill) {
+      pill.style.display = 'none';
+      pill.textContent = '';
+    }
   }
 }
 function calcCash() {
@@ -1008,6 +1485,746 @@ function calcCash() {
   else if (diff>0) { dEl.className='cash-val orange'; pill.textContent='زيادة'; pill.className='status-pill sp-excess';   }
   else             { dEl.className='cash-val green';  pill.textContent='مطابق'; pill.className='status-pill sp-match';    }
   document.getElementById('cashSubmit').textContent=submit.toFixed(2);
+}
+function renderWithdrawals() {
+  var sel = document.getElementById('withdrawItem');
+  if (!sel) return;
+
+  sel.innerHTML = S.items.map(function(item) {
+    return '<option value="' + item.id + '">' + item.name + '</option>';
+  }).join('');
+
+  loadWithdrawals();
+}
+
+function loadWithdrawals() {
+  var list = document.getElementById('withdrawList');
+  if (!list || !S.sessionId || !S.shift) return;
+
+  db.collection('stockWithdrawals')
+    .where('inventory_session_id', '==', S.sessionId)
+    .where('shift', '==', S.shift)
+    .get()
+    .then(function(snap) {
+      if (snap.empty) {
+        list.innerHTML = '<div class="empty">لا توجد سحوبات من المستودع</div>';
+        return;
+      }
+
+      var html = '';
+      snap.docs.forEach(function(d) {
+        var x = d.data();
+        html += '<div class="expense-item">' +
+          '<div class="expense-info">' +
+            '<div class="expense-name">' + (x.item_name || '-') + '</div>' +
+            '<div class="expense-note">' + (x.note || '') + '</div>' +
+          '</div>' +
+          '<div class="expense-amount">' + (x.quantity || 0) + '</div>' +
+        '</div>';
+      });
+
+      list.innerHTML = html;
+    })
+
+    
+    .catch(function(e) {
+      list.innerHTML = '<div class="empty">خطأ في تحميل السحوبات: ' + e.message + '</div>';
+    });
+}
+
+function showManagerHome() {
+  document.querySelector('.mgr-grid').style.display = 'grid';
+  document.getElementById('warehouseAdminSection').style.display = 'none';
+}
+
+function showWarehouseAdmin() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+  document.getElementById('adminWithdrawalsSection').style.display = 'none';
+  document.getElementById('warehousePurchaseSection').style.display = 'none';
+  document.getElementById('warehouseBalanceSection').style.display = 'none';
+  loadOpeningItems();
+}
+function showWarehousePurchaseForm() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+  document.getElementById('adminWithdrawalsSection').style.display = 'none';
+  document.getElementById('warehousePurchaseSection').style.display = 'block';
+  document.getElementById('openingStockSection').style.display = 'none';
+  document.getElementById('warehouseBalanceSection').style.display = 'none';
+  loadPurchaseItems();
+}
+function loadPurchaseItems() {
+  var select = document.getElementById('purchaseItemName');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">اختر الصنف</option>';
+
+  db.collection('items')
+    .get()
+    .then(function(snap) {
+      snap.docs.forEach(function(d) {
+        var x = d.data();
+        select.innerHTML += '<option value="' + (x.name || '') + '">' + (x.name || '') + '</option>';
+      });
+    });
+}
+function showOpeningStockForm() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+  document.getElementById('adminWithdrawalsSection').style.display = 'none';
+  document.getElementById('warehousePurchaseSection').style.display = 'none';
+  document.getElementById('openingStockSection').style.display = 'block';
+  document.getElementById('warehouseBalanceSection').style.display = 'none';
+
+  loadOpeningItems();
+}
+function saveDailyInventorySnapshot() {
+    var confirmMsg = '';
+
+if (S.shift === 'B') {
+  confirmMsg = 'هل أنت متأكد من حفظ واعتماد شفت B؟\nسيتم إرسال رصيد المحل النهائي للمدير وتصفير شاشة الموظف.';
+} else {
+  confirmMsg = 'هل أنت متأكد من حفظ شفت A؟\nسيتم حفظ البيانات فقط، ولن يتم إرسالها كرصيد نهائي للمدير.';
+}
+
+if (!confirm(confirmMsg)) {
+  return;
+}
+
+  var msg = document.getElementById('snapshotMsg');
+
+  if (msg) {
+    msg.innerHTML = '<div class="empty">جاري حفظ لقطة الجرد...</div>';
+  }
+
+  var snapshotItems = {};
+
+  Object.keys(S.invData || {}).forEach(function(key) {
+
+    var row = S.invData[key] || {};
+
+    var itemId = row.item_id || key.split('_')[0];
+
+    var item = S.items.find(function(it) {
+      return it.id === itemId;
+    });
+
+    if (!item) return;
+
+    var qty = Number(row.quantity || 0);
+
+    snapshotItems[item.name] =
+      (snapshotItems[item.name] || 0) + qty;
+
+  });
+
+  if (Object.keys(snapshotItems).length === 0) {
+    if (msg) {
+      msg.innerHTML = '<div class="empty">لا يوجد جرد لحفظه</div>';
+    }
+    return;
+  }
+
+  db.collection('dailyInventorySnapshots')
+    .doc(S.sessionId)
+    .set({
+  session_id: S.sessionId,
+  work_date: S.workDate,
+  shift: S.shift || '',
+  employee: S.user ? S.user.email : '',
+  items: snapshotItems,
+  manager_visible: S.shift === 'B',
+  archived: false,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+})    .then(function() {
+
+      return db.collection('inventorySessions')
+  .doc(S.sessionId)
+  .update({
+    status: 'closed',
+    snapshot_saved: true,
+    snapshot_saved_at: firebase.firestore.FieldValue.serverTimestamp(),
+    invData: {},
+    cashData: {},
+    expenses: [],
+    invImgs: [],
+    posImgs: []
+  });
+
+    })
+    .then(function() {
+
+      if (msg) {
+        msg.innerHTML = '<div class="empty">تم حفظ لقطة الجرد بنجاح</div>';
+      }
+
+      S.invData = {};
+      S.cashData = {};
+      S.expenses = [];
+      S.invImgs = [];
+      S.posImgs = [];
+
+      renderInventory();
+
+if (typeof renderExpenses === 'function') {
+  renderExpenses();
+}
+
+if (typeof renderCash === 'function') {
+  renderCash();
+}
+
+if (typeof renderCashReport === 'function') {
+  renderCashReport();
+}
+
+      toast('تم حفظ لقطة الجرد وتصفير شاشة الموظف', 'info');
+
+    })
+    .catch(function(error) {
+
+      console.error(error);
+
+      if (msg) {
+        msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ لقطة الجرد</div>';
+      }
+
+    });
+
+}
+function loadTodayShopInventory() {
+
+  var byItem = {};
+  var shopMap = {};
+
+  return db.collection('dailyInventorySnapshots')
+    .where('work_date', '==', S.workDate)
+    .get()
+    .then(function(snap) {
+
+      snap.docs.forEach(function(d) {
+
+        var data = d.data();
+        if (data.manager_visible !== true) return;
+
+        var shift = data.shift || '';
+
+        var items = data.items || {};
+
+        Object.keys(items).forEach(function(name) {
+
+          if (!byItem[name]) {
+            byItem[name] = {
+              A: null,
+              B: null
+            };
+          }
+
+          if (shift === 'B') {
+            byItem[name].B = Number(items[name] || 0);
+          } else {
+            byItem[name].A = Number(items[name] || 0);
+          }
+
+        });
+
+      });
+
+      Object.keys(byItem).forEach(function(name) {
+
+        if (byItem[name].B !== null) {
+          shopMap[name] = byItem[name].B;
+        } else if (byItem[name].A !== null) {
+          shopMap[name] = byItem[name].A;
+        } else {
+          shopMap[name] = 0;
+        }
+
+      });
+
+      return shopMap;
+
+    })
+    .catch(function(error) {
+      console.error(error);
+      return shopMap;
+    });
+
+}
+function archiveDailyInventoryAndReset(snapshotId) {
+
+  var msg = document.getElementById('dailyArchiveMsg');
+
+  if (!confirm('هل أنت متأكد من حفظ جرد اليوم في السجل؟\nبعد الحفظ سيتم تصفير بيانات اليوم والاستعداد لليوم التالي.')) {
+    return;
+  }
+
+  if (msg) {
+    msg.innerHTML = '<div class="empty">جاري حفظ جرد اليوم...</div>';
+  }
+ 
+
+  var archiveData = {
+    work_date: S.workDate,
+    archived_by: S.user ? S.user.email : '',
+    archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    inventory: {},
+    cash: {},
+    expenses: []
+  };
+
+  db.collection('dailyInventorySnapshots')
+    .where('work_date', '==', S.workDate)
+    .get()
+    .then(function(snapshotSnap) {
+
+      snapshotSnap.docs.forEach(function(d) {
+        var data = d.data();
+
+        if (data.manager_visible === true) {
+          archiveData.inventory = data.items || {};
+          archiveData.final_shift = data.shift || '';
+          archiveData.employee = data.employee || '';
+        }
+      });
+
+      return db.collection('inventorySessions')
+        .where('work_date', '==', S.workDate)
+        .get();
+
+    })
+    .then(function(sessionSnap) {
+
+      sessionSnap.docs.forEach(function(d) {
+        var session = d.data();
+
+        if (session.shift === 'B') {
+          archiveData.cash = session.cashData || {};
+        }
+
+        if (session.expenses && session.expenses.length) {
+          archiveData.expenses = archiveData.expenses.concat(session.expenses);
+        }
+      });
+
+      return db.collection('dailyInventoryArchive')
+        .doc(S.workDate)
+        .set(archiveData);
+
+    })
+    .then(function() {
+
+      return db.collection('inventorySessions')
+        .where('work_date', '==', S.workDate)
+        .get();
+        dailyInventoryArchive
+
+    })
+    .then(function(sessionSnap) {
+
+      var batch = db.batch();
+
+      sessionSnap.docs.forEach(function(d) {
+        batch.update(d.ref, {
+          invData: {},
+          cashData: {},
+          expenses: [],
+          invImgs: [],
+          posImgs: [],
+          archived: true,
+          archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
+
+      return batch.commit();
+
+    })
+   .then(function() {
+
+  if (snapshotId) {
+    return db.collection('dailyInventorySnapshots')
+      .doc(snapshotId)
+      .update({
+        archived: true,
+        archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        archived_by: S.user ? S.user.email : ''
+      });
+  }
+
+  return Promise.resolve();
+
+})
+.then(function() {
+
+  if (msg) {
+    msg.innerHTML =
+      '<div class="empty">تم حفظ جرد اليوم في السجل وتصفير بيانات اليوم</div>';
+  }
+
+  document.getElementById('modalBody').innerHTML =
+    '<div class="empty">تم حفظ الجرد في السجل. بانتظار جرد جديد.</div>';
+
+  toast('تم حفظ جرد اليوم في السجل', 'info');
+  
+
+})
+      console.error(error);
+
+      if (msg) {
+        msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ جرد اليوم</div>';
+      }
+
+    };
+
+
+function showWarehouseBalance() {
+    console.log('SHOW WAREHOUSE BALANCE START');
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+  document.getElementById('adminWithdrawalsSection').style.display = 'none';
+  document.getElementById('warehousePurchaseSection').style.display = 'none';
+  document.getElementById('openingStockSection').style.display = 'none';
+  document.getElementById('warehouseBalanceSection').style.display = 'block';
+
+  var list = document.getElementById('warehouseBalanceList');
+  list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
+
+  var itemsMap = {};
+  var openingMap = {};
+  var purchasesMap = {};
+  var withdrawalsMap = {};
+  var shopMap = {};
+
+  db.collection('items').get()
+    .then(function(itemsSnap) {
+      itemsSnap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.name || x.item_name || x.itemName || '';
+        if (name) {
+          itemsMap[name] = true;
+        }
+      });
+
+      return db.collection('warehouseOpeningStock').get();
+    })
+    .then(function(openingSnap) {
+      openingSnap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.item_name || d.id;
+        openingMap[name] = Number(x.quantity || 0);
+        itemsMap[name] = true;
+      });
+
+      return db.collection('stockPurchases').get();
+    })
+    .then(function(purchaseSnap) {
+      purchaseSnap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.item_name || '';
+        if (!name) return;
+
+        purchasesMap[name] = (purchasesMap[name] || 0) + Number(x.quantity || 0);
+        itemsMap[name] = true;
+      });
+
+      return db.collection('stockWithdrawals').get();
+    })
+    .then(function(withdrawSnap) {
+      withdrawSnap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.item_name || '';
+        if (!name) return;
+
+        withdrawalsMap[name] = (withdrawalsMap[name] || 0) + Number(x.quantity || 0);
+        itemsMap[name] = true;
+      });
+
+      return loadTodayShopInventory();
+    })
+    .then(function(shopResult) {
+
+  shopMap = shopResult;
+
+  Object.keys(shopMap).forEach(function(name) {
+    itemsMap[name] = true;
+ 
+      });
+      var html =
+  '<table class="balance-table">' +
+    '<thead>' +
+      '<tr>' +
+        '<th>الصنف</th>' +
+        '<th>رصيد المحل</th>' +
+        '<th>رصيد المستودع</th>' +
+        '<th>الإجمالي</th>' +
+      '</tr>' +
+    '</thead>' +
+    '<tbody>';
+
+Object.keys(itemsMap).sort().forEach(function(name) {
+  var opening = openingMap[name] || 0;
+  var purchases = purchasesMap[name] || 0;
+  var withdrawals = withdrawalsMap[name] || 0;
+  var warehouseBalance = opening + purchases - withdrawals;
+  var shopBalance = shopMap[name] || 0;
+  var totalBalance = warehouseBalance + shopBalance;
+
+  html +=
+    '<tr>' +
+      '<td>' + name + '</td>' +
+      '<td>' + shopBalance + '</td>' +
+      '<td>' + warehouseBalance + '</td>' +
+      '<td class="total-cell">' + totalBalance + '</td>' +
+    '</tr>';
+});
+
+html += '</tbody></table>';
+
+      if (Object.keys(itemsMap).length === 0) {
+  html = '<div class="empty">لا توجد أصناف لعرضها</div>';
+}
+
+      list.innerHTML = html;
+    })
+    .catch(function(error) {
+      console.error(error);
+      list.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد الأصناف</div>';
+    });
+    
+}
+function loadOpeningItems() {
+  var select = document.getElementById('openingItemName');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">اختر الصنف</option>';
+
+  db.collection('items')
+    .get()
+    .then(function(snap) {
+      snap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.name || x.item_name || x.itemName || '';
+
+        if (name) {
+          select.innerHTML +=
+            '<option value="' + name + '">' + name + '</option>';
+        }
+      });
+    })
+    .catch(function(error) {
+      console.error(error);
+    });
+}
+
+function saveOpeningStock() {
+
+  var itemName =
+    document.getElementById('openingItemName').value;
+
+  var quantity =
+    Number(document.getElementById('openingQuantity').value);
+
+  var msg =
+    document.getElementById('openingStockMsg');
+
+  if (!itemName || !quantity || quantity < 0) {
+
+    msg.innerHTML =
+      '<div class="empty">أدخل الصنف والكمية</div>';
+
+    return;
+  }
+
+  db.collection('warehouseOpeningStock')
+    .doc(itemName)
+    .set({
+
+      item_name: itemName,
+      quantity: quantity,
+      updatedAt:
+        firebase.firestore.FieldValue.serverTimestamp()
+
+    })
+
+    .then(function() {
+
+      msg.innerHTML =
+        '<div class="empty">تم حفظ الرصيد الافتتاحي</div>';
+
+      document.getElementById('openingQuantity').value = '';
+
+    })
+
+    .catch(function(error) {
+
+      console.error(error);
+
+      msg.innerHTML =
+        '<div class="empty">حدث خطأ أثناء الحفظ</div>';
+
+    });
+
+}
+
+function saveWarehousePurchase() {
+  var itemName = document.getElementById('purchaseItemName').value.trim();
+  var quantity = Number(document.getElementById('purchaseQuantity').value);
+  var price = Number(document.getElementById('purchasePrice').value || 0);
+  var note = document.getElementById('purchaseNote').value.trim();
+  var msg = document.getElementById('warehousePurchaseMsg');
+
+  if (!itemName || !quantity || quantity <= 0) {
+    msg.innerHTML = '<div class="empty">أدخل اسم الصنف والكمية بشكل صحيح</div>';
+    return;
+  }
+
+  db.collection('stockPurchases').add({
+    item_name: itemName,
+    quantity: quantity,
+    price: price,
+    note: note,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    manager: firebase.auth().currentUser ? firebase.auth().currentUser.email : ''
+  })
+  .then(function() {
+    msg.innerHTML = '<div class="empty">تم حفظ مشتريات المستودع</div>';
+
+    document.getElementById('purchaseItemName').value = '';
+    document.getElementById('purchaseQuantity').value = '';
+    document.getElementById('purchasePrice').value = '';
+    document.getElementById('purchaseNote').value = '';
+  })
+  .catch(function(error) {
+    console.error(error);
+    msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ المشتريات</div>';
+  });
+}
+
+function showAdminWithdrawals() {
+    document.querySelector('.mgr-grid').style.display = 'none';
+document.getElementById('warehouseAdminSection').style.display = 'block';
+document.getElementById('adminWithdrawalsSection').style.display = 'block';
+document.getElementById('warehousePurchaseSection').style.display = 'none';
+document.getElementById('warehouseBalanceSection').style.display = 'none';
+  hideAllSections();
+
+  document.getElementById("adminWithdrawalsSection").style.display = "block";
+
+  var list = document.getElementById("adminWithdrawalsList");
+
+  list.innerHTML = "جاري تحميل السحوبات...";
+
+  db.collection('stockWithdrawals')
+    .orderBy('createdAt', 'desc')
+    .get()
+    .then(function(snap) {
+
+      if (snap.empty) {
+        list.innerHTML = '<div class="empty">لا توجد سحوبات</div>';
+        return;
+      }
+
+      var html = '';
+
+      snap.docs.forEach(function(d) {
+
+        var x = d.data();
+
+        var time = '-';
+
+        if (x.createdAt && x.createdAt.toDate) {
+          time = x.createdAt.toDate().toLocaleString('ar-JO');
+        }
+
+        html +=
+          '<div class="expense-item">' +
+
+            '<div class="expense-info">' +
+
+              '<div class="expense-name">' +
+                (x.item_name || '-') +
+              '</div>' +
+
+              '<div class="expense-note">' +
+                'الموظف: ' + (x.employee || '-') +
+              '</div>' +
+
+              '<div class="expense-note">' +
+                'الشفت: ' + (x.shift || '-') +
+              '</div>' +
+
+              '<div class="expense-note">' +
+                'الوقت: ' + time +
+              '</div>' +
+
+              '<div class="expense-note">' +
+                (x.note || '') +
+              '</div>' +
+
+            '</div>' +
+
+            '<div class="expense-amount">' +
+              (x.quantity || 0) +
+            '</div>' +
+
+          '</div>';
+
+      });
+
+      list.innerHTML = html;
+
+    })
+    .catch(function(error) {
+
+      console.error(error);
+
+      list.innerHTML =
+        '<div class="empty">حدث خطأ أثناء تحميل السجل</div>';
+
+    });
+}
+
+function addWithdrawal() {
+  var itemId = document.getElementById('withdrawItem').value;
+  var qty = document.getElementById('withdrawQty').value;
+  var note = document.getElementById('withdrawNote').value.trim();
+
+  if (!itemId) {
+    toast('يرجى اختيار الصنف', 'error');
+    return;
+  }
+
+  if (!qty || Number(qty) <= 0) {
+    toast('يرجى إدخال كمية صحيحة', 'error');
+    return;
+  }
+
+  var item = S.items.find(function(i) {
+    return i.id === itemId;
+  });
+
+  showLoad('جاري حفظ السحب...');
+
+  db.collection('stockWithdrawals').add({
+    inventory_session_id: S.sessionId,
+    shift: S.shift,
+    item_id: itemId,
+    item_name: item ? item.name : '',
+    quantity: Number(qty),
+    note: note || '',
+    created_by: S.user.uid,
+    created_at: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function() {
+    hideLoad();
+    document.getElementById('withdrawQty').value = '';
+    document.getElementById('withdrawNote').value = '';
+    toast('تم حفظ السحب من المستودع', 'success');
+    loadWithdrawals();
+  }).catch(function(e) {
+    hideLoad();
+    toast('خطأ: ' + e.message, 'error');
+  });
 }
 
 // ==================== SAVE ====================
@@ -1100,16 +2317,119 @@ function showManagerScreen() {
   document.getElementById('mgrUser').textContent=S.profile.name||S.user.email;
   showScreen('manager');
 }
+function openPendingDailyInventory(snapshotId) {
+
+  setModal('تفاصيل جرد اليوم');
+  showLoad('جاري تحميل تفاصيل الجرد...');
+
+  db.collection('dailyInventorySnapshots')
+    .doc(snapshotId)
+    .get()
+    .then(function(docSnap) {
+
+      if (!docSnap.exists) {
+        hideLoad();
+        document.getElementById('modalBody').innerHTML =
+          '<div class="empty">لم يتم العثور على الجرد</div>';
+        return;
+      }
+
+      var snapData = docSnap.data();
+      var sessionId = snapData.session_id;
+
+      return loadSessionDetails(sessionId)
+        .then(function(det) {
+
+          hideLoad();
+
+          document.getElementById('modalBody').innerHTML =
+            renderReport(det, sessionId) +
+            '<div class="save-bar">' +
+              '<button onclick="archiveDailyInventoryAndReset(\'' + snapshotId + '\')" class="btn-submit">' +
+                'حفظ جرد اليوم في السجل' +
+              '</button>' +
+              '<div id="dailyArchiveMsg"></div>' +
+            '</div>';
+
+        });
+
+    })
+    .catch(function(error) {
+
+      hideLoad();
+
+      console.error(error);
+
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">حدث خطأ أثناء فتح الجرد</div>';
+
+    });
+
+}
 
 function mgrOpen(type) {
   openModal();
-  if (type==='today') {
-    setModal('جرد اليوم - '+fmtDate(S.workDate));
-    showLoad('جاري التحميل...');
-    loadSessionDetails('ALMAZLOUB-'+S.workDate)
-      .then(function(det){ document.getElementById('modalBody').innerHTML=renderReport(det,'ALMAZLOUB-'+S.workDate); hideLoad(); })
-      .catch(function(e){ document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">لا يوجد جرد لهذا اليوم</div></div>'; hideLoad(); console.error(e); });
-  }
+  if (type === 'today') {
+  setModal('جرد اليوم - ' + fmtDate(S.workDate));
+  showLoad('جاري التحميل...');
+
+  db.collection('dailyInventorySnapshots')
+    .where('work_date', '==', S.workDate)
+    .where('manager_visible', '==', true)
+    .get()
+    .then(function(snap) {
+
+      hideLoad();
+
+      var pending = [];
+
+      snap.docs.forEach(function(d) {
+        var x = d.data();
+
+        if (x.archived === true) return;
+
+        pending.push({
+          id: d.id,
+          data: x
+        });
+      });
+
+      if (pending.length === 0) {
+        document.getElementById('modalBody').innerHTML =
+          '<div class="empty">' +
+            'لا يوجد جرد جديد بانتظار المراجعة' +
+          '</div>';
+        return;
+      }
+
+      var html = '';
+
+      pending.forEach(function(row) {
+        var x = row.data;
+
+        html +=
+          '<div class="mgr-card cherry" onclick="openPendingDailyInventory(\'' + row.id + '\')">' +
+            '<div class="mgr-icon">📋</div>' +
+            '<div class="mgr-lbl">جرد بتاريخ ' + fmtDate(x.work_date) + '</div>' +
+            '<div class="expense-note">الموظف: ' + (x.employee || '-') + '</div>' +
+            '<div class="expense-note">الشفت: ' + (x.shift || '-') + '</div>' +
+          '</div>';
+      });
+
+      document.getElementById('modalBody').innerHTML = html;
+
+    })
+    .catch(function(e) {
+
+      hideLoad();
+
+      console.error(e);
+
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">حدث خطأ أثناء تحميل جرد اليوم</div>';
+
+    });
+}
   else if (type==='sessions') {
     setModal('سجل الجرد');
     showLoad('جاري التحميل...');
@@ -1127,6 +2447,73 @@ function mgrOpen(type) {
         }).join('');
       }).catch(function(e){ hideLoad(); console.error(e); });
   }
+  else if(type==='cash') {
+
+  setModal('تقارير الكاش');
+
+  showLoad('جاري تحميل الكاش...');
+
+  db.collection('cashEntries')
+  .where('inventory_session_id','==','ALMAZLOUB-' + S.workDate)
+  .get()
+    .then(function(snap){
+
+      hideLoad();
+
+      if(snap.empty){
+        document.getElementById('modalBody').innerHTML =
+          '<div class="empty">لا توجد بيانات كاش</div>';
+        return;
+      }
+
+      var cash = snap.docs.map(function(d){ return d.data(); });
+
+var cA = cash.find(function(c){ return c.shift === 'A'; }) || {};
+var cB = cash.find(function(c){ return c.shift === 'B'; }) || {};
+
+function val(obj, key) {
+  return obj[key] !== undefined && obj[key] !== null && obj[key] !== ''
+    ? Number(obj[key]).toFixed(2)
+    : '—';
+}
+
+function finalVal(key) {
+  if (cB[key] !== undefined && cB[key] !== null && cB[key] !== '') {
+    return Number(cB[key]).toFixed(2);
+  }
+  if (cA[key] !== undefined && cA[key] !== null && cA[key] !== '') {
+    return Number(cA[key]).toFixed(2);
+  }
+  return '—';
+}
+
+var html = '';
+html += '<table class="rpt-table">';
+html += '<thead><tr><th>البيان</th><th>شفت A</th><th>شفت B</th><th>النهائي</th></tr></thead><tbody>';
+
+html += '<tr><td>النقد حسب الجهاز</td><td>' + val(cA,'system_cash') + '</td><td>' + val(cB,'system_cash') + '</td><td><strong>' + finalVal('system_cash') + '</strong></td></tr>';
+
+html += '<tr><td>النقد الفعلي</td><td>' + val(cA,'actual_cash') + '</td><td>' + val(cB,'actual_cash') + '</td><td><strong>' + finalVal('actual_cash') + '</strong></td></tr>';
+
+html += '<tr><td>الفرق</td><td>' + val(cA,'difference') + '</td><td>' + val(cB,'difference') + '</td><td><strong>' + finalVal('difference') + '</strong></td></tr>';
+
+html += '<tr><td>النقد المراد تسليمه</td><td>' + val(cA,'cash_to_submit') + '</td><td>' + val(cB,'cash_to_submit') + '</td><td><strong>' + finalVal('cash_to_submit') + '</strong></td></tr>';
+
+html += '</tbody></table>';
+
+document.getElementById('modalBody').innerHTML = html;
+
+    })
+    .catch(function(e){
+
+      hideLoad();
+
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">خطأ: '+e.message+'</div>';
+
+    });
+
+}
   else if (type==='items') {
     setModal('ادارة الاصناف');
     loadItems().then(function(){ renderItemsMgr(); });
@@ -1178,11 +2565,18 @@ function renderReport(det,sessId) {
   var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>المجموع</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';
   var hasAcc=false;
   S.items.forEach(function(item){
-    var qA=Number(invMap[item.id]?invMap[item.id].A||0:0);
-    var qB=Number(invMap[item.id]?invMap[item.id].B||0:0);
-    var tot=qA+qB, acc=accMap[item.id];
-    if(acc!==undefined) hasAcc=true;
-    var diff=(acc!==undefined)?tot-acc:null;
+    var rawA = invMap[item.id] ? invMap[item.id].A : undefined;
+var rawB = invMap[item.id] ? invMap[item.id].B : undefined;
+
+var qA = rawA !== undefined && rawA !== '' ? Number(rawA) : 0;
+var qB = rawB !== undefined && rawB !== '' ? Number(rawB) : 0;
+
+var tot = rawB !== undefined && rawB !== '' ? qB : qA;
+var acc = accMap[item.id];
+
+if(acc!==undefined) hasAcc=true;
+
+var diff=(acc!==undefined)?tot-acc:null;
     var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
     var dA=invMap[item.id]&&invMap[item.id].A!==''?invMap[item.id].A:'-';
     var dB=invMap[item.id]&&invMap[item.id].B!==''?invMap[item.id].B:'-';
@@ -1212,18 +2606,36 @@ function renderReport(det,sessId) {
 
   var cA=null,cB=null;
   cash.forEach(function(c){ if(c.shift==='A') cA=c; if(c.shift==='B') cB=c; });
-  var cashHtml='';
-  if (cA||cB) {
-    cashHtml='<table class="rpt-table"><thead><tr><th>البيان</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
-    [['النقد حسب الجهاز','system_cash'],['النقد الفعلي','actual_cash'],['الفرق','difference'],['المراد تسليمه','cash_to_submit']].forEach(function(row){
-      var lbl=row[0], k=row[1];
-      var a=cA?Number(cA[k]).toFixed(2):'-';
-      var b=cB?Number(cB[k]).toFixed(2):'-';
-      var tot=(cA&&cB)?(Number(cA[k])+Number(cB[k])).toFixed(2):'-';
-      cashHtml+='<tr><td style="text-align:right;font-size:11px;">'+lbl+'</td><td>'+a+'</td><td>'+b+'</td><td><strong>'+tot+'</strong></td></tr>';
-    });
-    cashHtml+='</tbody></table>';
-  }
+  var cashHtml='<table class="rpt-table"><thead><tr><th>البيان</th><th>A</th><th>B</th><th>النهائي</th></tr></thead><tbody>';
+
+[
+  ['النقد حسب الجهاز','system_cash'],
+  ['النقد الفعلي','actual_cash'],
+  ['الفرق','difference'],
+  ['النقد المراد تسليمه','cash_to_submit']
+].forEach(function(r){
+  var lbl = r[0];
+  var k = r[1];
+
+  var a = (cA && cA[k] !== undefined && cA[k] !== null && cA[k] !== '')
+    ? Number(cA[k]).toFixed(2)
+    : '—';
+
+  var b = (cB && cB[k] !== undefined && cB[k] !== null && cB[k] !== '')
+    ? Number(cB[k]).toFixed(2)
+    : '—';
+
+  var finalVal = (cB && cB[k] !== undefined && cB[k] !== null && cB[k] !== '')
+    ? Number(cB[k]).toFixed(2)
+    : ((cA && cA[k] !== undefined && cA[k] !== null && cA[k] !== '')
+        ? Number(cA[k]).toFixed(2)
+        : '—');
+
+  cashHtml += '<tr><td style="text-align:right;font-size:11px;">' + lbl + '</td><td>' + a + '</td><td>' + b + '</td><td><strong>' + finalVal + '</strong></td></tr>';
+});
+
+cashHtml += '</tbody></table>';
+  
 
   var waBtn=hasAcc?'<button class="wa-btn" onclick="sendWA(\''+sessId+'\')">ارسال تقرير الفروقات واتساب</button>':'';
 
