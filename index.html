@@ -756,7 +756,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
       </div>
     </div>
     <div class="save-bar">
-  <button onclick="saveDailyInventorySnapshot()" class="btn-submit">
+  <button onclick="saveAndFinalize()" class="btn-submit">
     حفظ واعتماد الشفت
   </button>
 
@@ -1229,11 +1229,20 @@ function loadOrCreateSession() {
       if (S.shift === 'B' && !(S.user && (S.user.role === 'manager' || S.user.role === 'admin'))) {
   toast('يرجى مراجعة شفت A. لا يوجد جرد مفتوح لشفت A', 'error');
   return false;
-}      return ref.set({
-        branch_id:'ALMAZLOUB', work_date:S.workDate, status:'new',
-        created_by:S.user.uid,
-        created_at:FS.serverTimestamp(), updated_at:FS.serverTimestamp()
-      }).then(function(){ S.sessionData={status:'new'}; return true; });
+}    
+return ref.set({
+  branch_id: 'ALMAZLOUB',
+  work_date: S.workDate,
+  status: 'new',
+  archived: false,
+  tracking_id: 'INV-' + S.workDate.replaceAll('-', '') + '-' + new Date().getHours().toString().padStart(2, '0') + new Date().getMinutes().toString().padStart(2, '0'),
+  created_by: S.user.uid,
+  created_at: FS.serverTimestamp(),
+  updated_at: FS.serverTimestamp()
+}).then(function(){ 
+  S.sessionData = { status: 'new', archived: false }; 
+  return true; 
+});
     }
     return true;
   }).then(function(ok) {
@@ -2238,6 +2247,13 @@ function saveAndFinalize() {
   var act=document.getElementById('actCash').value;
   if (!sys||!act){ toast('يرجى تعبئة بيانات الكاش','error'); switchTab('cash'); return; }
 
+  var confirmMsg = S.shift === 'A'
+  ? 'هل تريد إرسال واعتماد شفت A؟'
+  : 'هل تريد إرسال واعتماد شفت B للمدير؟';
+
+if (!confirm(confirmMsg)) {
+  return;
+}
   showLoad('جاري الحفظ...');
   var batch=db.batch();
   var promises=[];
@@ -2288,13 +2304,45 @@ function saveAndFinalize() {
     return Promise.all(imgPromises);
   }).then(function(){
     var newStatus=S.shift==='A'?'waiting_B':'complete';
-    return db.collection('inventorySessions').doc(S.sessionId).update({
-      status:newStatus,updated_at:FS.serverTimestamp()
-    });
+    var updateData = {
+  status: newStatus,
+  archived: false,
+  updated_at: FS.serverTimestamp()
+};
+
+if (S.shift === 'A') {
+  updateData.shift_a_sent = true;
+  updateData.shift_a_sent_at = FS.serverTimestamp();
+}
+
+if (S.shift === 'B') {
+  updateData.shift_b_sent = true;
+  updateData.shift_b_sent_at = FS.serverTimestamp();
+  updateData.ready_for_manager = true;
+}
+
+return db.collection('inventorySessions').doc(S.sessionId).update(updateData);
   }).then(function(){
+    S.invData = {};
+    S.expenses = [];
+    S.cashData = {};
+    S.cashEntries = [];
+    S.invImgs = [];
+    S.posImgs = [];
+
+    renderInventory();
+    renderExpenses();
+    renderCash();
+    renderImgGrid('invImgGrid', S.invImgs, 'invImgs');
+    renderImgGrid('posImgGrid', S.posImgs, 'posImgs');
+
     hideLoad();
-    toast(S.shift==='A'?'تم حفظ شفت A بنجاح':'تم اكتمال الجرد اليومي','success');
-  }).catch(function(e){ hideLoad(); toast('خطا في الحفظ: '+e.message,'error'); console.error(e); });
+    toast(S.shift==='A'?'تم إرسال شفت A بنجاح':'تم إرسال شفت B للمدير بنجاح','success');
+  }).catch(function(e){
+        hideLoad();
+    toast('خطأ في الحفظ: ' + e.message, 'error');
+    console.error(e);
+  });
 }
 
 function showMissingModal(missing) {
@@ -2401,14 +2449,19 @@ function mgrOpen(type) {
 
       var html = '';
 
-      pending.forEach(function(row) {
-        html +=
-          '<div class="sess-item" onclick="openPendingSessDet(\'' + row.id + '\')">' +
-            '<div class="sess-date">' + fmtDate(row.data.work_date) + '</div>' +
-            '<div style="margin-top:4px;">جرد بانتظار اعتماد المدير</div>' +
-          '</div>';
-      });
+     pending.forEach(function(row) {
+  var tracking = row.data.tracking_id || row.id;
+  var statusTxt = row.data.status === 'complete'
+    ? 'مكتمل - بانتظار اعتماد المدير'
+    : 'بانتظار شفت B أو اعتماد المدير';
 
+  html +=
+    '<div class="sess-item" onclick="openPendingSessDet(\'' + row.id + '\')">' +
+      '<div class="sess-date">' + fmtDate(row.data.work_date) + '</div>' +
+      '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
+      '<div style="margin-top:4px;">' + statusTxt + '</div>' +
+    '</div>';
+});
       document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
@@ -2564,6 +2617,7 @@ function approveSessionToArchive(sessId) {
     .then(function(det) {
       var archiveData = {
         session_id: sessId,
+          tracking_id: sessId,
         work_date: sessId.replace('ALMAZLOUB-', ''),
         archived_by: S.user ? S.user.email : '',
         archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
