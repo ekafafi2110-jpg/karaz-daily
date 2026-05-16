@@ -1220,35 +1220,83 @@ function selectShift(shift) {
 
 // ==================== SESSION ====================
 function loadOrCreateSession() {
-  S.sessionId='ALMAZLOUB-'+S.workDate;
-  var ref=db.collection('inventorySessions').doc(S.sessionId);
-  return ref.get().then(function(snap) {
-    if (snap.exists) {
-      S.sessionData=snap.data();
-    } else {
-      if (S.shift === 'B' && !(S.user && (S.user.role === 'manager' || S.user.role === 'admin'))) {
-  toast('يرجى مراجعة شفت A. لا يوجد جرد مفتوح لشفت A', 'error');
-  return false;
-}    
-return ref.set({
-  branch_id: 'ALMAZLOUB',
-  work_date: S.workDate,
-  status: 'new',
-  archived: false,
-  tracking_id: 'INV-' + S.workDate.replaceAll('-', '') + '-' + new Date().getHours().toString().padStart(2, '0') + new Date().getMinutes().toString().padStart(2, '0'),
-  created_by: S.user.uid,
-  created_at: FS.serverTimestamp(),
-  updated_at: FS.serverTimestamp()
-}).then(function(){ 
-  S.sessionData = { status: 'new', archived: false }; 
-  return true; 
-});
-    }
-    return true;
-  }).then(function(ok) {
-    if (!ok) return false;
-    return loadExistingEntries().then(function(){ return true; });
-  });
+  var sessionsRef = db.collection('inventorySessions');
+
+  return sessionsRef
+    .where('work_date', '==', S.workDate)
+    .where('archived', '==', false)
+    .get()
+    .then(function(snap) {
+      var openSessions = [];
+
+      snap.docs.forEach(function(d) {
+        var x = d.data();
+        openSessions.push({
+          id: d.id,
+          data: x
+        });
+      });
+
+      openSessions.sort(function(a, b) {
+        var ta = a.data.created_at && a.data.created_at.toMillis ? a.data.created_at.toMillis() : 0;
+        var tb = b.data.created_at && b.data.created_at.toMillis ? b.data.created_at.toMillis() : 0;
+        return tb - ta;
+      });
+
+      var activeSession = null;
+
+      if (S.shift === 'B') {
+        activeSession = openSessions.find(function(row) {
+          return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
+        });
+
+        if (!activeSession) {
+          toast('لا يوجد جرد شفت A بانتظار شفت B', 'error');
+          return false;
+        }
+      }
+
+      if (S.shift === 'A') {
+        activeSession = openSessions.find(function(row) {
+          return row.data.shift_a_sent !== true;
+        });
+      }
+
+      if (activeSession) {
+        S.sessionId = activeSession.id;
+        S.sessionData = activeSession.data;
+        return true;
+      }
+
+      var now = new Date();
+      var hh = String(now.getHours()).padStart(2, '0');
+      var mm = String(now.getMinutes()).padStart(2, '0');
+      var ss = String(now.getSeconds()).padStart(2, '0');
+
+      S.sessionId = 'ALMAZLOUB-' + S.workDate + '-' + hh + mm + ss;
+
+      var data = {
+        branch_id: 'ALMAZLOUB',
+        work_date: S.workDate,
+        status: 'new',
+        archived: false,
+        tracking_id: 'INV-' + S.workDate.replaceAll('-', '') + '-' + hh + mm + ss,
+        created_by: S.user.uid,
+        created_at: FS.serverTimestamp(),
+        updated_at: FS.serverTimestamp()
+      };
+
+      return sessionsRef.doc(S.sessionId).set(data).then(function() {
+        S.sessionData = data;
+        return true;
+      });
+    })
+    .then(function(ok) {
+      if (!ok) return false;
+      return loadExistingEntries().then(function() {
+        return true;
+      });
+    });
 }
 
 function loadExistingEntries() {
@@ -1260,7 +1308,14 @@ function loadExistingEntries() {
     S.invData={};
     results[0].docs.forEach(function(d){
       var data=d.data();
-      S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);
+      if (
+  (data.shift === 'A' && S.sessionData && S.sessionData.shift_a_sent === true) ||
+  (data.shift === 'B' && S.sessionData && S.sessionData.shift_b_sent === true)
+) {
+  return;
+}
+
+S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);
     });
     S.expenses=results[1].docs.map(function(d){return Object.assign({docId:d.id},d.data());});
    S.cashEntries = [];
@@ -1272,7 +1327,17 @@ results[2].docs.forEach(function(d) {
 S.cashData = {};
 
 var currentCash = S.cashEntries.find(function(c) {
-  return c.shift === S.shift;
+  if (c.shift !== S.shift) return false;
+
+  if (c.shift === 'A' && S.sessionData && S.sessionData.shift_a_sent === true) {
+    return false;
+  }
+
+  if (c.shift === 'B' && S.sessionData && S.sessionData.shift_b_sent === true) {
+    return false;
+  }
+
+  return true;
 });
 
 if (currentCash) {
@@ -2489,71 +2554,98 @@ function mgrOpen(type) {
       }).catch(function(e){ hideLoad(); console.error(e); });
   }
   else if(type==='cash') {
-
   setModal('تقارير الكاش');
+  showLoad('جاري تحميل بطاقات الكاش...');
 
-  showLoad('جاري تحميل الكاش...');
+  db.collection('inventorySessions')
+    .orderBy('work_date', 'desc')
+    .get()
+    .then(function(sessionSnap) {
+      var sessions = [];
 
-  db.collection('cashEntries')
-  .where('inventory_session_id','==','ALMAZLOUB-' + S.workDate)
-  .get()
-    .then(function(snap){
+      sessionSnap.docs.forEach(function(d) {
+        var s = d.data();
 
+        sessions.push({
+          id: d.id,
+          data: s
+        });
+      });
+
+      if (!sessions.length) {
+        hideLoad();
+        document.getElementById('modalBody').innerHTML =
+          '<div class="empty">لا توجد جلسات جرد</div>';
+        return;
+      }
+
+      var promises = sessions.map(function(row) {
+        return db.collection('cashEntries')
+          .where('inventory_session_id', '==', row.id)
+          .get()
+          .then(function(cashSnap) {
+            return {
+              session: row,
+              cash: cashSnap.docs.map(function(d) {
+                return Object.assign({ id: d.id }, d.data());
+              })
+            };
+          });
+      });
+
+      return Promise.all(promises);
+    })
+    .then(function(rows) {
       hideLoad();
 
-      if(snap.empty){
+      rows = rows.filter(function(row) {
+        return row && row.cash && row.cash.length;
+      });
+
+      if (!rows.length) {
         document.getElementById('modalBody').innerHTML =
           '<div class="empty">لا توجد بيانات كاش</div>';
         return;
       }
 
-      var cash = snap.docs.map(function(d){ return d.data(); });
+      var html = '';
 
-var cA = cash.find(function(c){ return c.shift === 'A'; }) || {};
-var cB = cash.find(function(c){ return c.shift === 'B'; }) || {};
+      rows.forEach(function(row) {
+        var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
+        var cB = row.cash.find(function(c) { return c.shift === 'B'; }) || {};
 
-function val(obj, key) {
-  return obj[key] !== undefined && obj[key] !== null && obj[key] !== ''
-    ? Number(obj[key]).toFixed(2)
-    : '—';
-}
+        function finalVal(key) {
+          if (cB[key] !== undefined && cB[key] !== null && cB[key] !== '') {
+            return Number(cB[key]).toFixed(2);
+          }
 
-function finalVal(key) {
-  if (cB[key] !== undefined && cB[key] !== null && cB[key] !== '') {
-    return Number(cB[key]).toFixed(2);
-  }
-  if (cA[key] !== undefined && cA[key] !== null && cA[key] !== '') {
-    return Number(cA[key]).toFixed(2);
-  }
-  return '—';
-}
+          if (cA[key] !== undefined && cA[key] !== null && cA[key] !== '') {
+            return Number(cA[key]).toFixed(2);
+          }
 
-var html = '';
-html += '<table class="rpt-table">';
-html += '<thead><tr><th>البيان</th><th>شفت A</th><th>شفت B</th><th>النهائي</th></tr></thead><tbody>';
+          return '—';
+        }
 
-html += '<tr><td>النقد حسب الجهاز</td><td>' + val(cA,'system_cash') + '</td><td>' + val(cB,'system_cash') + '</td><td><strong>' + finalVal('system_cash') + '</strong></td></tr>';
+        var tracking = row.session.data.tracking_id || row.session.id;
+        var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : row.session.id;
 
-html += '<tr><td>النقد الفعلي</td><td>' + val(cA,'actual_cash') + '</td><td>' + val(cB,'actual_cash') + '</td><td><strong>' + finalVal('actual_cash') + '</strong></td></tr>';
+        html +=
+          '<div class="sess-item" onclick="openPendingSessDet(\'' + row.session.id + '\')">' +
+            '<div class="sess-date">' + dateTxt + '</div>' +
+            '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
+            '<div style="margin-top:6px;">الكاش النهائي: <strong>' + finalVal('cash_to_submit') + '</strong> دينار</div>' +
+            '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لفتح نفس جرد اليوم المرتبط بهذا الكاش</div>' +
+          '</div>';
+      });
 
-html += '<tr><td>الفرق</td><td>' + val(cA,'difference') + '</td><td>' + val(cB,'difference') + '</td><td><strong>' + finalVal('difference') + '</strong></td></tr>';
-
-html += '<tr><td>النقد المراد تسليمه</td><td>' + val(cA,'cash_to_submit') + '</td><td>' + val(cB,'cash_to_submit') + '</td><td><strong>' + finalVal('cash_to_submit') + '</strong></td></tr>';
-
-html += '</tbody></table>';
-
-document.getElementById('modalBody').innerHTML = html;
-
+      document.getElementById('modalBody').innerHTML = html;
     })
-    .catch(function(e){
-
+    .catch(function(e) {
       hideLoad();
-
+      console.error(e);
       document.getElementById('modalBody').innerHTML =
-        '<div class="empty">خطأ: '+e.message+'</div>';
-
+        '<div class="empty">خطأ أثناء تحميل تقارير الكاش</div>';
     });
-
 }
   else if (type==='items') {
     setModal('ادارة الاصناف');
