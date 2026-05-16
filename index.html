@@ -1034,6 +1034,16 @@ var S = {
   invImgs:[], posImgs:[],
   curItemIdx:0
 };
+function makeTrackingId(workDate) {
+  var now = new Date();
+  var p = workDate.split('-');
+  var dateTxt = p[2] + '/' + p[1] + '/' + p[0];
+
+  var hh = String(now.getHours()).padStart(2, '0');
+  var mm = String(now.getMinutes()).padStart(2, '0');
+
+  return dateTxt + '-' + hh + '.' + mm;
+}
 
 // ==================== UTILS ====================
 function showScreen(id) {
@@ -1280,7 +1290,7 @@ function loadOrCreateSession() {
         work_date: S.workDate,
         status: 'new',
         archived: false,
-        tracking_id: 'INV-' + S.workDate.replaceAll('-', '') + '-' + hh + mm + ss,
+        tracking_id: makeTrackingId(S.workDate),
         created_by: S.user.uid,
         created_at: FS.serverTimestamp(),
         updated_at: FS.serverTimestamp()
@@ -2208,9 +2218,11 @@ document.getElementById('warehouseBalanceSection').style.display = 'none';
 
         var time = '-';
 
-        if (x.createdAt && x.createdAt.toDate) {
-          time = x.createdAt.toDate().toLocaleString('ar-JO');
-        }
+        var t = x.createdAt || x.created_at;
+
+if (t && t.toDate) {
+  time = t.toDate().toLocaleString('ar-JO');
+}
 
         html +=
           '<div class="expense-item">' +
@@ -2716,7 +2728,8 @@ function approveSessionToArchive(sessId) {
         entries: det.entries || [],
         expenses: det.expenses || [],
         cash: det.cash || [],
-        accounting: det.accounting || []
+        accounting: det.accounting || [],
+        withdrawals: det.withdrawals || []
       };
 
       return db.collection('dailyInventoryArchive')
@@ -2757,19 +2770,22 @@ function loadSessionDetails(sessId) {
     db.collection('inventoryEntries').where('inventory_session_id','==',sessId).get(),
     db.collection('expenses').where('inventory_session_id','==',sessId).get(),
     db.collection('cashEntries').where('inventory_session_id','==',sessId).get(),
-    db.collection('accountingQuantities').where('inventory_session_id','==',sessId).get()
+    db.collection('accountingQuantities').where('inventory_session_id','==',sessId).get(),
+    db.collection('stockWithdrawals').where('inventory_session_id','==',sessId).get()
   ]).then(function(res){
     return {
-      entries:res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      expenses:res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      cash:res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      accounting:res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+      entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());})
     };
   });
 }
 
 function renderReport(det,sessId) {
   var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
+var withdrawals = det.withdrawals || [];
   var accMap={}, invMap={};
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
@@ -2847,13 +2863,58 @@ var diff=(acc!==undefined)?tot-acc:null;
 });
 
 cashHtml += '</tbody></table>';
+
+var withdrawalsMap = {};
+withdrawals.forEach(function(w) {
+  var name = w.item_name || 'صنف غير محدد';
+
+  if (!withdrawalsMap[name]) {
+    withdrawalsMap[name] = { A: 0, B: 0, total: 0 };
+  }
+
+  if (w.shift === 'A') {
+    withdrawalsMap[name].A += Number(w.quantity || 0);
+  }
+
+  if (w.shift === 'B') {
+    withdrawalsMap[name].B += Number(w.quantity || 0);
+  }
+
+  withdrawalsMap[name].total += Number(w.quantity || 0);
+});
+
+var withdrawalsHtml = '';
+
+var withdrawalNames = Object.keys(withdrawalsMap);
+
+if (withdrawalNames.length) {
+  withdrawalsHtml =
+    '<table class="rpt-table">' +
+      '<thead><tr><th>الصنف</th><th>شفت A</th><th>شفت B</th><th>المجموع</th></tr></thead><tbody>';
+
+  withdrawalNames.forEach(function(name) {
+    var x = withdrawalsMap[name];
+
+    withdrawalsHtml +=
+      '<tr>' +
+        '<td style="text-align:right;font-size:11px;">' + name + '</td>' +
+        '<td>' + x.A + '</td>' +
+        '<td>' + x.B + '</td>' +
+        '<td><strong>' + x.total + '</strong></td>' +
+      '</tr>';
+  });
+
+  withdrawalsHtml += '</tbody></table>';
+}
   
 
   var waBtn=hasAcc?'<button class="wa-btn" onclick="sendWA(\''+sessId+'\')">ارسال تقرير الفروقات واتساب</button>':'';
 
-  return '<div class="detail-sec"><div class="sec-title">الاصناف</div>'+itemsHtml+'</div>'+
-    (allExpNms.length?'<div class="detail-sec"><div class="sec-title">المصاريف</div>'+expHtml+'</div>':'')+
-    ((cA||cB)?'<div class="detail-sec"><div class="sec-title">الكاش</div>'+cashHtml+'</div>':'')+waBtn;
+ return '<div class="detail-sec"><div class="sec-title">الاصناف</div>'+itemsHtml+'</div>'+
+  (allExpNms.length?'<div class="detail-sec"><div class="sec-title">المصاريف</div>'+expHtml+'</div>':'')+
+  ((cA||cB)?'<div class="detail-sec"><div class="sec-title">الكاش</div>'+cashHtml+'</div>':'')+
+  (withdrawalNames.length?'<div class="detail-sec"><div class="sec-title">سحوبات المستودع</div>'+withdrawalsHtml+'</div>':'')+
+  waBtn;
 }
 
 function saveAccQty(sessId,itemId,val) {
