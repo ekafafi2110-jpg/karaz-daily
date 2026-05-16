@@ -1010,6 +1010,7 @@ var auth    = firebase.auth();
 var db      = firebase.firestore();
 var storage = firebase.storage();
 var FS      = firebase.firestore.FieldValue;
+console.log("VERSION TEST 2026-05-16-01");
 
 console.log("Firebase initialized - projectId:", firebaseConfig.projectId);
 
@@ -2370,29 +2371,51 @@ function openPendingDailyInventory(snapshotId) {
 function mgrOpen(type) {
   openModal();
   if (type === 'today') {
-  setModal('جرد اليوم - ' + fmtDate(S.workDate));
-  showLoad('جاري تحميل جرد اليوم...');
+  setModal('جرد غير معتمد');
+  showLoad('جاري تحميل الجرد غير المعتمد...');
 
-  var todaySessionId = 'ALMAZLOUB-' + S.workDate;
-
-  loadSessionDetails(todaySessionId)
-    .then(function(det) {
+  db.collection('inventorySessions')
+    .orderBy('work_date', 'desc')
+    .get()
+    .then(function(snap) {
       hideLoad();
 
-      if ((!det.entries || !det.entries.length) && (!det.cash || !det.cash.length)) {
+      var pending = [];
+
+      snap.docs.forEach(function(d) {
+        var s = d.data();
+
+        if (s.archived === true) return;
+
+        pending.push({
+          id: d.id,
+          data: s
+        });
+      });
+
+      if (!pending.length) {
         document.getElementById('modalBody').innerHTML =
-          '<div class="empty">لا يوجد جرد أو كاش لهذا اليوم بعد</div>';
+          '<div class="empty">لا يوجد جرد غير معتمد</div>';
         return;
       }
 
-      document.getElementById('modalBody').innerHTML =
-        renderReport(det, todaySessionId);
+      var html = '';
+
+      pending.forEach(function(row) {
+        html +=
+          '<div class="sess-item" onclick="openPendingSessDet(\'' + row.id + '\')">' +
+            '<div class="sess-date">' + fmtDate(row.data.work_date) + '</div>' +
+            '<div style="margin-top:4px;">جرد بانتظار اعتماد المدير</div>' +
+          '</div>';
+      });
+
+      document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
       hideLoad();
       console.error(e);
       document.getElementById('modalBody').innerHTML =
-        '<div class="empty">حدث خطأ أثناء تحميل جرد اليوم</div>';
+        '<div class="empty">حدث خطأ أثناء تحميل الجرد غير المعتمد</div>';
     });
 }
   else if (type==='sessions') {
@@ -2503,6 +2526,84 @@ function openSessDet(sessId) {
   loadSessionDetails(sessId)
     .then(function(det){ document.getElementById('modalBody').innerHTML=renderReport(det,sessId); hideLoad(); })
     .catch(function(e){ document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-txt">خطا في التحميل</div></div>'; hideLoad(); console.error(e); });
+}
+function openPendingSessDet(sessId) {
+  setModal('تفاصيل الجرد غير المعتمد');
+  showLoad('جاري تحميل تفاصيل الجرد...');
+
+  loadSessionDetails(sessId)
+    .then(function(det) {
+      hideLoad();
+
+      document.getElementById('modalBody').innerHTML =
+        renderReport(det, sessId) +
+        '<button class="wa-btn" onclick="approveSessionToArchive(\'' + sessId + '\')">' +
+          'حفظ واعتماد الجرد في السجل' +
+        '</button>' +
+        '<div id="dailyArchiveMsg"></div>';
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">حدث خطأ أثناء فتح تفاصيل الجرد</div>';
+    });
+}
+function approveSessionToArchive(sessId) {
+  var msg = document.getElementById('dailyArchiveMsg');
+
+  if (!confirm('هل تريد اعتماد هذا الجرد ونقله إلى السجل الكامل؟')) {
+    return;
+  }
+
+  if (msg) {
+    msg.innerHTML = '<div class="empty">جاري اعتماد الجرد...</div>';
+  }
+
+  loadSessionDetails(sessId)
+    .then(function(det) {
+      var archiveData = {
+        session_id: sessId,
+        work_date: sessId.replace('ALMAZLOUB-', ''),
+        archived_by: S.user ? S.user.email : '',
+        archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        entries: det.entries || [],
+        expenses: det.expenses || [],
+        cash: det.cash || [],
+        accounting: det.accounting || []
+      };
+
+      return db.collection('dailyInventoryArchive')
+        .doc(sessId)
+        .set(archiveData);
+    })
+    .then(function() {
+      return db.collection('inventorySessions')
+        .doc(sessId)
+        .update({
+          archived: true,
+          status: 'approved',
+          archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          archived_by: S.user ? S.user.email : ''
+        });
+    })
+    .then(function() {
+      if (msg) {
+        msg.innerHTML = '<div class="empty">تم اعتماد الجرد ونقله إلى السجل</div>';
+      }
+
+      toast('تم اعتماد الجرد', 'success');
+
+      setTimeout(function() {
+        mgrOpen('today');
+      }, 800);
+    })
+    .catch(function(e) {
+      console.error(e);
+      if (msg) {
+        msg.innerHTML = '<div class="empty">حدث خطأ أثناء اعتماد الجرد</div>';
+      }
+    });
 }
 
 function loadSessionDetails(sessId) {
