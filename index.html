@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1a0a2e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="كرز وعنب">
-<title>كرز وعنب - المزلوب</title>
+<title>كرز وعنب - القويسمة</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
 
@@ -34,6 +34,14 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 #loginScreen{background:linear-gradient(160deg,#1a0a0e,#0d0d0d 50%,#0a0616);
   align-items:center;justify-content:center;padding:28px 24px;gap:28px;}
 .logo-wrap{text-align:center;}
+.logo-wrap img{
+  width:180px;
+  max-width:88%;
+  height:auto;
+  display:block;
+  margin:0 auto 12px auto;
+  filter:drop-shadow(0 8px 32px rgba(129,57,43,.45));
+}
 .logo-icon{width:88px;height:88px;margin:0 auto 12px;
   background:linear-gradient(135deg,var(--cherry),var(--grape));
   border-radius:24px;display:flex;align-items:center;justify-content:center;
@@ -82,9 +90,16 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   position:sticky;top:0;z-index:100;}
 .h-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
 .h-logo{display:flex;align-items:center;gap:8px;}
-.h-logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--cherry),var(--grape));
-  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
-.h-brand{font-size:15px;font-weight:900;}
+.h-logo-icon{
+  width:34px;
+  height:34px;
+  background-image:url('logo.png');
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+  border-radius:8px;
+  flex-shrink:0;
+}.h-brand{font-size:15px;font-weight:900;}
 .h-brand span{color:var(--cherry2);}
 .h-right{display:flex;align-items:center;gap:8px;}
 .sbadge{padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700;}
@@ -861,7 +876,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 <!-- LOGIN -->
 <div class="screen active" id="loginScreen">
   <div class="logo-wrap">
-    <div class="logo-icon">&#127811;</div>
+<img src="logo.png">
     <div class="logo-title">كرز وعنب</div>
     <div class="logo-sub">القويسمة - نظام الجرد اليومي</div>
   </div>
@@ -907,7 +922,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="app-header">
     <div class="h-top">
       <div class="h-logo">
-        <div class="h-logo-icon">&#127811;</div>
+        <img src="logo.png" class="header-logo">
         <div class="h-brand">كرز <span>&</span> عنب</div>
       </div>
       <div class="h-right">
@@ -1052,7 +1067,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="app-header">
     <div class="h-top">
       <div class="h-logo">
-        <div class="h-logo-icon">&#127811;</div>
+        <img src="logo.png" class="header-logo">
         <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
       </div>
       <div class="admin-tabs">
@@ -1452,11 +1467,8 @@ function loadOrCreateSession() {
   }
 }
       if (S.shift === 'A') {
-        activeSession = openSessions.find(function(row) {
-          return row.data.shift_a_sent !== true;
-        });
-      }
-
+  activeSession = null;
+}
       if (activeSession) {
         S.sessionId = activeSession.id;
         S.sessionData = activeSession.data;
@@ -2713,10 +2725,8 @@ function addWithdrawal() {
 
 // ==================== SAVE ====================
 function saveAndFinalize() {
-  var missing=S.items.filter(function(item){
-    var v=S.invData[item.id+'_'+S.shift]; return !v||v.quantity===undefined||v.quantity==='';
-  });
-  if (missing.length){ showMissingModal(missing); return; }
+  // TEMP TEST: تم تعطيل شرط اكتمال كل الأصناف مؤقتًا للتجربة
+var missing = [];
   var sys=document.getElementById('sysCash').value;
   var act=document.getElementById('actCash').value;
   if (!sys||!act){ toast('يرجى تعبئة بيانات الكاش','error'); switchTab('cash'); return; }
@@ -2805,13 +2815,22 @@ return db.collection('inventorySessions').doc(S.sessionId).update(updateData);
     S.posImgs = [];
 
     renderInventory();
-    renderExpenses();
-    renderCash();
-    renderImgGrid('invImgGrid', S.invImgs, 'invImgs');
-    renderImgGrid('posImgGrid', S.posImgs, 'posImgs');
+renderExpenses();
+renderCash();
+renderImgGrid('invImgGrid', S.invImgs, 'invImgs');
+renderImgGrid('posImgGrid', S.posImgs, 'posImgs');
 
-    hideLoad();
-    toast(S.shift==='A'?'تم إرسال شفت A بنجاح':'تم إرسال شفت B للمدير بنجاح','success');
+var doneMsg = S.shift==='A'
+  ? 'تم إرسال شفت A بنجاح'
+  : 'تم إرسال شفت B للمدير بنجاح';
+
+S.shift = null;
+S.sessionId = null;
+S.sessionData = null;
+
+hideLoad();
+toast(doneMsg, 'success');
+showShiftScreen();
   }).catch(function(e){
         hideLoad();
     toast('خطأ في الحفظ: ' + e.message, 'error');
