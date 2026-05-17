@@ -1493,9 +1493,13 @@ function loadOrCreateSession() {
 
       var activeSession = null;
 
-      if (S.shift === 'B') {
+     if (S.shift === 'B') {
   var pendingForB = openSessions.filter(function(row) {
-    return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
+    return (
+      row.data.shift_a_sent === true &&
+      row.data.shift_b_sent !== true &&
+      row.data.archived !== true
+    );
   });
 
   if (!pendingForB.length) {
@@ -1513,7 +1517,16 @@ function loadOrCreateSession() {
   }
 }
       if (S.shift === 'A') {
-  activeSession = null;
+
+  var unfinishedA = openSessions.find(function(row) {
+    return row.data.shift_a_sent !== true;
+  });
+
+  if (unfinishedA) {
+    activeSession = unfinishedA;
+  } else {
+    activeSession = null;
+  }
 }
       if (activeSession) {
         S.sessionId = activeSession.id;
@@ -1552,6 +1565,7 @@ function loadOrCreateSession() {
     });
 }
 function showBSessionPicker(sessions) {
+  if (S.shift !== 'B') return;
   setModal('اختيار جرد شفت A');
   openModal();
 
@@ -1613,14 +1627,7 @@ function loadExistingEntries() {
     S.invData={};
     results[0].docs.forEach(function(d){
       var data=d.data();
-      if (
-  S.shift === 'A' &&
-  data.shift === 'A' &&
-  S.sessionData &&
-  S.sessionData.shift_a_sent === true
-) {
-  return;
-}
+      
 
 if (
   S.shift === 'B' &&
