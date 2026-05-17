@@ -35,11 +35,11 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   align-items:center;justify-content:center;padding:28px 24px;gap:28px;}
 .logo-wrap{text-align:center;}
 .logo-wrap img{
-  width:180px;
-  max-width:88%;
+  width:220px;
+  max-width:90%;
   height:auto;
   display:block;
-  margin:0 auto 12px auto;
+  margin:0 auto 14px auto;
   filter:drop-shadow(0 8px 32px rgba(129,57,43,.45));
 }
 .logo-icon{width:88px;height:88px;margin:0 auto 12px;
@@ -855,6 +855,46 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   min-width: 32px !important;
   text-align: left !important;
 }
+.withdraw-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--rs);
+  padding:15px;
+  margin-bottom:14px;
+}
+
+.withdraw-row{
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+  margin-bottom:10px;
+}
+
+.withdraw-field{
+  flex:1;
+}
+
+.withdraw-qty{
+  width:120px;
+}
+
+.withdraw-save{
+  margin-top:12px;
+  width:100%;
+}
+
+.withdraw-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.withdraw-list .expense-item{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--rs);
+  padding:12px;
+}
 
 </style>
 </style>
@@ -876,7 +916,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 <!-- LOGIN -->
 <div class="screen active" id="loginScreen">
   <div class="logo-wrap">
-<img src="logo.png">
+<img src="logo.png" style="width:320px;max-width:95%;height:auto;display:block;margin:0 auto 14px auto;">
     <div class="logo-title">كرز وعنب</div>
     <div class="logo-sub">القويسمة - نظام الجرد اليومي</div>
   </div>
@@ -922,7 +962,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="app-header">
     <div class="h-top">
       <div class="h-logo">
-        <img src="logo.png" class="header-logo">
+        <div class="h-logo-icon"></div>
         <div class="h-brand">كرز <span>&</span> عنب</div>
       </div>
       <div class="h-right">
@@ -1036,30 +1076,28 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   </div>
 
   <div class="tab-pane" id="pane-withdrawals">
-  <div class="expense-form">
+  <div class="withdraw-card">
     <div class="sec-title">📦 سحب من المستودع</div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">الصنف</label>
-        <select class="form-select" id="withdrawItem" style="width:100%; padding:12px; border-radius:10px; font-size:15px; background:#1e1e1e; color:#f0f0f0; border:1.5px solid #2a2a2a;"></select>      </div>
+    <div class="withdraw-row">
+      <div class="withdraw-field">
+        <label class="f-lbl">الصنف</label>
+        <select class="f-sel" id="withdrawItem"></select>
+      </div>
 
-      <div class="form-group" style="max-width:120px;">
-        <label class="form-label">الكمية</label>
-        <input type="number" class="form-input" id="withdrawQty" placeholder="0" min="1" style="width:100%; padding:12px; border-radius:10px; font-size:15px;">
+      <div class="withdraw-qty">
+        <label class="f-lbl">الكمية</label>
+        <input type="number" class="f-inp2" id="withdrawQty" placeholder="0" min="1">
       </div>
     </div>
 
-    <div style="margin-bottom:10px;">
-      <input type="text" class="form-input" id="withdrawNote" placeholder="ملاحظة اختيارية" style="width:100%; padding:12px; border-radius:10px; font-size:15px; margin-bottom:10px;">
-    </div>
+    <label class="f-lbl">ملاحظة</label>
+    <input type="text" class="f-inp2" id="withdrawNote" placeholder="ملاحظة اختيارية" style="width:100%;">
 
-    <button class="btn-add" onclick="addWithdrawal()">+ حفظ السحب</button>
+    <button class="btn-add withdraw-save" onclick="addWithdrawal()">+ حفظ السحب</button>
   </div>
 
-  <div class="expense-list" id="withdrawList"></div>
-</div>
-  
+  <div class="withdraw-list" id="withdrawList"></div>
 </div>
 
 <!-- MANAGER -->
@@ -1067,7 +1105,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="app-header">
     <div class="h-top">
       <div class="h-logo">
-        <img src="logo.png" class="header-logo">
+        <div class="h-logo-icon"></div>
         <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
       </div>
       <div class="admin-tabs">
@@ -1407,6 +1445,14 @@ function showShiftScreen() {
 }
 function selectShift(shift) {
   S.shift=shift;
+  S.sessionId = null;
+S.sessionData = null;
+S.invData = {};
+S.expenses = [];
+S.cashData = {};
+S.cashEntries = [];
+S.invImgs = [];
+S.posImgs = [];
   showLoad('جاري تحميل الجرد...');
   loadOrCreateSession().then(function(ok) {
     if (!ok) { hideLoad(); return; }
@@ -1568,8 +1614,19 @@ function loadExistingEntries() {
     results[0].docs.forEach(function(d){
       var data=d.data();
       if (
-  (data.shift === 'A' && S.sessionData && S.sessionData.shift_a_sent === true) ||
-  (data.shift === 'B' && S.sessionData && S.sessionData.shift_b_sent === true)
+  S.shift === 'A' &&
+  data.shift === 'A' &&
+  S.sessionData &&
+  S.sessionData.shift_a_sent === true
+) {
+  return;
+}
+
+if (
+  S.shift === 'B' &&
+  data.shift === 'B' &&
+  S.sessionData &&
+  S.sessionData.shift_b_sent === true
 ) {
   return;
 }
@@ -1811,7 +1868,7 @@ function calcCash() {
   var sys=parseFloat(document.getElementById('sysCash').value);
   var act=parseFloat(document.getElementById('actCash').value);
   if (isNaN(sys)||isNaN(act)) return;
-  var diff=act-sys, submit=act+diff-20;
+  var diff=act-sys, submit=act-20;
   var dEl=document.getElementById('cashDiff'), pill=document.getElementById('cashPill');
   dEl.textContent=diff.toFixed(2)+' دينار';
   pill.style.display='inline-block';
@@ -2763,7 +2820,7 @@ if (!confirm(confirmMsg)) {
 
   // Cash
   var sysV=parseFloat(sys), actV=parseFloat(act);
-  var diff=actV-sysV, submit=actV+diff-20;
+  var diff=actV-sysV, submit=actV-20;
   var cashData={inventory_session_id:S.sessionId,shift:S.shift,
     system_cash:sysV,actual_cash:actV,difference:diff,cash_to_submit:submit,
     created_by:S.user.uid,updated_at:FS.serverTimestamp()};
