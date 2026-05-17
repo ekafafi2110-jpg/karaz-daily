@@ -802,6 +802,45 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   margin-top: 12px;
   text-align: center;
 }
+#warehouseAdminSection .warehouse-action-btn,
+#warehouseAdminSection .warehouse-card-btn {
+  width: 100% !important;
+  height: 74px !important;
+  background: #181818 !important;
+  color: #fff !important;
+  border: 1px solid #333 !important;
+  border-radius: 16px !important;
+  padding: 0 22px !important;
+  margin-bottom: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  direction: rtl !important;
+  text-align: right !important;
+  font-family: 'Cairo', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+
+#warehouseAdminSection .warehouse-action-btn:hover,
+#warehouseAdminSection .warehouse-card-btn:hover {
+  border-color: #f0c400 !important;
+  background: #222 !important;
+}
+
+#warehouseAdminSection .warehouse-card-title {
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  text-align: right !important;
+  flex: 1 !important;
+}
+
+#warehouseAdminSection .warehouse-card-icon {
+  font-size: 24px !important;
+  min-width: 32px !important;
+  text-align: left !important;
+}
+
 </style>
 </style>
 </head>
@@ -1032,49 +1071,44 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div id="warehouseAdminSection" style="display:none;">
   <div class="warehouse-box">
     <h2>المستودع</h2>
+
     <button onclick="showOpeningStockForm()" class="warehouse-card-btn">
-  <div class="warehouse-card-icon">📊</div>
-  <div class="warehouse-card-title">الرصيد الافتتاحي</div>
-</button>
-<button onclick="showWarehouseBalance()" class="warehouse-card-btn">
-  <div class="warehouse-card-icon">📈</div>
-  <div class="warehouse-card-title">رصيد الأصناف</div>
-</button>
-    <div id="openingStockSection" style="display:none;">
-
-  <h3>الرصيد الافتتاحي</h3>
-
-  <select id="openingItemName" class="input">
-    <option value="">اختر الصنف</option>
-    <div id="warehouseBalanceSection" style="display:none;">
-  <h3>رصيد الأصناف</h3>
-  <div id="warehouseBalanceList"></div>
-  <div id="warehouseBalanceDebug" class="empty"></div>
-</div>
-  </select>
-
-  <input id="openingQuantity" class="input" type="number" placeholder="الكمية الافتتاحية">
-
-  <button onclick="saveOpeningStock()" class="warehouse-action-btn">
-    حفظ الرصيد الافتتاحي
-  </button>
-
-  <div id="openingStockMsg"></div>
-
-</div>
-<div id="warehouseBalanceSection" style="display:none;">
-  <h3>رصيد الأصناف</h3>
-  <div id="warehouseBalanceList"></div>
-</div>
-
-    <button onclick="showAdminWithdrawals()" class="warehouse-action-btn">
-      📦 سجل سحوبات المستودع
+      <div class="warehouse-card-title">الرصيد الافتتاحي</div>
+      <div class="warehouse-card-icon">📊</div>
     </button>
-    <button onclick="showWarehousePurchaseForm()" class="warehouse-card-btn">
-  <div class="warehouse-card-icon">🧾</div>
-  <div class="warehouse-card-title">مشتريات المستودع</div>
-</button>
 
+    <button onclick="showWarehouseBalance()" class="warehouse-card-btn">
+      <div class="warehouse-card-title">رصيد الأصناف</div>
+      <div class="warehouse-card-icon">📈</div>
+    </button>
+
+    <button onclick="showAdminWithdrawals()" class="warehouse-card-btn">
+      <div class="warehouse-card-title">سجل سحوبات المستودع</div>
+      <div class="warehouse-card-icon">📦</div>
+    </button>
+
+    <button onclick="showWarehousePurchaseForm()" class="warehouse-card-btn">
+      <div class="warehouse-card-title">مشتريات المستودع</div>
+      <div class="warehouse-card-icon">🧾</div>
+    </button>
+
+    <div id="openingStockSection" style="display:none;">
+      <h3>الرصيد الافتتاحي</h3>
+      <select id="openingItemName" class="input">
+        <option value="">اختر الصنف</option>
+      </select>
+      <input id="openingQuantity" class="input" type="number" placeholder="الكمية الافتتاحية">
+      <button onclick="saveOpeningStock()" class="warehouse-action-btn">
+        حفظ الرصيد الافتتاحي
+      </button>
+      <div id="openingStockMsg"></div>
+    </div>
+
+    <div id="warehouseBalanceSection" style="display:none;">
+      <h3>رصيد الأصناف</h3>
+      <div id="warehouseBalanceList"></div>
+      <div id="warehouseBalanceDebug" class="empty"></div>
+    </div>
 
     <div id="adminWithdrawalsSection" style="display:none;">
       <h3>سجل سحوبات المستودع</h3>
@@ -1764,6 +1798,24 @@ function hideWarehouseSections() {
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
 }
+function toggleWarehouseSection(sectionId, loadFn) {
+  var section = document.getElementById(sectionId);
+  if (!section) return;
+
+  var isOpen = section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) {
+    return;
+  }
+
+  section.style.display = 'block';
+
+  if (typeof loadFn === 'function') {
+    loadFn();
+  }
+}
 
 function showManagerHome() {
   document.querySelector('.mgr-grid').style.display = 'grid';
@@ -1783,6 +1835,7 @@ function showWarehouseAdmin() {
 function showWarehousePurchaseForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
+  toggleWarehouseSection('warehousePurchaseSection', loadPurchaseItems);
   hideWarehouseSections();
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'block';
@@ -1808,6 +1861,7 @@ function loadPurchaseItems() {
 function showOpeningStockForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
+  toggleWarehouseSection('openingStockSection', loadOpeningItems);
   hideWarehouseSections();
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
@@ -2124,6 +2178,12 @@ function showWarehouseBalance() {
     console.log('SHOW WAREHOUSE BALANCE START');
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
+  var section = document.getElementById('warehouseBalanceSection');
+  var isOpen = section && section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) return;
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
   document.getElementById('openingStockSection').style.display = 'none';
@@ -2346,6 +2406,12 @@ function saveWarehousePurchase() {
 function showAdminWithdrawals() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
+  var section = document.getElementById('adminWithdrawalsSection');
+  var isOpen = section && section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) return;
   document.getElementById('adminWithdrawalsSection').style.display = 'block';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
   document.getElementById('warehouseBalanceSection').style.display = 'none';
