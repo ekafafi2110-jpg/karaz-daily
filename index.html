@@ -1861,14 +1861,14 @@ function loadPurchaseItems() {
 function showOpeningStockForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
+
   toggleWarehouseSection('openingStockSection', loadOpeningItems);
   hideWarehouseSections();
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
-  document.getElementById('openingStockSection').style.display = 'block';
   document.getElementById('warehouseBalanceSection').style.display = 'none';
 
-  loadOpeningItems();
+  
 }
 function saveDailyInventorySnapshot() {
     var confirmMsg = '';
