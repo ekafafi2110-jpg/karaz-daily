@@ -1056,8 +1056,8 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
         <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
       </div>
       <div class="admin-tabs">
-  <button class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
-  <button class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
+  <button id="adminTabHome" class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
+<button id="adminTabWarehouse" class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
 </div>      <div class="h-right">
         <span class="sbadge MGR">مدير</span>
         <button class="btn-logout" onclick="doLogout()">خروج</button>
@@ -1208,7 +1208,8 @@ var S = {
   items:[], expTypes:[],
   invData:{}, expenses:[], cashData:{},
   invImgs:[], posImgs:[],
-  curItemIdx:0
+  curItemIdx:0,
+pendingSessionsForB:[]
 };
 function makeTrackingId(workDate) {
   var now = new Date();
@@ -1432,16 +1433,24 @@ function loadOrCreateSession() {
       var activeSession = null;
 
       if (S.shift === 'B') {
-        activeSession = openSessions.find(function(row) {
-          return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
-        });
+  var pendingForB = openSessions.filter(function(row) {
+    return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
+  });
 
-        if (!activeSession) {
-          toast('لا يوجد جرد شفت A بانتظار شفت B', 'error');
-          return false;
-        }
-      }
+  if (!pendingForB.length) {
+    toast('لا يوجد جرد شفت A بانتظار شفت B', 'error');
+    return false;
+  }
 
+  if (pendingForB.length === 1) {
+    activeSession = pendingForB[0];
+  } else {
+    S.pendingSessionsForB = pendingForB;
+    hideLoad();
+    showBSessionPicker(pendingForB);
+    return false;
+  }
+}
       if (S.shift === 'A') {
         activeSession = openSessions.find(function(row) {
           return row.data.shift_a_sent !== true;
@@ -1482,6 +1491,58 @@ function loadOrCreateSession() {
       return loadExistingEntries().then(function() {
         return true;
       });
+    });
+}
+function showBSessionPicker(sessions) {
+  setModal('اختيار جرد شفت A');
+  openModal();
+
+  var html =
+    '<div class="empty" style="padding:12px;color:var(--gold);font-weight:700;">' +
+      'يوجد أكثر من جرد شفت A بانتظار شفت B. اختر الجرد الصحيح حتى لا تختلط المصاريف والكاش.' +
+    '</div>';
+
+  sessions.forEach(function(row) {
+    var tracking = row.data.tracking_id || row.id;
+    var dateTxt = row.data.work_date ? fmtDate(row.data.work_date) : row.id;
+
+    html +=
+      '<div class="sess-item" onclick="selectSessionForB(\'' + row.id + '\')">' +
+        '<div class="sess-date">' + dateTxt + '</div>' +
+        '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
+        '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لاختيار هذا الجرد</div>' +
+      '</div>';
+  });
+
+  document.getElementById('modalBody').innerHTML = html;
+}
+function selectSessionForB(sessId) {
+  var row = S.pendingSessionsForB.find(function(x) {
+    return x.id === sessId;
+  });
+
+  if (!row) {
+    toast('لم يتم العثور على الجرد المختار', 'error');
+    return;
+  }
+
+  S.sessionId = row.id;
+  S.sessionData = row.data;
+
+  closeModal();
+  showLoad('جاري تحميل الجرد المختار...');
+
+  loadExistingEntries()
+    .then(function() {
+      initMainScreen();
+      showScreen('main');
+      hideLoad();
+      toast('تم اختيار الجرد: ' + (row.data.tracking_id || row.id), 'success');
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('خطأ في تحميل الجرد المختار', 'error');
     });
 }
 
@@ -1816,14 +1877,28 @@ function toggleWarehouseSection(sectionId, loadFn) {
     loadFn();
   }
 }
+function setAdminTabActive(tab) {
+  document.getElementById('adminTabHome').classList.remove('active');
+  document.getElementById('adminTabWarehouse').classList.remove('active');
+
+  if (tab === 'home') {
+    document.getElementById('adminTabHome').classList.add('active');
+  }
+
+  if (tab === 'warehouse') {
+    document.getElementById('adminTabWarehouse').classList.add('active');
+  }
+}
 
 function showManagerHome() {
+  setAdminTabActive('home');
   document.querySelector('.mgr-grid').style.display = 'grid';
   document.getElementById('warehouseAdminSection').style.display = 'none';
   hideWarehouseSections();
 }
 
 function showWarehouseAdmin() {
+  setAdminTabActive('warehouse');
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
   hideWarehouseSections();
@@ -1835,14 +1910,18 @@ function showWarehouseAdmin() {
 function showWarehousePurchaseForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
-  toggleWarehouseSection('warehousePurchaseSection', loadPurchaseItems);
+
+  var section = document.getElementById('warehousePurchaseSection');
+  var isOpen = section && section.style.display === 'block';
+
   hideWarehouseSections();
-  document.getElementById('adminWithdrawalsSection').style.display = 'none';
+
+  if (isOpen) return;
+
   document.getElementById('warehousePurchaseSection').style.display = 'block';
-  document.getElementById('openingStockSection').style.display = 'none';
-  document.getElementById('warehouseBalanceSection').style.display = 'none';
   loadPurchaseItems();
 }
+
 function loadPurchaseItems() {
   var select = document.getElementById('purchaseItemName');
   if (!select) return;
@@ -1862,13 +1941,15 @@ function showOpeningStockForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
 
-  toggleWarehouseSection('openingStockSection', loadOpeningItems);
-  hideWarehouseSections();
-  document.getElementById('adminWithdrawalsSection').style.display = 'none';
-  document.getElementById('warehousePurchaseSection').style.display = 'none';
-  document.getElementById('warehouseBalanceSection').style.display = 'none';
+  var section = document.getElementById('openingStockSection');
+  var isOpen = section && section.style.display === 'block';
 
-  
+  hideWarehouseSections();
+
+  if (isOpen) return;
+
+  document.getElementById('openingStockSection').style.display = 'block';
+  loadOpeningItems();
 }
 function saveDailyInventorySnapshot() {
     var confirmMsg = '';
@@ -2883,7 +2964,7 @@ function mgrOpen(type) {
   }
   else if(type==='cash') {
   setModal('تقارير الكاش');
-  showLoad('جاري تحميل بطاقات الكاش...');
+  showLoad('جاري تحميل آخر 10 كاشات...');
 
   db.collection('inventorySessions')
     .orderBy('work_date', 'desc')
@@ -2900,6 +2981,14 @@ function mgrOpen(type) {
         });
       });
 
+      sessions.sort(function(a, b) {
+        var ta = a.data.updated_at && a.data.updated_at.toMillis ? a.data.updated_at.toMillis() : 0;
+        var tb = b.data.updated_at && b.data.updated_at.toMillis ? b.data.updated_at.toMillis() : 0;
+        return tb - ta;
+      });
+
+      sessions = sessions.slice(0, 10);
+
       if (!sessions.length) {
         hideLoad();
         document.getElementById('modalBody').innerHTML =
@@ -2908,17 +2997,24 @@ function mgrOpen(type) {
       }
 
       var promises = sessions.map(function(row) {
-        return db.collection('cashEntries')
-          .where('inventory_session_id', '==', row.id)
-          .get()
-          .then(function(cashSnap) {
-            return {
-              session: row,
-              cash: cashSnap.docs.map(function(d) {
-                return Object.assign({ id: d.id }, d.data());
-              })
-            };
-          });
+        return Promise.all([
+          db.collection('cashEntries')
+            .where('inventory_session_id', '==', row.id)
+            .get(),
+          db.collection('expenses')
+            .where('inventory_session_id', '==', row.id)
+            .get()
+        ]).then(function(res) {
+          return {
+            session: row,
+            cash: res[0].docs.map(function(d) {
+              return Object.assign({ id: d.id }, d.data());
+            }),
+            expenses: res[1].docs.map(function(d) {
+              return Object.assign({ id: d.id }, d.data());
+            })
+          };
+        });
       });
 
       return Promise.all(promises);
@@ -2942,6 +3038,11 @@ function mgrOpen(type) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
         var cB = row.cash.find(function(c) { return c.shift === 'B'; }) || {};
 
+        var expensesTotal = 0;
+        row.expenses.forEach(function(e) {
+          expensesTotal += Number(e.amount || 0);
+        });
+
         function finalVal(key) {
           if (cB[key] !== undefined && cB[key] !== null && cB[key] !== '') {
             return Number(cB[key]).toFixed(2);
@@ -2962,6 +3063,7 @@ function mgrOpen(type) {
             '<div class="sess-date">' + dateTxt + '</div>' +
             '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
             '<div style="margin-top:6px;">الكاش النهائي: <strong>' + finalVal('cash_to_submit') + '</strong> دينار</div>' +
+            '<div style="margin-top:4px;">مجموع المصاريف: <strong>' + expensesTotal.toFixed(2) + '</strong> دينار</div>' +
             '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لفتح نفس جرد اليوم المرتبط بهذا الكاش</div>' +
           '</div>';
       });
