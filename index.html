@@ -1009,7 +1009,9 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 
   <!-- CASH PANE -->
   <div class="tab-pane" id="pane-cash">
-    <div class="cash-card">
+    <div id="cashAView" style="display:none;margin-bottom:12px;"></div>
+
+<div class="cash-card">
       <div class="cash-lbl">النقد حسب الجهاز (دينار)</div>
       <input type="number" class="cash-inp" id="sysCash" placeholder="0" step="0.01" oninput="calcCash()">
       <div class="cash-lbl">النقد الفعلي (دينار)</div>
@@ -1567,7 +1569,7 @@ function selectSessionForB(sessId) {
 function loadExistingEntries() {
   return Promise.all([
   db.collection('inventoryEntries').where('inventory_session_id','==',S.sessionId).get(),
-  db.collection('expenses').where('inventory_session_id','==',S.sessionId).where('shift','==',S.shift).get(),
+ db.collection('expenses').where('inventory_session_id','==',S.sessionId).get(),
   db.collection('cashEntries').where('inventory_session_id','==',S.sessionId).get()
 ]).then(function(results) {
     S.invData={};
@@ -1582,7 +1584,13 @@ function loadExistingEntries() {
 }
 
 S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);    });
-    S.expenses=results[1].docs.map(function(d){return Object.assign({docId:d.id},d.data());});
+    S.expenses = results[1].docs
+  .map(function(d){ return Object.assign({docId:d.id}, d.data()); })
+  .filter(function(e) {
+    if (e.shift === S.shift) return true;
+    if (S.shift === 'B' && e.shift === 'A') return true;
+    return false;
+  });
    S.cashEntries = [];
 
 results[2].docs.forEach(function(d) {
@@ -1726,11 +1734,12 @@ function renderExpList() {
   S.expenses.forEach(function(e,i) {
     var nm=e.custom_expense_name||getExpNm(e.expense_type_id);
     total+=Number(e.amount);
-    html+='<div class="exp-item">'+
-      '<div><div class="exp-name">'+nm+'</div>'+(e.note?'<div class="exp-note">'+e.note+'</div>':'')+'</div>'+
-      '<div style="display:flex;align-items:center;">'+
+    var canDelete = e.shift === S.shift;
+
+html+='<div class="exp-item">'+
+     '<div><div class="exp-name">'+nm+(e.shift && e.shift !== S.shift ? ' <span style="color:var(--gold);font-size:11px;">مصاريف الشفت '+e.shift+'</span>' : '')+'</div>'+(e.note?'<div class="exp-note">'+e.note+'</div>':'')+'</div>'+      '<div style="display:flex;align-items:center;">'+
         '<div class="exp-amt">'+Number(e.amount).toFixed(2)+'</div>'+
-        '<button class="btn-del" onclick="delExpense(\''+e.docId+'\')">حذف</button>'+
+        (canDelete ? '<button class="btn-del" onclick="delExpense(\''+e.docId+'\')">حذف</button>' : '')+
       '</div></div>';
   });
   list.innerHTML=html;
@@ -3265,16 +3274,26 @@ var diff=(acc!==undefined)?tot-acc:null;
   });
   var allExpNms=[];
   expenses.forEach(function(e){ var nm=e.custom_expense_name||getExpNm(e.expense_type_id); if(allExpNms.indexOf(nm)<0) allExpNms.push(nm); });
-  var expHtml='';
-  if (allExpNms.length) {
-    expHtml='<table class="rpt-table"><thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
-    allExpNms.forEach(function(nm){
-      var a=expMapAB.A[nm]||0, b=expMapAB.B[nm]||0;
-      expHtml+='<tr><td style="text-align:right;font-size:11px;">'+nm+'</td><td>'+a.toFixed(2)+'</td><td>'+b.toFixed(2)+'</td><td><strong>'+(a+b).toFixed(2)+'</strong></td></tr>';
-    });
-    expHtml+='</tbody></table>';
-  }
+ var expHtml='';
+if (allExpNms.length) {
+  var expensesDayTotal = 0;
 
+  expHtml='<table class="rpt-table"><thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
+  allExpNms.forEach(function(nm){
+    var a=expMapAB.A[nm]||0, b=expMapAB.B[nm]||0;
+    var rowTotal = a + b;
+    expensesDayTotal += rowTotal;
+
+    expHtml+='<tr><td style="text-align:right;font-size:11px;">'+nm+'</td><td>'+a.toFixed(2)+'</td><td>'+b.toFixed(2)+'</td><td><strong>'+rowTotal.toFixed(2)+'</strong></td></tr>';
+  });
+  expHtml+='</tbody></table>';
+
+  expHtml +=
+    '<div class="total-bar" style="margin-top:10px;margin-bottom:0;">' +
+      '<div class="total-lbl">مصاريف اليوم</div>' +
+      '<div class="total-amt">' + expensesDayTotal.toFixed(2) + ' دينار</div>' +
+    '</div>';
+}
   var cA=null,cB=null;
   cash.forEach(function(c){ if(c.shift==='A') cA=c; if(c.shift==='B') cB=c; });
   var cashHtml='<table class="rpt-table"><thead><tr><th>البيان</th><th>A</th><th>B</th><th>النهائي</th></tr></thead><tbody>';
