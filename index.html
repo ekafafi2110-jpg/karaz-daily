@@ -2232,85 +2232,161 @@ tableRows = balanceRows.map(function(row) {
           '</tr>';
       }
 
-      var html =
-        '<div class="mgr-card gold" onclick="openCashBalanceDetails()" style="margin-bottom:14px;cursor:pointer;">' +
-          '<div class="mgr-icon">💵</div>' +
-          '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
-          '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' +
-            totalActualCash.toFixed(2) +
-          '</div>' +
-          '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
-          '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لعرض التفاصيل</div>' +
+      var cashCardsDisplay = openPanel ? 'none' : 'grid';
+      var purchaseOptions = S.items.map(function(item) {
+  return '<option value="' + item.name + '">' + item.name + '</option>';
+}).join('');
+
+var html =
+  '<div id="cashCardsGrid" style="display:' + cashCardsDisplay + ';grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">' +
+
+    '<div class="mgr-card gold" onclick="showManagerCash(\'balance\')" style="cursor:pointer;">' +
+      '<div class="mgr-icon">💵</div>' +
+      '<div class="mgr-lbl" style="font-size:15px;color:var(--gold);">رصيد النقد</div>' +
+      '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' +
+        totalActualCash.toFixed(2) +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
+    '</div>' +
+
+    '<div class="mgr-card green" onclick="showManagerCash(\'add\')" style="cursor:pointer;">' +
+      '<div class="mgr-icon">➕</div>' +
+      '<div class="mgr-lbl" style="font-size:15px;color:var(--green);">إضافة نقد</div>' +
+      '<div style="font-size:11px;color:var(--text2);margin-top:6px;">إدخال مبلغ نقدي</div>' +
+    '</div>' +
+
+    '<div class="mgr-card cherry" onclick="showManagerCash(\'purchases\')" style="cursor:pointer;">' +
+  '<div class="mgr-icon">🛒</div>' +
+  '<div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">مشتريات</div>' +
+  '<div style="font-size:11px;color:var(--text2);margin-top:6px;">مشتريات اليوم</div>' +
+'</div>' +
+
+
+  '<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
+    '<div class="mgr-card gold" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+      '<div class="mgr-icon">💵</div>' +
+      '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
+      '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' +
+        totalActualCash.toFixed(2) +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
+      '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+    '</div>' +
+
+    '<div class="detail-sec">' +
+      '<div class="sec-title">تفاصيل رصيد النقد</div>' +
+      '<table class="rpt-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>اليوم</th>' +
+            '<th>المصدر</th>' +
+            '<th>النقد الفعلي</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' +
+          tableRows +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+  '</div>' +
+
+  '<div id="addCashBox" style="display:' + (openPanel === 'add' ? 'block' : 'none') + ';">' +
+    '<div class="mgr-card green" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+      '<div class="mgr-icon">➕</div>' +
+      '<div class="mgr-lbl" style="font-size:16px;color:var(--green);">إضافة نقد</div>' +
+      '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+    '</div>' +
+
+    '<div class="detail-sec">' +
+      '<div class="sec-title">إضافة نقد</div>' +
+
+      '<div class="f-row">' +
+        '<div class="f-grp">' +
+          '<label class="f-lbl">مصدر النقد</label>' +
+          '<select class="f-sel" id="cashAddSource" onchange="onCashAddSourceChange()">' +
+            '<option value="دخل طلبات">دخل طلبات</option>' +
+            '<option value="دخل كريم">دخل كريم</option>' +
+            '<option value="دخل أشيائي">دخل أشيائي</option>' +
+            '<option value="دخل آخر">دخل آخر</option>' +
+          '</select>' +
         '</div>' +
 
-        '<div class="mgr-card green" onclick="openAddCashBox()" style="margin-bottom:14px;cursor:pointer;">' +
-          '<div class="mgr-icon">➕</div>' +
-          '<div class="mgr-lbl" style="font-size:16px;color:var(--green);">إضافة نقد</div>' +
-          '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإضافة مبلغ نقدي</div>' +
+        '<div class="f-grp" style="max-width:130px;">' +
+          '<label class="f-lbl">المبلغ</label>' +
+          '<input type="number" class="f-inp2" id="cashAddAmount" placeholder="0.00" step="0.01" min="0">' +
         '</div>' +
+      '</div>' +
 
-        '<div id="addCashBox" class="detail-sec" style="display:' + (openPanel === 'add' ? 'block' : 'none') + ';">' +
-          '<div class="sec-title">إضافة نقد</div>' +
+      '<div id="cashAddOtherBox" style="display:none;margin-bottom:9px;">' +
+        '<input type="text" class="f-inp2" id="cashAddOtherNote" placeholder="اكتب مصدر النقد الآخر..." style="width:100%;">' +
+      '</div>' +
 
-          '<div class="f-row">' +
-            '<div class="f-grp">' +
-              '<label class="f-lbl">مصدر النقد</label>' +
-              '<select class="f-sel" id="cashAddSource" onchange="onCashAddSourceChange()">' +
-                '<option value="دخل طلبات">دخل طلبات</option>' +
-                '<option value="دخل كريم">دخل كريم</option>' +
-                '<option value="دخل أشيائي">دخل أشيائي</option>' +
-                '<option value="دخل آخر">دخل آخر</option>' +
-              '</select>' +
-            '</div>' +
+      '<button class="btn-add" onclick="saveCashAddition()">+ حفظ النقد</button>' +
+      '<div id="cashAddMsg"></div>' +
 
-            '<div class="f-grp" style="max-width:130px;">' +
-              '<label class="f-lbl">المبلغ</label>' +
-              '<input type="number" class="f-inp2" id="cashAddAmount" placeholder="0.00" step="0.01" min="0">' +
-            '</div>' +
-          '</div>' +
+      '<div class="divider"></div>' +
+      '<div class="sec-title">كشف إضافات النقد</div>' +
+      '<table class="rpt-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>حذف</th>' +
+            '<th>المصدر</th>' +
+            '<th>المبلغ</th>' +
+            '<th>اليوم</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' +
+          additionsRows +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+  '</div>' +
 
-          '<div id="cashAddOtherBox" style="display:none;margin-bottom:9px;">' +
-            '<input type="text" class="f-inp2" id="cashAddOtherNote" placeholder="اكتب مصدر النقد الآخر..." style="width:100%;">' +
-          '</div>' +
+  '<div id="cashPurchasesBox" style="display:' + (openPanel === 'purchases' ? 'block' : 'none') + ';">' +
+  '<div class="mgr-card cherry" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+    '<div class="mgr-icon">🛒</div>' +
+    '<div class="mgr-lbl" style="font-size:16px;color:var(--cherry2);">مشتريات</div>' +
+    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+  '</div>' +
 
-          '<button class="btn-add" onclick="saveCashAddition()">+ حفظ النقد</button>' +
-          '<div id="cashAddMsg"></div>' +
+  '<div class="detail-sec">' +
+    '<div class="sec-title">إضافة مشتريات</div>' +
 
-          '<div class="divider"></div>' +
-          '<div class="sec-title">كشف إضافات النقد</div>' +
-          '<table class="rpt-table">' +
-            '<thead>' +
-              '<tr>' +
-                '<th>حذف</th>' +
-                '<th>المصدر</th>' +
-                '<th>المبلغ</th>' +
-                '<th>اليوم</th>' +
-              '</tr>' +
-            '</thead>' +
-            '<tbody>' +
-              additionsRows +
-            '</tbody>' +
-          '</table>' +
-        '</div>' +
+    '<div class="f-row">' +
+      '<div class="f-grp">' +
+        '<label class="f-lbl">الصنف</label>' +
+        '<select class="f-sel" id="cashPurchaseItem">' +
 
-        '<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
-          '<div class="detail-sec">' +
-            '<div class="sec-title">تفاصيل رصيد النقد</div>' +
-            '<table class="rpt-table">' +
-              '<thead>' +
-                '<tr>' +
-                  '<th>اليوم</th>' +
-                  '<th>المصدر</th>' +
-                  '<th>النقد الفعلي</th>' +
-                '</tr>' +
-              '</thead>' +
-              '<tbody>' +
-                tableRows +
-              '</tbody>' +
-            '</table>' +
-          '</div>' +
-        '</div>';
+      '<div class="f-grp" style="max-width:130px;">' +
+        '<label class="f-lbl">المبلغ</label>' +
+        '<input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0">' +
+      '</div>' +
+    '</div>' +
 
+    '<button class="btn-add" onclick="toast(\'سيتم تفعيل حفظ المشتريات في التعديل التالي\', \'info\')">+ حفظ المشتريات</button>' +
+
+    '<div class="divider"></div>' +
+    '<div class="sec-title">كشف مشتريات اليوم</div>' +
+    '<table class="rpt-table">' +
+      '<thead>' +
+        '<tr>' +
+          '<th>الصنف</th>' +
+          '<th>المبلغ</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>' +
+        '<tr>' +
+          '<td colspan="2"><div class="empty">لا توجد مشتريات محفوظة بعد</div></td>' +
+        '</tr>' +
+      '</tbody>' +
+    '</table>' +
+
+    '<div class="total-bar" style="margin-top:10px;">' +
+      '<div class="total-lbl">مجموع المشتريات</div>' +
+      '<div class="total-amt">0.00 دينار</div>' +
+    '</div>' +
+  '</div>' +
+'</div>';
       document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
@@ -2358,6 +2434,9 @@ function openAddCashBox() {
   }
 }
 
+function openCashExpensesBox() {
+  showManagerCash('purchases');
+}
 function onCashAddSourceChange() {
   var source = document.getElementById('cashAddSource').value;
   var otherBox = document.getElementById('cashAddOtherBox');
