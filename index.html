@@ -2081,10 +2081,11 @@ function showManagerCash(openPanel) {
       });
 
       return Promise.all([
-        Promise.all(cashPromises),
-        db.collection('cashAdditions').where('work_date', '==', S.workDate).get(),
-        db.collection('cashPurchases').where('work_date', '==', S.workDate).get()
-      ]);
+  Promise.all(cashPromises),
+  db.collection('cashAdditions').where('work_date', '==', S.workDate).get(),
+  db.collection('cashPurchases').where('work_date', '==', S.workDate).get(),
+  db.collection('manualDebts').where('work_date', '==', S.workDate).get()
+]);
     })
     .then(function(results) {
       hideLoad();
@@ -2092,6 +2093,7 @@ function showManagerCash(openPanel) {
       var rows = results[0] || [];
       var additionsSnap = results[1];
       var purchasesSnap = results[2];
+      var manualDebtsSnap = results[3];
 
       var totalActualCash = 0;
       var balanceRows = [];
@@ -2283,6 +2285,30 @@ if (paymentMethod === 'ذمم' && !isDeleted) {
   debtsRows += invoiceCardHtml;
 }        });
       }
+      if (manualDebtsSnap && manualDebtsSnap.docs) {
+  manualDebtsSnap.docs.forEach(function(d) {
+    var debt = Object.assign({ docId: d.id }, d.data());
+    var amount = Number(debt.amount || 0);
+    var isDeleted = debt.deleted === true;
+
+    if (!amount || amount <= 0) return;
+    if (isDeleted) return;
+
+    totalDebts += amount;
+
+    debtsRows +=
+      '<div class="mgr-card gold" style="margin-bottom:10px;">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
+          '<div style="text-align:right;">' +
+            '<div style="font-weight:900;color:var(--gold);">التزام يدوي</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (debt.supplier_name || '-') + '</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' + (debt.note || '') + '</div>' +
+          '</div>' +
+          '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
+        '</div>' +
+      '</div>';
+  });
+}
 
       balanceRows.sort(function(a, b) { return b.time - a.time; });
       tableRows = balanceRows.map(function(row) { return row.html; }).join('');
@@ -2422,7 +2448,30 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد فواتير ذم�
   '</div>' +
 
   '<div class="detail-sec">' +
-    '<div class="sec-title">سجل فواتير الذمم</div>' +
+  '<div class="sec-title">إضافة التزام</div>' +
+
+  '<div class="f-row">' +
+    '<div class="f-grp">' +
+      '<label class="f-lbl">اسم المورد</label>' +
+      '<input type="text" class="f-inp2" id="debtSupplierName" placeholder="اسم المورد" style="width:100%;">' +
+    '</div>' +
+
+    '<div class="f-grp" style="max-width:130px;">' +
+      '<label class="f-lbl">المبلغ</label>' +
+      '<input type="number" class="f-inp2" id="debtAmount" placeholder="0.00" step="0.01" min="0">' +
+    '</div>' +
+  '</div>' +
+
+  '<div style="margin-bottom:10px;">' +
+    '<label class="f-lbl">ملاحظات</label>' +
+    '<input type="text" class="f-inp2" id="debtNote" placeholder="ملاحظات اختيارية" style="width:100%;">' +
+  '</div>' +
+
+  '<button class="btn-add" onclick="saveManualDebt()">+ حفظ الالتزام</button>' +
+  '<div id="debtMsg"></div>' +
+
+  '<div class="divider"></div>' +
+  '<div class="sec-title">سجل الذمم: فواتير + التزامات</div>' +
     '<div id="debtsInvoicesList">' + debtsRows + '</div>' +
     '<div class="total-bar" style="margin-top:10px;">' +
       '<div class="total-lbl">مجموع الذمم</div>' +
@@ -2439,6 +2488,54 @@ document.getElementById('modalBody').innerHTML = html;
       document.getElementById('modalBody').innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
     });
 }
+function saveManualDebt() {
+  var supplierEl = document.getElementById('debtSupplierName');
+  var amountEl = document.getElementById('debtAmount');
+  var noteEl = document.getElementById('debtNote');
+  var msg = document.getElementById('debtMsg');
+
+  var supplierName = supplierEl ? supplierEl.value.trim() : '';
+  var amount = amountEl ? Number(amountEl.value || 0) : 0;
+  var note = noteEl ? noteEl.value.trim() : '';
+
+  if (!supplierName) {
+    toast('أدخل اسم المورد', 'error');
+    return;
+  }
+
+  if (!amount || amount <= 0) {
+    toast('أدخل مبلغًا صحيحًا', 'error');
+    return;
+  }
+
+  if (msg) {
+    msg.innerHTML = '<div class="empty">جاري حفظ الالتزام...</div>';
+  }
+
+  db.collection('manualDebts').add({
+    work_date: S.workDate,
+    supplier_name: supplierName,
+    amount: amount,
+    note: note,
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+    deleted: false
+  })
+  .then(function() {
+    toast('تم حفظ الالتزام', 'success');
+    showManagerCash('debts');
+  })
+  .catch(function(e) {
+    console.error(e);
+    toast('حدث خطأ أثناء حفظ الالتزام', 'error');
+
+    if (msg) {
+      msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ الالتزام</div>';
+    }
+  });
+}
+
 function togglePurchaseInvoiceDetails(docId) {
   var box = document.getElementById('purchaseInvoiceDetails_' + docId);
   if (!box) return;
