@@ -1854,42 +1854,148 @@ function loadWithdrawals() {
   db.collection('stockWithdrawals')
     .where('inventory_session_id', '==', S.sessionId)
     .get()
-
     .then(function(snap) {
       if (snap.empty) {
         list.innerHTML = '<div class="empty">لا توجد سحوبات من المستودع</div>';
         return;
       }
 
-      var html = '';
+      var rows = [];
+
       snap.docs.forEach(function(d) {
-        var x = d.data();
+        var x = Object.assign({ docId: d.id }, d.data());
 
         if (x.shift !== S.shift && !(S.shift === 'B' && x.shift === 'A')) {
           return;
         }
 
-        html += '<div class="expense-item">' +
-  '<div class="expense-info">' +
-    '<div class="expense-name">' +
-      (x.item_name || '-') +
-      (x.shift && x.shift !== S.shift ? ' <span style="color:var(--gold);font-size:11px;">سحوبات شفت ' + x.shift + '</span>' : '') +
-    '</div>' +
-    '<div class="expense-note">' + (x.note || '') + '</div>' +
-  '</div>' +
-  '<div class="expense-amount">' + (x.quantity || 0) + '</div>' +
-'</div>';
-
+        rows.push(x);
       });
 
+      if (!rows.length) {
+        list.innerHTML = '<div class="empty">لا توجد سحوبات من المستودع</div>';
+        return;
+      }
+
+      rows.sort(function(a, b) {
+        var sa = a.shift || '';
+        var sb = b.shift || '';
+
+        if (sa !== sb) {
+          return sa.localeCompare(sb);
+        }
+
+        var ta = a.created_at && a.created_at.toMillis ? a.created_at.toMillis() : 0;
+        var tb = b.created_at && b.created_at.toMillis ? b.created_at.toMillis() : 0;
+
+        return ta - tb;
+      });
+
+      var totalsByItem = {};
+
+      var html =
+        '<table class="rpt-table">' +
+          '<thead>' +
+            '<tr>' +
+              '<th>الصنف</th>' +
+              '<th>الشفت</th>' +
+              '<th>الكمية</th>' +
+              '<th>ملاحظة</th>' +
+              '<th>إجراء</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>';
+
+      rows.forEach(function(x) {
+        var canDelete = x.shift === S.shift;
+        var itemName = x.item_name || '-';
+totalsByItem[itemName] = (totalsByItem[itemName] || 0) + Number(x.quantity || 0);
+
+        html +=
+          '<tr>' +
+            '<td style="text-align:right;font-size:11px;">' + (x.item_name || '-') + '</td>' +
+            '<td>' +
+              (x.shift || '-') +
+              (x.shift && x.shift !== S.shift ? '<div style="color:var(--gold);font-size:10px;">سحوبات شفت ' + x.shift + '</div>' : '') +
+            '</td>' +
+            '<td><strong>' + (x.quantity || 0) + '</strong></td>' +
+            '<td style="font-size:10px;">' + (x.note || '') + '</td>' +
+            '<td>' +
+              (canDelete ? '<button class="btn-del" onclick="delWithdrawal(\'' + x.docId + '\')">حذف</button>' : '<span style="color:var(--text3);font-size:11px;">عرض فقط</span>') +
+            '</td>' +
+          '</tr>';
+      });
+
+     html +=
+          '</tbody>' +
+        '</table>';
+
+var totalsHtml =
+  '<div class="detail-sec" style="margin-top:10px;">' +
+    '<div class="sec-title">مجموع السحوبات حسب الصنف</div>' +
+    '<table class="rpt-table">' +
+      '<thead>' +
+        '<tr>' +
+          '<th>الصنف</th>' +
+          '<th>المجموع</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>';
+
+Object.keys(totalsByItem).sort().forEach(function(name) {
+  totalsHtml +=
+    '<tr>' +
+      '<td style="text-align:right;font-size:11px;">' + name + '</td>' +
+      '<td><strong>' + totalsByItem[name] + '</strong></td>' +
+    '</tr>';
+});
+
+totalsHtml +=
+      '</tbody>' +
+    '</table>' +
+  '</div>';
+
+html += totalsHtml;
       list.innerHTML = html;
     })
-
-    
     .catch(function(e) {
       list.innerHTML = '<div class="empty">خطأ في تحميل السحوبات: ' + e.message + '</div>';
     });
 }
+function delWithdrawal(docId) {
+  if (!confirm('هل تريد حذف هذا السحب من المستودع؟')) {
+    return;
+  }
+
+  showLoad('جاري حذف السحب...');
+
+  db.collection('stockWithdrawals')
+    .doc(docId)
+    .get()
+    .then(function(docSnap) {
+      if (!docSnap.exists) {
+        throw new Error('السحب غير موجود');
+      }
+
+      var data = docSnap.data();
+
+      if (data.shift !== S.shift) {
+        throw new Error('لا يمكنك حذف سحوبات شفت آخر');
+      }
+
+      return db.collection('stockWithdrawals').doc(docId).delete();
+    })
+    .then(function() {
+      hideLoad();
+      toast('تم حذف السحب', 'info');
+      loadWithdrawals();
+    })
+    .catch(function(e) {
+      hideLoad();
+      toast('خطأ: ' + e.message, 'error');
+    });
+}
+
 function hideWarehouseSections() {
   document.getElementById('openingStockSection').style.display = 'none';
   document.getElementById('warehouseBalanceSection').style.display = 'none';
@@ -3115,16 +3221,44 @@ function mgrOpen(type) {
         }
 
         var tracking = row.session.data.tracking_id || row.session.id;
-        var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : row.session.id;
+var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : row.session.id;
 
-        html +=
-          '<div class="sess-item" onclick="openCashExpenseOnly(\'' + row.session.id + '\')">' +
-            '<div class="sess-date">' + dateTxt + '</div>' +
-            '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
-            '<div style="margin-top:6px;">الكاش النهائي: <strong>' + finalVal('cash_to_submit') + '</strong> دينار</div>' +
-            '<div style="margin-top:4px;">مجموع المصاريف: <strong>' + expensesTotal.toFixed(2) + '</strong> دينار</div>' +
-            '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لعرض الكاش والمصاريف فقط</div>' +
-          '</div>';
+var finalSystemCash = null;
+
+if (cB.system_cash !== undefined && cB.system_cash !== null && cB.system_cash !== '') {
+  finalSystemCash = Number(cB.system_cash);
+} else if (cA.system_cash !== undefined && cA.system_cash !== null && cA.system_cash !== '') {
+  finalSystemCash = Number(cA.system_cash);
+}
+
+var totalSales = finalSystemCash !== null
+  ? finalSystemCash + expensesTotal - 20
+  : null;
+
+html +=
+  '<div class="sess-item" onclick="openCashExpenseOnly(\'' + row.session.id + '\')">' +
+    '<div class="sess-date">' + dateTxt + '</div>' +
+    '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
+
+    '<table class="rpt-table" style="margin-top:10px;margin-bottom:8px;">' +
+      '<tbody>' +
+        '<tr>' +
+          '<th style="text-align:right;">الكاش النهائي</th>' +
+          '<td><strong>' + finalVal('cash_to_submit') + '</strong> دينار</td>' +
+        '</tr>' +
+        '<tr>' +
+          '<th style="text-align:right;">مجموع المصاريف</th>' +
+          '<td><strong>' + expensesTotal.toFixed(2) + '</strong> دينار</td>' +
+        '</tr>' +
+        '<tr>' +
+          '<th style="text-align:right;color:var(--gold);">إجمالي المبيعات</th>' +
+          '<td><strong style="color:var(--gold);">' + (totalSales !== null ? totalSales.toFixed(2) : '—') + '</strong> دينار</td>' +
+        '</tr>' +
+      '</tbody>' +
+    '</table>' +
+
+    '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لعرض الكاش والمصاريف فقط</div>' +
+  '</div>';  
       });
 
       document.getElementById('modalBody').innerHTML = html;
