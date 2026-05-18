@@ -2262,7 +2262,11 @@ var html =
 '</div>' +
 
 
-  '<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
+  '</div>' +
+
+'</div>' +
+
+'<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
     '<div class="mgr-card gold" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
       '<div class="mgr-icon">💵</div>' +
       '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
@@ -2352,16 +2356,20 @@ var html =
   '<div class="detail-sec">' +
     '<div class="sec-title">إضافة مشتريات</div>' +
 
-    '<div class="f-row">' +
-      '<div class="f-grp">' +
-        '<label class="f-lbl">الصنف</label>' +
-        '<select class="f-sel" id="cashPurchaseItem">' +
+   '<div class="f-row">' +
+  '<div class="f-grp">' +
+    '<label class="f-lbl">الصنف</label>' +
+    '<select class="f-sel" id="cashPurchaseItem">' +
+      purchaseOptions +
+    '</select>' +
+  '</div>' +
 
-      '<div class="f-grp" style="max-width:130px;">' +
-        '<label class="f-lbl">المبلغ</label>' +
-        '<input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0">' +
-      '</div>' +
-    '</div>' +
+  '<div class="f-grp" style="max-width:130px;">' +
+    '<label class="f-lbl">المبلغ</label>' +
+    '<input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0">' +
+  '</div>' +
+'</div>' +
+
 
     '<button class="btn-add" onclick="toast(\'سيتم تفعيل حفظ المشتريات في التعديل التالي\', \'info\')">+ حفظ المشتريات</button>' +
 
