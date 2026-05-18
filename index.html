@@ -3118,12 +3118,12 @@ function mgrOpen(type) {
         var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : row.session.id;
 
         html +=
-          '<div class="sess-item" onclick="openPendingSessDet(\'' + row.session.id + '\')">' +
+          '<div class="sess-item" onclick="openCashExpenseOnly(\'' + row.session.id + '\')">' +
             '<div class="sess-date">' + dateTxt + '</div>' +
             '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
             '<div style="margin-top:6px;">الكاش النهائي: <strong>' + finalVal('cash_to_submit') + '</strong> دينار</div>' +
             '<div style="margin-top:4px;">مجموع المصاريف: <strong>' + expensesTotal.toFixed(2) + '</strong> دينار</div>' +
-            '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لفتح نفس جرد اليوم المرتبط بهذا الكاش</div>' +
+            '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لعرض الكاش والمصاريف فقط</div>' +
           '</div>';
       });
 
@@ -3161,6 +3161,163 @@ function openSessDet(sessId) {
     .then(function(det){ document.getElementById('modalBody').innerHTML=renderReport(det,sessId); hideLoad(); })
     .catch(function(e){ document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-txt">خطا في التحميل</div></div>'; hideLoad(); console.error(e); });
 }
+function openCashExpenseOnly(sessId) {
+  setModal('الكاش والمصاريف فقط');
+  showLoad('جاري تحميل الكاش والمصاريف...');
+
+  loadSessionDetails(sessId)
+    .then(function(det) {
+      hideLoad();
+
+      var expenses = det.expenses || [];
+      var cash = det.cash || [];
+
+      var expMapAB = { A: {}, B: {} };
+
+      expenses.forEach(function(e) {
+        var nm = e.custom_expense_name || getExpNm(e.expense_type_id);
+
+        if (!expMapAB[e.shift]) {
+          expMapAB[e.shift] = {};
+        }
+
+        if (!expMapAB[e.shift][nm]) {
+          expMapAB[e.shift][nm] = 0;
+        }
+
+        expMapAB[e.shift][nm] += Number(e.amount || 0);
+      });
+
+      var allExpNms = [];
+
+      expenses.forEach(function(e) {
+        var nm = e.custom_expense_name || getExpNm(e.expense_type_id);
+
+        if (allExpNms.indexOf(nm) < 0) {
+          allExpNms.push(nm);
+        }
+      });
+
+      var expensesDayTotal = 0;
+var expHtml = '';
+
+if (allExpNms.length) {
+
+        expHtml =
+          '<div class="detail-sec">' +
+            '<div class="sec-title">المصاريف</div>' +
+            '<table class="rpt-table">' +
+              '<thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
+
+        allExpNms.forEach(function(nm) {
+          var a = expMapAB.A[nm] || 0;
+          var b = expMapAB.B[nm] || 0;
+          var rowTotal = a + b;
+
+          expensesDayTotal += rowTotal;
+
+          expHtml +=
+            '<tr>' +
+              '<td style="text-align:right;font-size:11px;">' + nm + '</td>' +
+              '<td>' + a.toFixed(2) + '</td>' +
+              '<td>' + b.toFixed(2) + '</td>' +
+              '<td><strong>' + rowTotal.toFixed(2) + '</strong></td>' +
+            '</tr>';
+        });
+
+        expHtml +=
+              '</tbody></table>' +
+              '<div class="total-bar" style="margin-top:10px;margin-bottom:0;">' +
+                '<div class="total-lbl">مصاريف اليوم</div>' +
+                '<div class="total-amt">' + expensesDayTotal.toFixed(2) + ' دينار</div>' +
+              '</div>' +
+          '</div>';
+      } else {
+        expHtml =
+          '<div class="detail-sec">' +
+            '<div class="sec-title">المصاريف</div>' +
+            '<div class="empty">لا توجد مصاريف لهذا الجرد</div>' +
+          '</div>';
+      }
+
+      var cA = null;
+      var cB = null;
+
+      cash.forEach(function(c) {
+        if (c.shift === 'A') cA = c;
+        if (c.shift === 'B') cB = c;
+      });
+
+      var cashHtml =
+        '<div class="detail-sec">' +
+          '<div class="sec-title">الكاش</div>' +
+          '<table class="rpt-table">' +
+            '<thead><tr><th>البيان</th><th>A</th><th>B</th><th>النهائي</th></tr></thead><tbody>';
+
+      [
+        ['النقد حسب الجهاز','system_cash'],
+        ['النقد الفعلي','actual_cash'],
+        ['الفرق','difference'],
+        ['النقد المراد تسليمه','cash_to_submit']
+      ].forEach(function(r) {
+        var lbl = r[0];
+        var k = r[1];
+
+        var a = (cA && cA[k] !== undefined && cA[k] !== null && cA[k] !== '')
+          ? Number(cA[k]).toFixed(2)
+          : '—';
+
+        var b = (cB && cB[k] !== undefined && cB[k] !== null && cB[k] !== '')
+          ? Number(cB[k]).toFixed(2)
+          : '—';
+
+        var finalVal = (cB && cB[k] !== undefined && cB[k] !== null && cB[k] !== '')
+          ? Number(cB[k]).toFixed(2)
+          : ((cA && cA[k] !== undefined && cA[k] !== null && cA[k] !== '')
+              ? Number(cA[k]).toFixed(2)
+              : '—');
+
+        cashHtml +=
+          '<tr>' +
+            '<td style="text-align:right;font-size:11px;">' + lbl + '</td>' +
+            '<td>' + a + '</td>' +
+            '<td>' + b + '</td>' +
+            '<td><strong>' + finalVal + '</strong></td>' +
+          '</tr>';
+      });
+
+            var finalSystemCash = null;
+
+      if (cB && cB.system_cash !== undefined && cB.system_cash !== null && cB.system_cash !== '') {
+        finalSystemCash = Number(cB.system_cash);
+      } else if (cA && cA.system_cash !== undefined && cA.system_cash !== null && cA.system_cash !== '') {
+        finalSystemCash = Number(cA.system_cash);
+      }
+
+      var totalSales = finalSystemCash !== null
+        ? finalSystemCash + expensesDayTotal - 20
+        : null;
+
+      cashHtml +=
+        '<tr>' +
+          '<td style="text-align:right;font-size:11px;color:var(--gold);font-weight:900;">إجمالي المبيعات</td>' +
+          '<td>—</td>' +
+          '<td>—</td>' +
+          '<td><strong style="color:var(--gold);">' + (totalSales !== null ? totalSales.toFixed(2) : '—') + '</strong></td>' +
+        '</tr>';
+
+      cashHtml += '</tbody></table></div>';
+
+      document.getElementById('modalBody').innerHTML = expHtml + cashHtml;
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">حدث خطأ أثناء تحميل الكاش والمصاريف</div>';
+    });
+}
+
 function openPendingSessDet(sessId) {
   setModal('تفاصيل الجرد غير المعتمد');
   showLoad('جاري تحميل تفاصيل الجرد...');
@@ -3304,12 +3461,11 @@ var diff=(acc!==undefined)?tot-acc:null;
   });
   var allExpNms=[];
   expenses.forEach(function(e){ var nm=e.custom_expense_name||getExpNm(e.expense_type_id); if(allExpNms.indexOf(nm)<0) allExpNms.push(nm); });
- var expHtml='';
+ var expensesDayTotal = 0;
+var expHtml='';
 if (allExpNms.length) {
-  var expensesDayTotal = 0;
 
-  expHtml='<table class="rpt-table"><thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
-  allExpNms.forEach(function(nm){
+  expHtml='<table class="rpt-table"><thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';  allExpNms.forEach(function(nm){
     var a=expMapAB.A[nm]||0, b=expMapAB.B[nm]||0;
     var rowTotal = a + b;
     expensesDayTotal += rowTotal;
@@ -3354,8 +3510,27 @@ if (allExpNms.length) {
   cashHtml += '<tr><td style="text-align:right;font-size:11px;">' + lbl + '</td><td>' + a + '</td><td>' + b + '</td><td><strong>' + finalVal + '</strong></td></tr>';
 });
 
-cashHtml += '</tbody></table>';
+var finalSystemCash = null;
 
+if (cB && cB.system_cash !== undefined && cB.system_cash !== null && cB.system_cash !== '') {
+  finalSystemCash = Number(cB.system_cash);
+} else if (cA && cA.system_cash !== undefined && cA.system_cash !== null && cA.system_cash !== '') {
+  finalSystemCash = Number(cA.system_cash);
+}
+
+var totalSales = finalSystemCash !== null
+  ? finalSystemCash + expensesDayTotal - 20
+  : null;
+
+cashHtml +=
+  '<tr>' +
+    '<td style="text-align:right;font-size:11px;color:var(--gold);font-weight:900;">إجمالي المبيعات</td>' +
+    '<td>—</td>' +
+    '<td>—</td>' +
+    '<td><strong style="color:var(--gold);">' + (totalSales !== null ? totalSales.toFixed(2) : '—') + '</strong></td>' +
+  '</tr>';
+
+cashHtml += '</tbody></table>';
 var withdrawalsMap = {};
 withdrawals.forEach(function(w) {
   var name = w.item_name || 'صنف غير محدد';
