@@ -1041,28 +1041,29 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   </div>
 
   <div class="tab-pane" id="pane-withdrawals">
-  <div class="expense-form">
+  <div class="exp-form">
     <div class="sec-title">📦 سحب من المستودع</div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">الصنف</label>
-        <select class="form-select" id="withdrawItem" style="width:100%; padding:12px; border-radius:10px; font-size:15px; background:#1e1e1e; color:#f0f0f0; border:1.5px solid #2a2a2a;"></select>      </div>
+    <div class="f-row">
+      <div class="f-grp">
+        <label class="f-lbl">الصنف</label>
+        <select class="f-sel" id="withdrawItem"></select>
+      </div>
 
-      <div class="form-group" style="max-width:120px;">
-        <label class="form-label">الكمية</label>
-        <input type="number" class="form-input" id="withdrawQty" placeholder="0" min="1" style="width:100%; padding:12px; border-radius:10px; font-size:15px;">
+      <div class="f-grp" style="max-width:120px;">
+        <label class="f-lbl">الكمية</label>
+        <input type="number" class="f-inp2" id="withdrawQty" placeholder="0" min="1">
       </div>
     </div>
 
-    <div style="margin-bottom:10px;">
-      <input type="text" class="form-input" id="withdrawNote" placeholder="ملاحظة اختيارية" style="width:100%; padding:12px; border-radius:10px; font-size:15px; margin-bottom:10px;">
+    <div style="margin-bottom:9px;">
+      <input type="text" class="f-inp2" id="withdrawNote" placeholder="ملاحظة اختيارية" style="width:100%;">
     </div>
 
     <button class="btn-add" onclick="addWithdrawal()">+ حفظ السحب</button>
   </div>
 
-  <div class="expense-list" id="withdrawList"></div>
+  <div id="withdrawList"></div>
 </div>
   
 </div>
@@ -1852,8 +1853,8 @@ function loadWithdrawals() {
 
   db.collection('stockWithdrawals')
     .where('inventory_session_id', '==', S.sessionId)
-    .where('shift', '==', S.shift)
     .get()
+
     .then(function(snap) {
       if (snap.empty) {
         list.innerHTML = '<div class="empty">لا توجد سحوبات من المستودع</div>';
@@ -1863,13 +1864,22 @@ function loadWithdrawals() {
       var html = '';
       snap.docs.forEach(function(d) {
         var x = d.data();
+
+        if (x.shift !== S.shift && !(S.shift === 'B' && x.shift === 'A')) {
+          return;
+        }
+
         html += '<div class="expense-item">' +
-          '<div class="expense-info">' +
-            '<div class="expense-name">' + (x.item_name || '-') + '</div>' +
-            '<div class="expense-note">' + (x.note || '') + '</div>' +
-          '</div>' +
-          '<div class="expense-amount">' + (x.quantity || 0) + '</div>' +
-        '</div>';
+  '<div class="expense-info">' +
+    '<div class="expense-name">' +
+      (x.item_name || '-') +
+      (x.shift && x.shift !== S.shift ? ' <span style="color:var(--gold);font-size:11px;">سحوبات شفت ' + x.shift + '</span>' : '') +
+    '</div>' +
+    '<div class="expense-note">' + (x.note || '') + '</div>' +
+  '</div>' +
+  '<div class="expense-amount">' + (x.quantity || 0) + '</div>' +
+'</div>';
+
       });
 
       list.innerHTML = html;
@@ -2746,15 +2756,23 @@ var missing = [];
   var act=document.getElementById('actCash').value;
   if (!sys||!act){ toast('يرجى تعبئة بيانات الكاش','error'); switchTab('cash'); return; }
 
-  var confirmMsg = S.shift === 'A'
+ var confirmMsg = S.shift === 'A'
   ? 'هل تريد إرسال واعتماد شفت A؟'
   : 'هل تريد إرسال واعتماد شفت B للمدير؟';
 
 if (!confirm(confirmMsg)) {
   return;
 }
-  showLoad('جاري الحفظ...');
-  var batch=db.batch();
+
+var shiftNote = prompt('ملاحظات الشفت اختيارية، اتركها فارغة إذا لا توجد ملاحظات:');
+
+if (shiftNote === null) {
+  shiftNote = '';
+}
+
+shiftNote = shiftNote.trim();
+
+  showLoad('جاري الحفظ...');  var batch=db.batch();
   var promises=[];
 
   // Inventory entries
@@ -2812,14 +2830,21 @@ if (!confirm(confirmMsg)) {
 if (S.shift === 'A') {
   updateData.shift_a_sent = true;
   updateData.shift_a_sent_at = FS.serverTimestamp();
+
+  if (shiftNote) {
+    updateData.shift_a_note = shiftNote;
+  }
 }
 
 if (S.shift === 'B') {
   updateData.shift_b_sent = true;
   updateData.shift_b_sent_at = FS.serverTimestamp();
   updateData.ready_for_manager = true;
-}
 
+  if (shiftNote) {
+    updateData.shift_b_note = shiftNote;
+  }
+}
 return db.collection('inventorySessions').doc(S.sessionId).update(updateData);
   }).then(function(){
     S.invData = {};
@@ -3223,21 +3248,23 @@ function loadSessionDetails(sessId) {
     db.collection('expenses').where('inventory_session_id','==',sessId).get(),
     db.collection('cashEntries').where('inventory_session_id','==',sessId).get(),
     db.collection('accountingQuantities').where('inventory_session_id','==',sessId).get(),
-    db.collection('stockWithdrawals').where('inventory_session_id','==',sessId).get()
+    db.collection('stockWithdrawals').where('inventory_session_id','==',sessId).get(),
+    db.collection('inventorySessions').doc(sessId).get()
   ]).then(function(res){
     return {
       entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+      withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      session: res[5].exists ? res[5].data() : {}
     };
   });
 }
-
 function renderReport(det,sessId) {
   var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
 var withdrawals = det.withdrawals || [];
+var sessionData = det.session || {};
   var accMap={}, invMap={};
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
@@ -3369,13 +3396,42 @@ if (withdrawalNames.length) {
   withdrawalsHtml += '</tbody></table>';
 }
   
+var notesHtml = '';
 
-  var waBtn=hasAcc?'<button class="wa-btn" onclick="sendWA(\''+sessId+'\')">ارسال تقرير الفروقات واتساب</button>':'';
+if (sessionData.shift_a_note || sessionData.shift_b_note) {
+  notesHtml =
+    '<div class="detail-sec">' +
+      '<div class="sec-title">ملاحظات الشفتات</div>';
 
+  if (sessionData.shift_a_note) {
+    notesHtml +=
+      '<div class="exp-item">' +
+        '<div>' +
+          '<div class="exp-name">ملاحظة شفت A</div>' +
+          '<div class="exp-note">' + sessionData.shift_a_note + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  if (sessionData.shift_b_note) {
+    notesHtml +=
+      '<div class="exp-item">' +
+        '<div>' +
+          '<div class="exp-name">ملاحظة شفت B</div>' +
+          '<div class="exp-note">' + sessionData.shift_b_note + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  notesHtml += '</div>';
+}
+
+var waBtn=hasAcc?'<button class="wa-btn" onclick="sendWA(\''+sessId+'\')">ارسال تقرير الفروقات واتساب</button>':'';
  return '<div class="detail-sec"><div class="sec-title">الاصناف</div>'+itemsHtml+'</div>'+
   (allExpNms.length?'<div class="detail-sec"><div class="sec-title">المصاريف</div>'+expHtml+'</div>':'')+
   ((cA||cB)?'<div class="detail-sec"><div class="sec-title">الكاش</div>'+cashHtml+'</div>':'')+
   (withdrawalNames.length?'<div class="detail-sec"><div class="sec-title">سحوبات المستودع</div>'+withdrawalsHtml+'</div>':'')+
+  notesHtml+
   waBtn;
 }
 
