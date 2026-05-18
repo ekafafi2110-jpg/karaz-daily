@@ -1068,26 +1068,28 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 <!-- MANAGER -->
 <div class="screen" id="managerScreen">
   <div class="app-header">
-    <div class="h-logo">
-  <div class="h-logo-icon"></div>
-  <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
-</div>
+    <div class="h-top">
+      <div class="h-logo">
+        <div class="h-logo-icon"></div>
         <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
       </div>
+
       <div class="admin-tabs">
-  <button id="adminTabHome" class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
-<button id="adminTabWarehouse" class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
-</div>      <div class="h-right">
+        <button id="adminTabHome" class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
+        <button id="adminTabWarehouse" class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
+      </div>
+
+      <div class="h-right">
         <span class="sbadge MGR">مدير</span>
         <button class="btn-logout" onclick="doLogout()">خروج</button>
       </div>
     </div>
+
     <div class="h-info">
       <div class="h-date" id="mgrDate"></div>
       <div class="h-user" id="mgrUser"></div>
     </div>
-  </div>
-  <div id="warehouseAdminSection" style="display:none;">
+  </div>  <div id="warehouseAdminSection" style="display:none;">
   <div class="warehouse-box">
     <h2>المستودع</h2>
 
