@@ -2189,8 +2189,7 @@ function showManagerCash(openPanel) {
                 html:
                   '<tr>' +
                     '<td>' + fmtDate(p.work_date || S.workDate) + '</td>' +
-                    '<td style="text-align:right;">مشتريات<div style="font-size:10px;color:var(--text2);">' + (p.item_name || '') + '</div></td>' +
-                    '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +
+'<td style="text-align:right;">' + (p.title || 'مشتريات فاتورة') + '<div style="font-size:10px;color:var(--text2);">' + (p.supplier_name || '') + '</div></td>' +                    '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +
                   '</tr>'
               });
             }
@@ -2214,6 +2213,12 @@ function showManagerCash(openPanel) {
       if (!purchaseRows) purchaseRows = '<tr><td colspan="4"><div class="empty">لا توجد مشتريات محفوظة بعد</div></td></tr>';
 
       var cashCardsDisplay = openPanel ? 'none' : 'grid';
+      var supplierOptions =
+  '<option value="">اختر المورد</option>' +
+  '<option value="فاتورة بلاستيك">فاتورة بلاستيك</option>' +
+  '<option value="فاتورة بوظة">فاتورة بوظة</option>' +
+  '<option value="فاتورة أبو زهرة">فاتورة أبو زهرة</option>' +
+  '<option value="فاتورة أخرى">فاتورة أخرى</option>';
       var purchaseOptions = S.items.map(function(item) {
         return '<option value="' + item.name + '">' + item.name + '</option>';
       }).join('');
@@ -2275,31 +2280,51 @@ function showManagerCash(openPanel) {
           '<div class="detail-sec"><div class="sec-title">إضافة فاتورة</div>' +
 
   '<div class="f-row">' +
-    '<div class="f-grp">' +
-      '<label class="f-lbl">رقم / نوع المورد</label>' +
-      '<select class="f-sel" id="cashPurchaseSupplier" onchange="onCashPurchaseSupplierChange()">' +
-        '<option value="فاتورة بلاستيك">فاتورة بلاستيك</option>' +
-        '<option value="فاتورة بوظة">فاتورة بوظة</option>' +
-        '<option value="فاتورة أبو زهرة">فاتورة أبو زهرة</option>' +
-        '<option value="فاتورة أخرى">فاتورة أخرى</option>' +
-      '</select>' +
-    '</div>' +
+  '<div class="f-grp">' +
+    '<label class="f-lbl">المورد</label>' +
+    '<select class="f-sel" id="cashPurchaseSupplier" onchange="onCashPurchaseSupplierChange()">' +
+      supplierOptions +
+    '</select>' +
   '</div>' +
 
-  '<div id="cashPurchaseOtherSupplierBox" style="display:none;margin-bottom:10px;">' +
+  '<div class="f-grp" style="max-width:150px;">' +
+    '<label class="f-lbl">رقم الفاتورة</label>' +
+    '<input type="text" class="f-inp2" id="cashPurchaseInvoiceNo" placeholder="رقم الفاتورة">' +
+  '</div>' +
+'</div>' +
+
+'<div id="cashPurchaseOtherSupplierBox" style="display:none;margin-bottom:10px;">' +
   '<label class="f-lbl">اسم المورد</label>' +
   '<input type="text" class="f-inp2" id="cashPurchaseOtherSupplier" placeholder="اكتب اسم المورد..." style="width:100%;">' +
 '</div>' +
 
-'<div class="f-row">' +
-  '<div class="f-grp"><label class="f-lbl">الصنف</label><select class="f-sel" id="cashPurchaseItem">' + purchaseOptions + '</select></div>' +
-  '<div class="f-grp" style="max-width:110px;"><label class="f-lbl">العدد</label><input type="number" class="f-inp2" id="cashPurchaseQty" placeholder="0" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +
-  '<div class="f-grp" style="max-width:110px;"><label class="f-lbl">السعر</label><input type="number" class="f-inp2" id="cashPurchasePrice" placeholder="0.00" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +
-  '<div class="f-grp" style="max-width:130px;"><label class="f-lbl">المبلغ</label><input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0" readonly></div>' +
-  '<div class="f-grp" style="max-width:120px;"><label class="f-lbl">الدفع</label><select class="f-sel" id="cashPurchasePayment"><option value="كاش">كاش</option><option value="ذمم">ذمم</option></select></div>' +
+'<div id="cashPurchaseItemsBox" style="display:none;">' +
+
+  '<div class="f-row">' +
+    '<div class="f-grp" style="max-width:150px;">' +
+      '<label class="f-lbl">عدد الأصناف</label>' +
+      '<input type="number" class="f-inp2" id="cashPurchaseItemsCount" placeholder="0" min="1" step="1" oninput="renderCashPurchaseItemRows()">' +
+    '</div>' +
+  '</div>' +
+
+  '<div id="cashPurchaseItemsRows"></div>' +
+
+  '<div class="f-row">' +
+  '<div class="f-grp" style="max-width:160px;">' +
+    '<label class="f-lbl">طريقة دفع الفاتورة</label>' +
+    '<select class="f-sel" id="cashPurchasePayment"><option value="كاش">كاش</option><option value="ذمم">ذمم</option></select>' +
+  '</div>' +
 '</div>' +
 
-'<button class="btn-add" onclick="saveCashPurchase()">+ حفظ المشتريات</button><div id="cashPurchaseMsg"></div>' +
+'<div class="total-bar" style="margin:10px 0;">' +
+  '<div class="total-lbl">مجموع الفاتورة</div>' +
+  '<div class="total-amt"><span id="cashPurchaseInvoiceTotalText">0.00</span> دينار</div>' +
+'</div>' +
+
+'<input type="hidden" id="cashPurchaseInvoiceTotal" value="0">' +
+  '<button class="btn-add" onclick="saveCashPurchase()">+ حفظ الفاتورة</button><div id="cashPurchaseMsg"></div>' +
+'</div>' +
+
 '<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
 '<table class="rpt-table"><thead><tr><th>الصنف</th><th>العدد</th><th>الدفع</th><th>المبلغ</th></tr></thead><tbody>' + purchaseRows + '</tbody></table>' +
 '<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
@@ -2316,11 +2341,101 @@ document.getElementById('modalBody').innerHTML = html;
 }
 function onCashPurchaseSupplierChange() {
   var supplierEl = document.getElementById('cashPurchaseSupplier');
-  var box = document.getElementById('cashPurchaseOtherSupplierBox');
+  var otherBox = document.getElementById('cashPurchaseOtherSupplierBox');
+  var itemsBox = document.getElementById('cashPurchaseItemsBox');
 
-  if (!supplierEl || !box) return;
+  if (!supplierEl) return;
 
-  box.style.display = supplierEl.value === 'فاتورة أخرى' ? 'block' : 'none';
+  if (otherBox) {
+    otherBox.style.display = supplierEl.value === 'فاتورة أخرى' ? 'block' : 'none';
+  }
+
+  if (itemsBox) {
+    itemsBox.style.display = supplierEl.value ? 'block' : 'none';
+  }
+}
+function getCashPurchaseOptionsHtml() {
+  return S.items.map(function(item) {
+    return '<option value="' + item.name + '">' + item.name + '</option>';
+  }).join('');
+}
+
+function renderCashPurchaseItemRows() {
+  var countEl = document.getElementById('cashPurchaseItemsCount');
+  var rowsBox = document.getElementById('cashPurchaseItemsRows');
+
+  if (!countEl || !rowsBox) return;
+
+  var count = Number(countEl.value || 0);
+  if (!count || count < 1) {
+    rowsBox.innerHTML = '';
+    calcCashPurchaseInvoiceTotal();
+    return;
+  }
+
+  var html = '';
+
+  for (var i = 0; i < count; i++) {
+    html += cashPurchaseItemRowHtml(i);
+  }
+
+  rowsBox.innerHTML = html;
+  calcCashPurchaseInvoiceTotal();
+}
+
+function addCashPurchaseItemRow() {
+  var countEl = document.getElementById('cashPurchaseItemsCount');
+
+  if (!countEl) return;
+
+  var count = Number(countEl.value || 0);
+  countEl.value = count + 1;
+
+  renderCashPurchaseItemRows();
+}
+
+function cashPurchaseItemRowHtml(i) {
+  return (
+    '<div class="f-row cash-purchase-row" data-row="' + i + '" style="border:1px solid #333;border-radius:14px;padding:10px;margin-bottom:10px;">' +
+      '<div class="f-grp"><label class="f-lbl">الصنف</label><select class="f-sel cashPurchaseItem">' + getCashPurchaseOptionsHtml() + '</select></div>' +
+      '<div class="f-grp" style="max-width:100px;"><label class="f-lbl">العدد</label><input type="number" class="f-inp2 cashPurchaseQty" placeholder="0" step="0.01" min="0" oninput="calcCashPurchaseInvoiceTotal()"></div>' +
+      '<div class="f-grp" style="max-width:100px;"><label class="f-lbl">السعر</label><input type="number" class="f-inp2 cashPurchasePrice" placeholder="0.00" step="0.01" min="0" oninput="calcCashPurchaseInvoiceTotal()"></div>' +
+      '<div class="f-grp" style="max-width:120px;"><label class="f-lbl">المبلغ</label><input type="number" class="f-inp2 cashPurchaseAmount" placeholder="0.00" readonly></div>' +
+    '</div>'
+  );
+}
+
+function calcCashPurchaseInvoiceTotal() {
+  var rows = document.querySelectorAll('.cash-purchase-row');
+  var total = 0;
+
+  rows.forEach(function(row) {
+    var qtyEl = row.querySelector('.cashPurchaseQty');
+    var priceEl = row.querySelector('.cashPurchasePrice');
+    var amountEl = row.querySelector('.cashPurchaseAmount');
+
+    var qty = qtyEl ? Number(qtyEl.value || 0) : 0;
+    var price = priceEl ? Number(priceEl.value || 0) : 0;
+    var amount = qty * price;
+
+    if (amountEl) {
+      amountEl.value = amount > 0 ? amount.toFixed(2) : '';
+    }
+
+    total += amount;
+  });
+
+  var totalEl = document.getElementById('cashPurchaseInvoiceTotal');
+var totalTextEl = document.getElementById('cashPurchaseInvoiceTotalText');
+
+if (totalEl) {
+  totalEl.value = total > 0 ? total.toFixed(2) : '0';
+}
+
+if (totalTextEl) {
+  totalTextEl.textContent = total > 0 ? total.toFixed(2) : '0.00';
+}
+
 }
 
 function calcCashPurchaseAmount() {
@@ -2338,84 +2453,134 @@ function calcCashPurchaseAmount() {
 }
 
 function saveCashPurchase() {
-  var itemEl = document.getElementById('cashPurchaseItem');
-  var qtyEl = document.getElementById('cashPurchaseQty');
-  var amountEl = document.getElementById('cashPurchaseAmount');
-  var priceEl = document.getElementById('cashPurchasePrice');
-  var paymentEl = document.getElementById('cashPurchasePayment');
+  var rows = document.querySelectorAll('.cash-purchase-row');
+var paymentEl = document.getElementById('cashPurchasePayment');
+var invoiceNoEl = document.getElementById('cashPurchaseInvoiceNo');
+var totalEl = document.getElementById('cashPurchaseInvoiceTotal');
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+var otherSupplierEl = document.getElementById('cashPurchaseOtherSupplier');
+
+  var invoiceNo = invoiceNoEl ? invoiceNoEl.value.trim() : '';
+var paymentMethod = paymentEl ? paymentEl.value : 'كاش';
+var invoiceTotal = totalEl ? Number(totalEl.value || 0) : 0;
+
+var invoiceItems = [];
+
+rows.forEach(function(row) {
+  var itemEl = row.querySelector('.cashPurchaseItem');
+  var qtyEl = row.querySelector('.cashPurchaseQty');
+  var priceEl = row.querySelector('.cashPurchasePrice');
 
   var itemName = itemEl ? itemEl.value : '';
   var qty = qtyEl ? Number(qtyEl.value || 0) : 0;
   var price = priceEl ? Number(priceEl.value || 0) : 0;
-var amount = qty * price;
-  var paymentMethod = paymentEl ? paymentEl.value : 'كاش';
+  var amount = qty * price;
 
-  if (!itemName) {
-    toast('اختر الصنف', 'error');
-    return;
+  if (itemName && qty > 0 && price > 0 && amount > 0) {
+    invoiceItems.push({
+      item_name: itemName,
+      qty: qty,
+      price: price,
+      amount: amount
+    });
   }
+});  var supplierName = supplierEl ? supplierEl.value : '';
 
-  if (!qty || qty <= 0) {
-    toast('أدخل العدد', 'error');
-    return;
-  }
+if (supplierName === 'فاتورة أخرى') {
+  supplierName = otherSupplierEl ? otherSupplierEl.value.trim() : '';
+}
 
-  if (!amount || amount <= 0) {
-    toast('أدخل المبلغ', 'error');
-    return;
-  }
+if (!supplierName) {
+  toast('أدخل اسم المورد', 'error');
+  return;
+}
+
+  if (!rows.length) {
+  toast('أضف أصناف الفاتورة', 'error');
+  return;
+}
+
+if (!invoiceItems.length) {
+  toast('أدخل صنف واحد على الأقل مع العدد والسعر', 'error');
+  return;
+}
+
+if (!invoiceTotal || invoiceTotal <= 0) {
+  toast('مجموع الفاتورة غير صحيح', 'error');
+  return;
+}
 
   var now = firebase.firestore.FieldValue.serverTimestamp();
   var user = auth.currentUser || {};
-  var stockDocId = encodeURIComponent(itemName);
+  var invoiceTitle = invoiceNo ? ('مشتريات فاتورة رقم ' + invoiceNo) : 'مشتريات فاتورة';
 
-  var purchaseData = {
-    work_date: S.workDate,
-    item_name: itemName,
-    qty: qty,
-    amount: amount,
-    price: price,
-    payment_method: paymentMethod,
-    created_by: user.uid || '',
-    created_by_email: user.email || '',
-    created_at: now,
+var purchaseData = {
+  work_date: S.workDate,
+  invoice_no: invoiceNo,
+  supplier_name: supplierName,
+  items: invoiceItems,
+  amount: invoiceTotal,
+  payment_method: paymentMethod,
+  title: invoiceTitle,
+  created_by: user.uid || '',
+  created_by_email: user.email || '',
+  created_at: now,
+  deleted: false
+};
+
+var batch = db.batch();
+var purchaseRef = db.collection('cashPurchases').doc();
+
+batch.set(purchaseRef, purchaseData);
+
+if (supplierEl && supplierEl.value === 'فاتورة أخرى') {
+  var supplierRef = db.collection('suppliers').doc(encodeURIComponent(supplierName));
+  batch.set(supplierRef, {
+    name: supplierName,
+    updated_at: now,
     deleted: false
-  };
+  }, { merge: true });
+}
 
-  var logData = {
+invoiceItems.forEach(function(it) {
+  var stockDocId = encodeURIComponent(it.item_name);
+
+  var stockRef = db.collection('warehouseStock').doc(stockDocId);
+  batch.set(stockRef, {
+    item_name: it.item_name,
+    qty: firebase.firestore.FieldValue.increment(it.qty),
+    updated_at: now
+  }, { merge: true });
+
+  var logRef = db.collection('warehouseLog').doc();
+  batch.set(logRef, {
     work_date: S.workDate,
     type: 'purchase',
-    item_name: itemName,
-    qty: qty,
-    amount: amount,
-    price: price,
+    invoice_id: purchaseRef.id,
+    invoice_no: invoiceNo,
+    supplier_name: supplierName,
+    item_name: it.item_name,
+    qty: it.qty,
+    price: it.price,
+    amount: it.amount,
     payment_method: paymentMethod,
-    note: 'مشتريات',
+    note: invoiceTitle,
     created_by: user.uid || '',
     created_by_email: user.email || '',
     created_at: now,
     deleted: false
-  };
+  });
+});
 
-  db.collection('cashPurchases').add(purchaseData)
-    .then(function() {
-      return db.collection('warehouseLog').add(logData);
-    })
-    .then(function() {
-      return db.collection('warehouseStock').doc(stockDocId).set({
-        item_name: itemName,
-        qty: firebase.firestore.FieldValue.increment(qty),
-        updated_at: now
-      }, { merge: true });
-    })
-    .then(function() {
-      toast('تم حفظ المشتريات وتحديث رصيد النقد والمستودع', 'ok');
-      showManagerCash('purchases');
-    })
-    .catch(function(e) {
-      console.error(e);
-      toast('حدث خطأ أثناء حفظ المشتريات', 'error');
-    });
+batch.commit()
+  .then(function() {
+    toast('تم حفظ الفاتورة وتحديث رصيد النقد والمستودع', 'ok');
+    showManagerCash('purchases');
+  })
+  .catch(function(e) {
+    console.error(e);
+    toast('حدث خطأ أثناء حفظ الفاتورة', 'error');
+  });
 }
 function openCashBalanceDetails() {
   var box = document.getElementById('cashBalanceDetails');
