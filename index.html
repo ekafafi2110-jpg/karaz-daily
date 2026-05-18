@@ -2173,7 +2173,7 @@ function showManagerCash(openPanel) {
       }
 
       if (purchasesSnap && purchasesSnap.docs) {
-        
+
       var purchaseDocs = purchasesSnap.docs.slice();
 
       purchaseDocs.sort(function(a, b) {
@@ -2204,8 +2204,13 @@ function showManagerCash(openPanel) {
                 html:
                   '<tr>' +
                     '<td>' + fmtDate(p.work_date || S.workDate) + '</td>' +
-'<td style="text-align:right;">' + (p.title || 'مشتريات فاتورة') + '<div style="font-size:10px;color:var(--text2);">' + (p.supplier_name || '') + '</div></td>' +                    '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +
-                  '</tr>'
+               '<td style="text-align:right;">' +
+                (p.title || 'مشتريات فاتورة') +
+                '<div style="font-size:10px;color:var(--text2);">' +
+                (p.supplier_name || '') +
+                 '</div>' +
+                '</td>' +
+                '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +                  '</tr>'
               });
             }
           }
@@ -2240,21 +2245,43 @@ if (p.items && p.items.length) {
   invoiceItemsHtml = '<div class="empty">لا توجد تفاصيل أصناف لهذه الفاتورة</div>';
 }
 
-purchaseRows +=
+var invoiceCardHtml =
   '<div class="mgr-card cherry" style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + 'margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'' + p.docId + '\')">' +
     '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
+
       '<div style="text-align:right;">' +
-        '<div style="font-weight:900;color:var(--cherry2);">' + (p.title || ('مشتريات فاتورة ' + (p.invoice_no || ''))) + '</div>' +
-        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (p.supplier_name || '-') + '</div>' +
-        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">الدفع: ' + paymentMethod + '</div>' +
+        '<div style="font-weight:900;color:var(--cherry2);">' +
+          (p.title || ('مشتريات فاتورة ' + (p.invoice_no || ''))) +
+        '</div>' +
+
+        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' +
+          'المورد: ' + (p.supplier_name || '-') +
+        '</div>' +
+
+        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' +
+          'الدفع: ' + paymentMethod +
+        '</div>' +
       '</div>' +
-      '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
+
+      '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' +
+        amount.toFixed(2) +
+      '</div>' +
+
     '</div>' +
+
     '<div id="purchaseInvoiceDetails_' + p.docId + '" style="display:none;margin-top:10px;">' +
       invoiceItemsHtml +
     '</div>' +
   '</div>';
-        });
+
+if (index < 5) {
+  purchaseRows += invoiceCardHtml;
+}
+
+if (paymentMethod === 'ذمم' && !isDeleted) {
+  totalDebts += amount;
+  debtsRows += invoiceCardHtml;
+}        });
       }
 
       balanceRows.sort(function(a, b) { return b.time - a.time; });
@@ -2263,6 +2290,7 @@ purchaseRows +=
       if (!tableRows) tableRows = '<tr><td colspan="3"><div class="empty">لا توجد بيانات نقد لهذا اليوم</div></td></tr>';
       if (!additionsRows) additionsRows = '<tr><td colspan="4"><div class="empty">لا توجد إضافات نقد</div></td></tr>';
 if (!purchaseRows) purchaseRows = '<div class="empty">لا توجد فواتير محفوظة بعد</div>';
+if (!debtsRows) debtsRows = '<div class="empty">لا توجد فواتير ذمم</div>';
       var cashCardsDisplay = openPanel ? 'none' : 'grid';
       var supplierOptions =
   '<option value="">اختر المورد</option>' +
@@ -2286,10 +2314,16 @@ if (!purchaseRows) purchaseRows = '<div class="empty">لا توجد فواتير
             '<div style="font-size:11px;color:var(--text2);margin-top:6px;">إدخال مبلغ نقدي</div>' +
           '</div>' +
           '<div class="mgr-card cherry" onclick="showManagerCash(\'purchases\')" style="cursor:pointer;">' +
-            '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">مشتريات</div>' +
-            '<div style="font-size:11px;color:var(--text2);margin-top:6px;">مشتريات اليوم</div>' +
-          '</div>' +
-        '</div>' +
+  '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">مشتريات</div>' +
+  '<div style="font-size:11px;color:var(--text2);margin-top:6px;">آخر 5 فواتير</div>' +
+'</div>' +
+
+'<div class="mgr-card gold" onclick="showManagerCash(\'debts\')" style="cursor:pointer;">' +
+  '<div class="mgr-icon">📒</div><div class="mgr-lbl" style="font-size:15px;color:var(--gold);">الذمم</div>' +
+  '<div style="font-size:11px;color:var(--text2);margin-top:6px;">سجل فواتير الذمم</div>' +
+'</div>' +
+
+'</div>' +
 
         '<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
           '<div class="mgr-card gold" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
@@ -2379,6 +2413,22 @@ if (!purchaseRows) purchaseRows = '<div class="empty">لا توجد فواتير
 '<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
 '<div id="purchaseInvoicesList">' + purchaseRows + '</div>' +'<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
 '</div>' +
+'</div>' +
+
+'<div id="cashDebtsBox" style="display:' + (openPanel === 'debts' ? 'block' : 'none') + ';">' +
+  '<div class="mgr-card gold" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+    '<div class="mgr-icon">📒</div><div class="mgr-lbl" style="font-size:16px;color:var(--gold);">الذمم</div>' +
+    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+  '</div>' +
+
+  '<div class="detail-sec">' +
+    '<div class="sec-title">سجل فواتير الذمم</div>' +
+    '<div id="debtsInvoicesList">' + debtsRows + '</div>' +
+    '<div class="total-bar" style="margin-top:10px;">' +
+      '<div class="total-lbl">مجموع الذمم</div>' +
+      '<div class="total-amt">' + totalDebts.toFixed(2) + ' دينار</div>' +
+    '</div>' +
+  '</div>' +
 '</div>';
 
 document.getElementById('modalBody').innerHTML = html;
