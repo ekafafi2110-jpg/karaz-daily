@@ -86,20 +86,20 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 
 /* HEADER */
 .app-header{background:linear-gradient(135deg,#1a0a0e,#0a0616);
-  padding:11px 16px 9px;border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:100;}
-.h-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+  padding:8px 14px 7px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;}.h-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
 .h-logo{display:flex;align-items:center;gap:8px;}
 .h-logo-icon{
   width:34px;
   height:34px;
   background-image:url('logo.png');
-  background-size:contain;
+  background-size:24px 24px;
   background-repeat:no-repeat;
   background-position:center;
   border-radius:8px;
   flex-shrink:0;
-}.h-brand{font-size:15px;font-weight:900;}
+}
+.h-brand{font-size:15px;font-weight:900;}
 .h-brand span{color:var(--cherry2);}
 .h-right{display:flex;align-items:center;gap:8px;}
 .sbadge{padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700;}
@@ -875,11 +875,11 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 
 <!-- LOGIN -->
 <div class="screen active" id="loginScreen">
-  <div class="logo-wrap">
-<img src="logo.png">
-    <div class="logo-title">كرز وعنب</div>
-    <div class="logo-sub">القويسمة - نظام الجرد اليومي</div>
-  </div>
+ <div class="logo-wrap">
+  <div style="width:320px;max-width:95%;height:180px;margin:0 auto 14px auto;background-image:url('logo.png');background-size:contain;background-repeat:no-repeat;background-position:center;"></div>
+  <div class="logo-title">كرز وعنب</div>
+  <div class="logo-sub">القويسمة - نظام الجرد اليومي</div>
+</div>
   <div class="login-form">
     <div>
       <label class="lbl">البريد الإلكتروني</label>
@@ -921,22 +921,25 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 <div class="screen" id="mainScreen">
   <div class="app-header">
     <div class="h-top">
-      <div class="h-logo">
-        <img src="logo.png" class="header-logo">
-        <div class="h-brand">كرز <span>&</span> عنب</div>
-      </div>
-      <div class="h-right">
-        <span class="sbadge" id="shiftBadge">A</span>
-        <button class="btn-logout" onclick="doLogout()">خروج</button>
-      </div>
-    </div>
-    <div class="h-info">
-      <div class="h-date" id="hDate"></div>
-      <div class="h-user" id="hUser"></div>
-    </div>
+  <div class="h-logo">
+    <div class="h-logo-icon"></div>
+    <div class="h-brand">كرز <span>&</span> عنب</div>
   </div>
-  <div class="tabs-bar">
-    <button class="tab-btn active" id="tab-inventory" onclick="switchTab('inventory')">الجرد</button>
+
+  <div class="h-right">
+    <span class="sbadge" id="shiftBadge">A</span>
+    <button class="btn-logout" onclick="doLogout()">خروج</button>
+  </div>
+</div>
+
+<div class="h-info">
+  <div class="h-date" id="hDate"></div>
+  <div class="h-user" id="hUser"></div>
+</div>
+</div>
+<div class="tabs-bar">
+  
+  <button class="tab-btn active" id="tab-inventory" onclick="switchTab('inventory')">الجرد</button>
     <button class="tab-btn" id="tab-expenses" onclick="switchTab('expenses')">المصاريف</button>
     <button class="tab-btn" id="tab-cash" onclick="switchTab('cash')">الكاش</button>
     <button class="tab-btn" id="tab-withdrawals" onclick="switchTab('withdrawals')">📦 المستودع</button>
@@ -1065,9 +1068,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 <!-- MANAGER -->
 <div class="screen" id="managerScreen">
   <div class="app-header">
-    <div class="h-top">
-      <div class="h-logo">
-        <img src="logo.png" class="header-logo">
+    <div class="h-logo">
+  <div class="h-logo-icon"></div>
+  <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
+</div>
         <div class="h-brand" style="font-size:14px;">لوحة المدير</div>
       </div>
       <div class="admin-tabs">
@@ -1811,7 +1815,7 @@ function calcCash() {
   var sys=parseFloat(document.getElementById('sysCash').value);
   var act=parseFloat(document.getElementById('actCash').value);
   if (isNaN(sys)||isNaN(act)) return;
-  var diff=act-sys, submit=act+diff-20;
+  var diff=act-sys, submit=act-20
   var dEl=document.getElementById('cashDiff'), pill=document.getElementById('cashPill');
   dEl.textContent=diff.toFixed(2)+' دينار';
   pill.style.display='inline-block';
@@ -2763,7 +2767,7 @@ if (!confirm(confirmMsg)) {
 
   // Cash
   var sysV=parseFloat(sys), actV=parseFloat(act);
-  var diff=actV-sysV, submit=actV+diff-20;
+  var diff=actV-sysV, submit=actV-20
   var cashData={inventory_session_id:S.sessionId,shift:S.shift,
     system_cash:sysV,actual_cash:actV,difference:diff,cash_to_submit:submit,
     created_by:S.user.uid,updated_at:FS.serverTimestamp()};
