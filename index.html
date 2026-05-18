@@ -3196,19 +3196,22 @@ function approveSessionToArchive(sessId) {
 
   loadSessionDetails(sessId)
     .then(function(det) {
-      var archiveData = {
-        session_id: sessId,
-          tracking_id: sessId,
-        work_date: sessId.replace('ALMAZLOUB-', ''),
-        archived_by: S.user ? S.user.email : '',
-        archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        entries: det.entries || [],
-        expenses: det.expenses || [],
-        cash: det.cash || [],
-        accounting: det.accounting || [],
-        withdrawals: det.withdrawals || []
-      };
+     var sessionData = det.session || {};
 
+var archiveData = {
+  session_id: sessId,
+  tracking_id: sessId,
+  work_date: sessId.replace('ALMAZLOUB-', ''),
+  archived_by: S.user ? S.user.email : '',
+  archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  entries: det.entries || [],
+  expenses: det.expenses || [],
+  cash: det.cash || [],
+  accounting: det.accounting || [],
+  withdrawals: det.withdrawals || [],
+  shift_a_note: sessionData.shift_a_note || '',
+  shift_b_note: sessionData.shift_b_note || ''
+};
       return db.collection('dailyInventoryArchive')
         .doc(sessId)
         .set(archiveData);
@@ -3408,7 +3411,7 @@ if (sessionData.shift_a_note || sessionData.shift_b_note) {
       '<div class="exp-item">' +
         '<div>' +
           '<div class="exp-name">ملاحظة شفت A</div>' +
-          '<div class="exp-note">' + sessionData.shift_a_note + '</div>' +
+         '<div style="margin-top:7px;background:#111;border:1px solid rgba(212,175,55,.45);border-radius:10px;padding:10px;color:#f5f5f5;font-size:14px;font-weight:700;line-height:1.8;">' + sessionData.shift_a_note + '</div>' +
         '</div>' +
       '</div>';
   }
@@ -3418,7 +3421,7 @@ if (sessionData.shift_a_note || sessionData.shift_b_note) {
       '<div class="exp-item">' +
         '<div>' +
           '<div class="exp-name">ملاحظة شفت B</div>' +
-          '<div class="exp-note">' + sessionData.shift_b_note + '</div>' +
+          '<div style="margin-top:7px;background:#111;border:1px solid rgba(212,175,55,.45);border-radius:10px;padding:10px;color:#f5f5f5;font-size:14px;font-weight:700;line-height:1.8;">' + sessionData.shift_b_note + '</div>' +
         '</div>' +
       '</div>';
   }
