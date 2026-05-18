@@ -1078,10 +1078,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
       </div>
 
       <div class="admin-tabs">
-        <button id="adminTabHome" class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
-        <button id="adminTabWarehouse" class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
-      </div>
-
+  <button id="adminTabHome" class="admin-tab active" onclick="showManagerHome()">الرئيسية</button>
+  <button id="adminTabWarehouse" class="admin-tab" onclick="showWarehouseAdmin()">المستودع</button>
+  <button id="adminTabCash" class="admin-tab" onclick="showManagerCash()">النقد</button>
+</div>
       <div class="h-right">
         <span class="sbadge MGR">مدير</span>
         <button class="btn-logout" onclick="doLogout()">خروج</button>
@@ -2023,6 +2023,7 @@ function toggleWarehouseSection(sectionId, loadFn) {
 function setAdminTabActive(tab) {
   document.getElementById('adminTabHome').classList.remove('active');
   document.getElementById('adminTabWarehouse').classList.remove('active');
+  document.getElementById('adminTabCash').classList.remove('active');
 
   if (tab === 'home') {
     document.getElementById('adminTabHome').classList.add('active');
@@ -2031,6 +2032,10 @@ function setAdminTabActive(tab) {
   if (tab === 'warehouse') {
     document.getElementById('adminTabWarehouse').classList.add('active');
   }
+
+  if (tab === 'cash') {
+    document.getElementById('adminTabCash').classList.add('active');
+  }
 }
 
 function showManagerHome() {
@@ -2038,6 +2043,143 @@ function showManagerHome() {
   document.querySelector('.mgr-grid').style.display = 'grid';
   document.getElementById('warehouseAdminSection').style.display = 'none';
   hideWarehouseSections();
+}
+function showManagerCash() {
+  setAdminTabActive('cash');
+  document.querySelector('.mgr-grid').style.display = 'grid';
+  document.getElementById('warehouseAdminSection').style.display = 'none';
+  hideWarehouseSections();
+
+  openModal();
+  setModal('النقد');
+  showLoad('جاري تحميل رصيد النقد...');
+
+  db.collection('inventorySessions')
+    .where('work_date', '==', S.workDate)
+    .get()
+    .then(function(sessionSnap) {
+      var sessions = [];
+
+      sessionSnap.docs.forEach(function(d) {
+        var s = d.data();
+
+        if (s.archived === true) return;
+
+        sessions.push({
+          id: d.id,
+          data: s
+        });
+      });
+
+      if (!sessions.length) {
+        hideLoad();
+        document.getElementById('modalBody').innerHTML =
+          '<div class="empty">لا توجد جردات لهذا اليوم</div>';
+        return;
+      }
+
+      var promises = sessions.map(function(row) {
+        return db.collection('cashEntries')
+          .where('inventory_session_id', '==', row.id)
+          .get()
+          .then(function(cashSnap) {
+            return {
+              session: row,
+              cash: cashSnap.docs.map(function(d) {
+                return Object.assign({ id: d.id }, d.data());
+              })
+            };
+          });
+      });
+
+      return Promise.all(promises);
+    })
+    .then(function(rows) {
+      if (!rows) return;
+
+      hideLoad();
+
+      var totalActualCash = 0;
+      var tableRows = '';
+
+      rows.forEach(function(row) {
+        var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
+        var cB = row.cash.find(function(c) { return c.shift === 'B'; }) || {};
+
+        var finalActualCash = null;
+
+        if (cB.actual_cash !== undefined && cB.actual_cash !== null && cB.actual_cash !== '') {
+          finalActualCash = Number(cB.actual_cash);
+        } else if (cA.actual_cash !== undefined && cA.actual_cash !== null && cA.actual_cash !== '') {
+          finalActualCash = Number(cA.actual_cash);
+        }
+
+        if (finalActualCash === null) {
+          return;
+        }
+
+        totalActualCash += finalActualCash;
+
+        var tracking = row.session.data.tracking_id || row.session.id;
+        var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : fmtDate(S.workDate);
+
+        tableRows +=
+          '<tr>' +
+            '<td>' + dateTxt + '</td>' +
+            '<td style="font-size:10px;color:var(--gold);">' + tracking + '</td>' +
+            '<td><strong>' + finalActualCash.toFixed(2) + '</strong> دينار</td>' +
+          '</tr>';
+      });
+
+      if (!tableRows) {
+        document.getElementById('modalBody').innerHTML =
+          '<div class="empty">لا توجد بيانات نقد فعلي لهذا اليوم</div>';
+        return;
+      }
+
+      var html =
+  '<div class="mgr-card gold" onclick="openCashBalanceDetails()" style="margin-bottom:14px;cursor:pointer;">' +
+    '<div class="mgr-icon">💵</div>' +
+    '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
+    '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' +
+      totalActualCash.toFixed(2) +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
+    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لعرض التفاصيل</div>' +
+  '</div>' +
+
+  '<div id="cashBalanceDetails" style="display:none;">' +
+    '<div class="detail-sec">' +
+      '<div class="sec-title">تفاصيل رصيد النقد</div>' +
+      '<table class="rpt-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>اليوم</th>' +
+            '<th>رقم الجرد</th>' +
+            '<th>النقد الفعلي</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' +
+          tableRows +
+        '</tbody>' +
+      '</table>' +
+    '</div>' +
+  '</div>';
+  
+      document.getElementById('modalBody').innerHTML = html;
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
+    });
+}
+function openCashBalanceDetails() {
+  var box = document.getElementById('cashBalanceDetails');
+  if (!box) return;
+
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
 }
 
 function showWarehouseAdmin() {
