@@ -2084,7 +2084,8 @@ function showManagerCash(openPanel) {
   Promise.all(cashPromises),
   db.collection('cashAdditions').where('work_date', '==', S.workDate).get(),
   db.collection('cashPurchases').where('work_date', '==', S.workDate).get(),
-  db.collection('manualDebts').where('work_date', '==', S.workDate).get()
+  db.collection('manualDebts').where('work_date', '==', S.workDate).get(),
+db.collection('cashPayments').where('work_date', '==', S.workDate).get()
 ]);
     })
     .then(function(results) {
@@ -2094,6 +2095,7 @@ function showManagerCash(openPanel) {
       var additionsSnap = results[1];
       var purchasesSnap = results[2];
       var manualDebtsSnap = results[3];
+      var cashPaymentsSnap = results[4];
 
       var totalActualCash = 0;
       var balanceRows = [];
@@ -2304,36 +2306,70 @@ debtsRows += debtInvoiceCardHtml;
     if (!amount || amount <= 0) return;
     if (isDeleted) return;
 
-    totalDebts += amount;
+    if (debt.paid !== true) {
+  totalDebts += amount;
+}
 
-    debtsRows +=
-      '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'manualDebt_' + debt.docId + '\')">' +
-        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
-          '<div style="text-align:right;">' +
-            '<div style="font-weight:900;color:var(--gold);">التزام يدوي</div>' +
-            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (debt.supplier_name || '-') + '</div>' +
-            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' + (debt.note || '') + '</div>' +
-          '</div>' +
-'<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +        '</div>' +
-    
-'<div id="purchaseInvoiceDetails_manualDebt_' + debt.docId + '" style="display:none;margin-top:10px;">' +
-  '<div class="empty" style="text-align:right;">' +
-    '<div><strong>نوع الحركة:</strong> التزام يدوي</div>' +
-    '<div><strong>المورد:</strong> ' + (debt.supplier_name || '-') + '</div>' +
-    '<div><strong>المبلغ:</strong> ' + amount.toFixed(2) + ' دينار</div>' +
-    '<div><strong>الملاحظات:</strong> ' + (debt.note || '-') + '</div>' +
-  '</div>' +
-'</div>' +
+    var manualDebtActionHtml = debt.paid === true
+  ? '<span style="color:var(--green);font-size:12px;font-weight:900;">مسدد</span>'
+  : '<button class="btn-add" style="max-width:90px;padding:8px 12px;background:var(--green);" onclick="event.stopPropagation(); payManualDebt(\'' + debt.docId + '\')">دفع</button>';
 
-'<div style="display:flex;justify-content:flex-start;margin-top:10px;width:100%;">' +
-  debt.paid === true
-    ? '<span style="color:var(--green);font-size:12px;font-weight:900;">مسدد</span>'
-    : '<button class="btn-add" style="max-width:90px;padding:8px 12px;background:var(--green);" onclick="event.stopPropagation(); payManualDebt(\'' + debt.docId + '\')">دفع</button>'
-'</div>' +
-'</div>';
+debtsRows +=
+  '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'manualDebt_' + debt.docId + '\')">' +
+    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
+      '<div style="text-align:right;">' +
+        '<div style="font-weight:900;color:var(--gold);">التزام يدوي</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (debt.supplier_name || '-') + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' + (debt.note || '') + '</div>' +
+      '</div>' +
+      '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
+    '</div>' +
+
+    '<div id="purchaseInvoiceDetails_manualDebt_' + debt.docId + '" style="display:none;margin-top:10px;">' +
+      '<div class="empty" style="text-align:right;">' +
+        '<div><strong>نوع الحركة:</strong> التزام يدوي</div>' +
+        '<div><strong>المورد:</strong> ' + (debt.supplier_name || '-') + '</div>' +
+        '<div><strong>المبلغ:</strong> ' + amount.toFixed(2) + ' دينار</div>' +
+        '<div><strong>الملاحظات:</strong> ' + (debt.note || '-') + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="display:flex;justify-content:flex-start;margin-top:10px;width:100%;">' +
+      manualDebtActionHtml +
+    '</div>' +
+  '</div>';
   });
 }
 
+if (cashPaymentsSnap && cashPaymentsSnap.docs) {
+  cashPaymentsSnap.docs.forEach(function(d) {
+    var pay = Object.assign({ docId: d.id }, d.data());
+    var amount = Number(pay.amount || 0);
+    var isDeleted = pay.deleted === true;
+
+    if (!amount || amount <= 0) return;
+    if (isDeleted) return;
+
+    totalActualCash -= amount;
+
+    var payTime = pay.created_at && pay.created_at.toMillis ? pay.created_at.toMillis() : 0;
+
+    balanceRows.push({
+      time: payTime,
+      html:
+        '<tr>' +
+          '<td>' + fmtDate(pay.work_date || S.workDate) + '</td>' +
+          '<td style="text-align:right;">' +
+            (pay.title || 'سداد التزام') +
+            '<div style="font-size:10px;color:var(--text2);">' +
+              (pay.supplier_name || '') +
+            '</div>' +
+          '</td>' +
+          '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +
+        '</tr>'
+    });
+  });
+}
       balanceRows.sort(function(a, b) { return b.time - a.time; });
       tableRows = balanceRows.map(function(row) { return row.html; }).join('');
 
@@ -2515,20 +2551,61 @@ document.getElementById('modalBody').innerHTML = html;
 function payManualDebt(docId) {
   if (!confirm('هل تريد دفع هذا الالتزام من النقد؟')) return;
 
-  db.collection('manualDebts').doc(docId).update({
-    paid: true,
-    paid_at: firebase.firestore.FieldValue.serverTimestamp(),
-    paid_by: S.user ? S.user.uid : '',
-    paid_by_email: S.user ? S.user.email : ''
-  })
-  .then(function() {
-    toast('تم دفع الالتزام من النقد', 'success');
-    showManagerCash('debts');
-  })
-  .catch(function(e) {
-    console.error(e);
-    toast('حدث خطأ أثناء دفع الالتزام', 'error');
-  });
+  var debtRef = db.collection('manualDebts').doc(docId);
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+
+  debtRef.get()
+    .then(function(docSnap) {
+      if (!docSnap.exists) {
+        throw new Error('الالتزام غير موجود');
+      }
+
+      var debt = docSnap.data();
+      var amount = Number(debt.amount || 0);
+
+      if (!amount || amount <= 0) {
+        throw new Error('مبلغ الالتزام غير صحيح');
+      }
+
+      if (debt.paid === true) {
+        throw new Error('هذا الالتزام مسدد مسبقًا');
+      }
+
+      var batch = db.batch();
+
+      batch.update(debtRef, {
+        paid: true,
+        paid_at: now,
+        paid_by: S.user ? S.user.uid : '',
+        paid_by_email: S.user ? S.user.email : ''
+      });
+
+      var paymentRef = db.collection('cashPayments').doc();
+
+      batch.set(paymentRef, {
+        work_date: S.workDate,
+        type: 'manual_debt_payment',
+        title: 'سداد التزام',
+        supplier_name: debt.supplier_name || '',
+        amount: amount,
+        source_doc_id: docId,
+        note: debt.note || '',
+        created_by: S.user ? S.user.uid : '',
+        created_by_email: S.user ? S.user.email : '',
+        created_at: now,
+        deleted: false
+      });
+
+      return batch.commit();
+    })
+    .then(function() {
+      toast('تم دفع الالتزام من النقد', 'success');
+      showManagerCash('debts');
+    })
+    .catch(function(e) {
+      console.error(e);
+      toast('خطأ: ' + e.message, 'error');
+    });
 }
 
 function saveManualDebt() {
