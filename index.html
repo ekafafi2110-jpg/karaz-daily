@@ -2071,14 +2071,7 @@ function showManagerCash() {
         });
       });
 
-      if (!sessions.length) {
-        hideLoad();
-        document.getElementById('modalBody').innerHTML =
-          '<div class="empty">لا توجد جردات لهذا اليوم</div>';
-        return;
-      }
-
-      var promises = sessions.map(function(row) {
+      var cashPromises = sessions.map(function(row) {
         return db.collection('cashEntries')
           .where('inventory_session_id', '==', row.id)
           .get()
@@ -2092,15 +2085,22 @@ function showManagerCash() {
           });
       });
 
-      return Promise.all(promises);
+      return Promise.all([
+        Promise.all(cashPromises),
+        db.collection('cashAdditions')
+          .where('work_date', '==', S.workDate)
+          .get()
+      ]);
     })
-    .then(function(rows) {
-      if (!rows) return;
-
+    .then(function(results) {
       hideLoad();
+
+      var rows = results[0] || [];
+      var additionsSnap = results[1];
 
       var totalActualCash = 0;
       var tableRows = '';
+      var additionsRows = '';
 
       rows.forEach(function(row) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
@@ -2126,46 +2126,138 @@ function showManagerCash() {
         tableRows +=
           '<tr>' +
             '<td>' + dateTxt + '</td>' +
-            '<td style="font-size:10px;color:var(--gold);">' + tracking + '</td>' +
+            '<td style="text-align:right;">محل<div style="font-size:10px;color:var(--gold);">' + tracking + '</div></td>' +
             '<td><strong>' + finalActualCash.toFixed(2) + '</strong> دينار</td>' +
           '</tr>';
       });
 
-      if (!tableRows) {
+      if (additionsSnap && additionsSnap.docs) {
+        additionsSnap.docs.forEach(function(d) {
+          var x = Object.assign({ docId: d.id }, d.data());
+          var amount = Number(x.amount || 0);
+          var isDeleted = x.deleted === true;
+
+          if (!amount || amount <= 0) {
+            return;
+          }
+
+          if (!isDeleted) {
+            totalActualCash += amount;
+
+            tableRows +=
+              '<tr>' +
+                '<td>' + fmtDate(x.work_date || S.workDate) + '</td>' +
+                '<td style="text-align:right;">' + (x.source || 'إضافة نقد') + '</td>' +
+                '<td><strong>' + amount.toFixed(2) + '</strong> دينار</td>' +
+              '</tr>';
+          }
+
+          additionsRows +=
+            '<tr style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + '">' +
+              '<td>' +
+                (isDeleted
+                  ? '<span style="color:var(--text3);font-size:11px;">محذوف</span>'
+                  : '<input type="checkbox" onchange="deleteCashAddition(\'' + x.docId + '\')">') +
+              '</td>' +
+              '<td style="text-align:right;">' + (x.source || 'إضافة نقد') + '</td>' +
+              '<td><strong>' + amount.toFixed(2) + '</strong></td>' +
+              '<td style="font-size:10px;color:var(--text2);">' + fmtDate(x.work_date || S.workDate) + '</td>' +
+            '</tr>';
+        });
+      }
+
+      if (!tableRows && !additionsRows) {
         document.getElementById('modalBody').innerHTML =
-          '<div class="empty">لا توجد بيانات نقد فعلي لهذا اليوم</div>';
+          '<div class="empty">لا توجد بيانات نقد لهذا اليوم</div>';
         return;
       }
 
-      var html =
-  '<div class="mgr-card gold" onclick="openCashBalanceDetails()" style="margin-bottom:14px;cursor:pointer;">' +
-    '<div class="mgr-icon">💵</div>' +
-    '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
-    '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' +
-      totalActualCash.toFixed(2) +
-    '</div>' +
-    '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
-    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لعرض التفاصيل</div>' +
-  '</div>' +
-
-  '<div id="cashBalanceDetails" style="display:none;">' +
-    '<div class="detail-sec">' +
-      '<div class="sec-title">تفاصيل رصيد النقد</div>' +
-      '<table class="rpt-table">' +
-        '<thead>' +
+      if (!additionsRows) {
+        additionsRows =
           '<tr>' +
-            '<th>اليوم</th>' +
-            '<th>رقم الجرد</th>' +
-            '<th>النقد الفعلي</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody>' +
-          tableRows +
-        '</tbody>' +
-      '</table>' +
-    '</div>' +
-  '</div>';
-  
+            '<td colspan="4"><div class="empty">لا توجد إضافات نقد</div></td>' +
+          '</tr>';
+      }
+
+      var html =
+        '<div class="mgr-card gold" onclick="openCashBalanceDetails()" style="margin-bottom:14px;cursor:pointer;">' +
+          '<div class="mgr-icon">💵</div>' +
+          '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
+          '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' +
+            totalActualCash.toFixed(2) +
+          '</div>' +
+          '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
+          '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لعرض التفاصيل</div>' +
+        '</div>' +
+
+        '<div class="mgr-card green" onclick="openAddCashBox()" style="margin-bottom:14px;cursor:pointer;">' +
+          '<div class="mgr-icon">➕</div>' +
+          '<div class="mgr-lbl" style="font-size:16px;color:var(--green);">إضافة نقد</div>' +
+          '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإضافة مبلغ نقدي</div>' +
+        '</div>' +
+
+        '<div id="addCashBox" class="detail-sec" style="display:none;">' +
+          '<div class="sec-title">إضافة نقد</div>' +
+
+          '<div class="f-row">' +
+            '<div class="f-grp">' +
+              '<label class="f-lbl">مصدر النقد</label>' +
+              '<select class="f-sel" id="cashAddSource" onchange="onCashAddSourceChange()">' +
+                '<option value="دخل طلبات">دخل طلبات</option>' +
+                '<option value="دخل كريم">دخل كريم</option>' +
+                '<option value="دخل أشيائي">دخل أشيائي</option>' +
+                '<option value="دخل آخر">دخل آخر</option>' +
+              '</select>' +
+            '</div>' +
+
+            '<div class="f-grp" style="max-width:130px;">' +
+              '<label class="f-lbl">المبلغ</label>' +
+              '<input type="number" class="f-inp2" id="cashAddAmount" placeholder="0.00" step="0.01" min="0">' +
+            '</div>' +
+          '</div>' +
+
+          '<div id="cashAddOtherBox" style="display:none;margin-bottom:9px;">' +
+            '<input type="text" class="f-inp2" id="cashAddOtherNote" placeholder="اكتب مصدر النقد الآخر..." style="width:100%;">' +
+          '</div>' +
+
+          '<button class="btn-add" onclick="saveCashAddition()">+ حفظ النقد</button>' +
+          '<div id="cashAddMsg"></div>' +
+
+          '<div class="divider"></div>' +
+          '<div class="sec-title">كشف إضافات النقد</div>' +
+          '<table class="rpt-table">' +
+            '<thead>' +
+              '<tr>' +
+                '<th>حذف</th>' +
+                '<th>المصدر</th>' +
+                '<th>المبلغ</th>' +
+                '<th>اليوم</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' +
+              additionsRows +
+            '</tbody>' +
+          '</table>' +
+        '</div>' +
+
+        '<div id="cashBalanceDetails" style="display:none;">' +
+          '<div class="detail-sec">' +
+            '<div class="sec-title">تفاصيل رصيد النقد</div>' +
+            '<table class="rpt-table">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th>اليوم</th>' +
+                  '<th>المصدر</th>' +
+                  '<th>النقد الفعلي</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' +
+                tableRows +
+              '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>';
+
       document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
@@ -2175,11 +2267,145 @@ function showManagerCash() {
         '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
     });
 }
+
 function openCashBalanceDetails() {
   var box = document.getElementById('cashBalanceDetails');
+  var addBox = document.getElementById('addCashBox');
+
   if (!box) return;
 
+  if (addBox) {
+    addBox.style.display = 'none';
+  }
+
   box.style.display = box.style.display === 'none' ? 'block' : 'none';
+
+  if (box.style.display === 'block') {
+    setTimeout(function() {
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+}
+function openAddCashBox() {
+  var box = document.getElementById('addCashBox');
+  var balanceBox = document.getElementById('cashBalanceDetails');
+
+  if (!box) return;
+
+  if (balanceBox) {
+    balanceBox.style.display = 'none';
+  }
+
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+
+  if (box.style.display === 'block') {
+    setTimeout(function() {
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+}
+
+function onCashAddSourceChange() {
+  var source = document.getElementById('cashAddSource').value;
+  var otherBox = document.getElementById('cashAddOtherBox');
+
+  if (!otherBox) return;
+
+  otherBox.style.display = source === 'دخل آخر' ? 'block' : 'none';
+}
+
+function saveCashAddition() {
+  var source = document.getElementById('cashAddSource').value;
+  var amount = Number(document.getElementById('cashAddAmount').value || 0);
+  var otherNote = document.getElementById('cashAddOtherNote').value.trim();
+  var msg = document.getElementById('cashAddMsg');
+
+  if (!amount || amount <= 0) {
+    toast('أدخل مبلغًا صحيحًا', 'error');
+    return;
+  }
+
+  if (source === 'دخل آخر' && !otherNote) {
+    toast('اكتب مصدر النقد الآخر', 'error');
+    return;
+  }
+
+  var finalSource = source === 'دخل آخر' ? otherNote : source;
+
+  if (msg) {
+    msg.innerHTML = '<div class="empty">جاري حفظ النقد...</div>';
+  }
+
+  showLoad('جاري حفظ النقد...');
+
+  db.collection('cashAdditions').add({
+    work_date: S.workDate,
+    source: finalSource,
+    original_source: source,
+    amount: amount,
+    note: otherNote || '',
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(function() {
+    hideLoad();
+
+    document.getElementById('cashAddAmount').value = '';
+    document.getElementById('cashAddOtherNote').value = '';
+    document.getElementById('cashAddSource').value = 'دخل طلبات';
+    onCashAddSourceChange();
+
+    if (msg) {
+  msg.innerHTML = '<div class="empty">تم حفظ النقد بنجاح</div>';
+}
+
+toast('تم حفظ النقد', 'success');
+
+setTimeout(function() {
+  showManagerCash();
+}, 500);
+
+
+  })
+  .catch(function(e) {
+    hideLoad();
+    console.error(e);
+
+    if (msg) {
+      msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ النقد</div>';
+    }
+
+    toast('خطأ: ' + e.message, 'error');
+  });
+}
+function deleteCashAddition(docId) {
+  if (!confirm('هل تريد حذف هذا النقد من الرصيد؟ سيبقى ظاهرًا في الكشف مع خط عليه.')) {
+    showManagerCash();
+    return;
+  }
+
+  showLoad('جاري حذف النقد...');
+
+  db.collection('cashAdditions')
+    .doc(docId)
+    .update({
+      deleted: true,
+      deleted_at: firebase.firestore.FieldValue.serverTimestamp(),
+      deleted_by: S.user ? S.user.uid : '',
+      deleted_by_email: S.user ? S.user.email : ''
+    })
+    .then(function() {
+      hideLoad();
+      toast('تم حذف النقد من الرصيد', 'info');
+      showManagerCash();
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('خطأ: ' + e.message, 'error');
+      showManagerCash();
+    });
 }
 
 function showWarehouseAdmin() {
