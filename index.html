@@ -2062,13 +2062,8 @@ function showManagerCash(openPanel) {
 
       sessionSnap.docs.forEach(function(d) {
         var s = d.data();
-
         if (s.archived === true) return;
-
-        sessions.push({
-          id: d.id,
-          data: s
-        });
+        sessions.push({ id: d.id, data: s });
       });
 
       var cashPromises = sessions.map(function(row) {
@@ -2087,9 +2082,8 @@ function showManagerCash(openPanel) {
 
       return Promise.all([
         Promise.all(cashPromises),
-        db.collection('cashAdditions')
-          .where('work_date', '==', S.workDate)
-          .get()
+        db.collection('cashAdditions').where('work_date', '==', S.workDate).get(),
+        db.collection('cashPurchases').where('work_date', '==', S.workDate).get()
       ]);
     })
     .then(function(results) {
@@ -2097,29 +2091,18 @@ function showManagerCash(openPanel) {
 
       var rows = results[0] || [];
       var additionsSnap = results[1];
+      var purchasesSnap = results[2];
 
       var totalActualCash = 0;
-var balanceRows = [];
-var tableRows = '';
-var additionsRows = '';
+      var balanceRows = [];
+      var tableRows = '';
+      var additionsRows = '';
+      var purchaseRows = '';
+      var totalPurchases = 0;
 
-rows.sort(function(a, b) {
-  var ta = a.session.data.updated_at && a.session.data.updated_at.toMillis
-    ? a.session.data.updated_at.toMillis()
-    : 0;
-
-  var tb = b.session.data.updated_at && b.session.data.updated_at.toMillis
-    ? b.session.data.updated_at.toMillis()
-    : 0;
-
-  return tb - ta;
-});
-
-rows.forEach(function(row) {
-
+      rows.forEach(function(row) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
         var cB = row.cash.find(function(c) { return c.shift === 'B'; }) || {};
-
         var finalActualCash = null;
 
         if (cB.actual_cash !== undefined && cB.actual_cash !== null && cB.actual_cash !== '') {
@@ -2128,73 +2111,47 @@ rows.forEach(function(row) {
           finalActualCash = Number(cA.actual_cash);
         }
 
-        if (finalActualCash === null) {
-          return;
-        }
+        if (finalActualCash === null) return;
 
         totalActualCash += finalActualCash;
 
         var tracking = row.session.data.tracking_id || row.session.id;
         var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : fmtDate(S.workDate);
+        var moveTime = row.session.data.updated_at && row.session.data.updated_at.toMillis ? row.session.data.updated_at.toMillis() : 0;
 
-        var moveTime = row.session.data.updated_at && row.session.data.updated_at.toMillis
-  ? row.session.data.updated_at.toMillis()
-  : 0;
-
-balanceRows.push({
-  time: moveTime,
-  html:
-    '<tr>' +
-      '<td>' + dateTxt + '</td>' +
-      '<td style="text-align:right;">محل<div style="font-size:10px;color:var(--gold);">' + tracking + '</div></td>' +
-      '<td><strong>' + finalActualCash.toFixed(2) + '</strong> دينار</td>' +
-    '</tr>'
-});
+        balanceRows.push({
+          time: moveTime,
+          html:
+            '<tr>' +
+              '<td>' + dateTxt + '</td>' +
+              '<td style="text-align:right;">محل<div style="font-size:10px;color:var(--gold);">' + tracking + '</div></td>' +
+              '<td><strong>' + finalActualCash.toFixed(2) + '</strong> دينار</td>' +
+            '</tr>'
+        });
       });
 
       if (additionsSnap && additionsSnap.docs) {
-  var additionDocs = additionsSnap.docs.slice();
-
-  additionDocs.sort(function(a, b) {
-    var da = a.data();
-    var db = b.data();
-
-    var ta = da.created_at && da.created_at.toMillis
-      ? da.created_at.toMillis()
-      : 0;
-
-    var tb = db.created_at && db.created_at.toMillis
-      ? db.created_at.toMillis()
-      : 0;
-
-    return tb - ta;
-  });
-
-  additionDocs.forEach(function(d) {
-    var x = Object.assign({ docId: d.id }, d.data());
-        var amount = Number(x.amount || 0);
+        additionsSnap.docs.forEach(function(d) {
+          var x = Object.assign({ docId: d.id }, d.data());
+          var amount = Number(x.amount || 0);
           var isDeleted = x.deleted === true;
 
-          if (!amount || amount <= 0) {
-            return;
-          }
+          if (!amount || amount <= 0) return;
 
           if (!isDeleted) {
             totalActualCash += amount;
 
-            var addTime = x.created_at && x.created_at.toMillis
-  ? x.created_at.toMillis()
-  : 0;
+            var addTime = x.created_at && x.created_at.toMillis ? x.created_at.toMillis() : 0;
 
-balanceRows.push({
-  time: addTime,
-  html:
-    '<tr>' +
-      '<td>' + fmtDate(x.work_date || S.workDate) + '</td>' +
-      '<td style="text-align:right;">' + (x.source || 'إضافة نقد') + '</td>' +
-      '<td><strong>' + amount.toFixed(2) + '</strong> دينار</td>' +
-    '</tr>'
-});
+            balanceRows.push({
+              time: addTime,
+              html:
+                '<tr>' +
+                  '<td>' + fmtDate(x.work_date || S.workDate) + '</td>' +
+                  '<td style="text-align:right;">' + (x.source || 'إضافة نقد') + '</td>' +
+                  '<td><strong>' + amount.toFixed(2) + '</strong> دينار</td>' +
+                '</tr>'
+            });
           }
 
           additionsRows +=
@@ -2211,200 +2168,225 @@ balanceRows.push({
         });
       }
 
-      balanceRows.sort(function(a, b) {
-  return b.time - a.time;
-});
+      if (purchasesSnap && purchasesSnap.docs) {
+        purchasesSnap.docs.forEach(function(d) {
+          var p = Object.assign({ docId: d.id }, d.data());
+          var amount = Number(p.amount || 0);
+          var qty = Number(p.qty || 0);
+          var isDeleted = p.deleted === true;
+          var paymentMethod = p.payment_method || 'كاش';
 
-tableRows = balanceRows.map(function(row) {
-  return row.html;
-}).join('');
+          if (!isDeleted && amount > 0) {
+            totalPurchases += amount;
 
-      if (!tableRows && !additionsRows) {
-        document.getElementById('modalBody').innerHTML =
-          '<div class="empty">لا توجد بيانات نقد لهذا اليوم</div>';
-        return;
+            if (paymentMethod === 'كاش') {
+              totalActualCash -= amount;
+
+              var purchaseTime = p.created_at && p.created_at.toMillis ? p.created_at.toMillis() : 0;
+
+              balanceRows.push({
+                time: purchaseTime,
+                html:
+                  '<tr>' +
+                    '<td>' + fmtDate(p.work_date || S.workDate) + '</td>' +
+                    '<td style="text-align:right;">مشتريات<div style="font-size:10px;color:var(--text2);">' + (p.item_name || '') + '</div></td>' +
+                    '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +
+                  '</tr>'
+              });
+            }
+          }
+
+          purchaseRows +=
+            '<tr style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + '">' +
+              '<td style="text-align:right;">' + (p.item_name || '-') + '</td>' +
+              '<td>' + qty.toFixed(2) + '</td>' +
+              '<td>' + paymentMethod + '</td>' +
+              '<td><strong>' + amount.toFixed(2) + '</strong></td>' +
+            '</tr>';
+        });
       }
 
-      if (!additionsRows) {
-        additionsRows =
-          '<tr>' +
-            '<td colspan="4"><div class="empty">لا توجد إضافات نقد</div></td>' +
-          '</tr>';
-      }
+      balanceRows.sort(function(a, b) { return b.time - a.time; });
+      tableRows = balanceRows.map(function(row) { return row.html; }).join('');
+
+      if (!tableRows) tableRows = '<tr><td colspan="3"><div class="empty">لا توجد بيانات نقد لهذا اليوم</div></td></tr>';
+      if (!additionsRows) additionsRows = '<tr><td colspan="4"><div class="empty">لا توجد إضافات نقد</div></td></tr>';
+      if (!purchaseRows) purchaseRows = '<tr><td colspan="4"><div class="empty">لا توجد مشتريات محفوظة بعد</div></td></tr>';
 
       var cashCardsDisplay = openPanel ? 'none' : 'grid';
       var purchaseOptions = S.items.map(function(item) {
-  return '<option value="' + item.name + '">' + item.name + '</option>';
-}).join('');
+        return '<option value="' + item.name + '">' + item.name + '</option>';
+      }).join('');
 
-var html =
-  '<div id="cashCardsGrid" style="display:' + cashCardsDisplay + ';grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">' +
-
-    '<div class="mgr-card gold" onclick="showManagerCash(\'balance\')" style="cursor:pointer;">' +
-      '<div class="mgr-icon">💵</div>' +
-      '<div class="mgr-lbl" style="font-size:15px;color:var(--gold);">رصيد النقد</div>' +
-      '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' +
-        totalActualCash.toFixed(2) +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
-    '</div>' +
-
-    '<div class="mgr-card green" onclick="showManagerCash(\'add\')" style="cursor:pointer;">' +
-      '<div class="mgr-icon">➕</div>' +
-      '<div class="mgr-lbl" style="font-size:15px;color:var(--green);">إضافة نقد</div>' +
-      '<div style="font-size:11px;color:var(--text2);margin-top:6px;">إدخال مبلغ نقدي</div>' +
-    '</div>' +
-
-    '<div class="mgr-card cherry" onclick="showManagerCash(\'purchases\')" style="cursor:pointer;">' +
-  '<div class="mgr-icon">🛒</div>' +
-  '<div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">مشتريات</div>' +
-  '<div style="font-size:11px;color:var(--text2);margin-top:6px;">مشتريات اليوم</div>' +
-'</div>' +
-
-
-  '</div>' +
-
-'</div>' +
-
-'<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
-    '<div class="mgr-card gold" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
-      '<div class="mgr-icon">💵</div>' +
-      '<div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
-      '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' +
-        totalActualCash.toFixed(2) +
-      '</div>' +
-      '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
-      '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
-    '</div>' +
-
-    '<div class="detail-sec">' +
-      '<div class="sec-title">تفاصيل رصيد النقد</div>' +
-      '<table class="rpt-table">' +
-        '<thead>' +
-          '<tr>' +
-            '<th>اليوم</th>' +
-            '<th>المصدر</th>' +
-            '<th>النقد الفعلي</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody>' +
-          tableRows +
-        '</tbody>' +
-      '</table>' +
-    '</div>' +
-  '</div>' +
-
-  '<div id="addCashBox" style="display:' + (openPanel === 'add' ? 'block' : 'none') + ';">' +
-    '<div class="mgr-card green" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
-      '<div class="mgr-icon">➕</div>' +
-      '<div class="mgr-lbl" style="font-size:16px;color:var(--green);">إضافة نقد</div>' +
-      '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
-    '</div>' +
-
-    '<div class="detail-sec">' +
-      '<div class="sec-title">إضافة نقد</div>' +
-
-      '<div class="f-row">' +
-        '<div class="f-grp">' +
-          '<label class="f-lbl">مصدر النقد</label>' +
-          '<select class="f-sel" id="cashAddSource" onchange="onCashAddSourceChange()">' +
-            '<option value="دخل طلبات">دخل طلبات</option>' +
-            '<option value="دخل كريم">دخل كريم</option>' +
-            '<option value="دخل أشيائي">دخل أشيائي</option>' +
-            '<option value="دخل آخر">دخل آخر</option>' +
-          '</select>' +
+      var html =
+        '<div id="cashCardsGrid" style="display:' + cashCardsDisplay + ';grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">' +
+          '<div class="mgr-card gold" onclick="showManagerCash(\'balance\')" style="cursor:pointer;">' +
+            '<div class="mgr-icon">💵</div><div class="mgr-lbl" style="font-size:15px;color:var(--gold);">رصيد النقد</div>' +
+            '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' + totalActualCash.toFixed(2) + '</div>' +
+            '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
+          '</div>' +
+          '<div class="mgr-card green" onclick="showManagerCash(\'add\')" style="cursor:pointer;">' +
+            '<div class="mgr-icon">➕</div><div class="mgr-lbl" style="font-size:15px;color:var(--green);">إضافة نقد</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:6px;">إدخال مبلغ نقدي</div>' +
+          '</div>' +
+          '<div class="mgr-card cherry" onclick="showManagerCash(\'purchases\')" style="cursor:pointer;">' +
+            '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">مشتريات</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:6px;">مشتريات اليوم</div>' +
+          '</div>' +
         '</div>' +
 
-        '<div class="f-grp" style="max-width:130px;">' +
-          '<label class="f-lbl">المبلغ</label>' +
-          '<input type="number" class="f-inp2" id="cashAddAmount" placeholder="0.00" step="0.01" min="0">' +
+        '<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
+          '<div class="mgr-card gold" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+            '<div class="mgr-icon">💵</div><div class="mgr-lbl" style="font-size:16px;color:var(--gold);">رصيد النقد</div>' +
+            '<div style="font-size:26px;font-weight:900;color:var(--gold);margin-top:6px;">' + totalActualCash.toFixed(2) + '</div>' +
+            '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+          '</div>' +
+          '<div class="detail-sec"><div class="sec-title">تفاصيل رصيد النقد</div>' +
+            '<table class="rpt-table"><thead><tr><th>اليوم</th><th>المصدر</th><th>النقد الفعلي</th></tr></thead><tbody>' + tableRows + '</tbody></table>' +
+          '</div>' +
         '</div>' +
-      '</div>' +
 
-      '<div id="cashAddOtherBox" style="display:none;margin-bottom:9px;">' +
-        '<input type="text" class="f-inp2" id="cashAddOtherNote" placeholder="اكتب مصدر النقد الآخر..." style="width:100%;">' +
-      '</div>' +
+        '<div id="addCashBox" style="display:' + (openPanel === 'add' ? 'block' : 'none') + ';">' +
+          '<div class="mgr-card green" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+            '<div class="mgr-icon">➕</div><div class="mgr-lbl" style="font-size:16px;color:var(--green);">إضافة نقد</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+          '</div>' +
+          '<div class="detail-sec"><div class="sec-title">إضافة نقد</div>' +
+            '<div class="f-row">' +
+              '<div class="f-grp"><label class="f-lbl">مصدر النقد</label><select class="f-sel" id="cashAddSource" onchange="onCashAddSourceChange()">' +
+                '<option value="دخل طلبات">دخل طلبات</option><option value="دخل كريم">دخل كريم</option><option value="دخل أشيائي">دخل أشيائي</option><option value="دخل آخر">دخل آخر</option>' +
+              '</select></div>' +
+              '<div class="f-grp" style="max-width:130px;"><label class="f-lbl">المبلغ</label><input type="number" class="f-inp2" id="cashAddAmount" placeholder="0.00" step="0.01" min="0"></div>' +
+            '</div>' +
+            '<div id="cashAddOtherBox" style="display:none;margin-bottom:9px;"><input type="text" class="f-inp2" id="cashAddOtherNote" placeholder="اكتب مصدر النقد الآخر..." style="width:100%;"></div>' +
+            '<button class="btn-add" onclick="saveCashAddition()">+ حفظ النقد</button><div id="cashAddMsg"></div>' +
+            '<div class="divider"></div><div class="sec-title">كشف إضافات النقد</div>' +
+            '<table class="rpt-table"><thead><tr><th>حذف</th><th>المصدر</th><th>المبلغ</th><th>اليوم</th></tr></thead><tbody>' + additionsRows + '</tbody></table>' +
+          '</div>' +
+        '</div>' +
 
-      '<button class="btn-add" onclick="saveCashAddition()">+ حفظ النقد</button>' +
-      '<div id="cashAddMsg"></div>' +
+        '<div id="cashPurchasesBox" style="display:' + (openPanel === 'purchases' ? 'block' : 'none') + ';">' +
+          '<div class="mgr-card cherry" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
+            '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:16px;color:var(--cherry2);">مشتريات</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+          '</div>' +
+          '<div class="detail-sec"><div class="sec-title">إضافة مشتريات</div>' +
+            '<div class="f-row">' +
+              '<div class="f-grp"><label class="f-lbl">الصنف</label><select class="f-sel" id="cashPurchaseItem">' + purchaseOptions + '</select></div>' +
+'<div class="f-grp" style="max-width:110px;"><label class="f-lbl">العدد</label><input type="number" class="f-inp2" id="cashPurchaseQty" placeholder="0" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +              '<div class="f-grp" style="max-width:110px;"><label class="f-lbl">السعر</label><input type="number" class="f-inp2" id="cashPurchasePrice" placeholder="0.00" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +
+'<div class="f-grp" style="max-width:130px;"><label class="f-lbl">المبلغ</label><input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0" readonly></div>' +
+              '<div class="f-grp" style="max-width:120px;"><label class="f-lbl">الدفع</label><select class="f-sel" id="cashPurchasePayment"><option value="كاش">كاش</option><option value="ذمم">ذمم</option></select></div>' +
+            '</div>' +
+            '<button class="btn-add" onclick="saveCashPurchase()">+ حفظ المشتريات</button><div id="cashPurchaseMsg"></div>' +
+            '<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
+            '<table class="rpt-table"><thead><tr><th>الصنف</th><th>العدد</th><th>الدفع</th><th>المبلغ</th></tr></thead><tbody>' + purchaseRows + '</tbody></table>' +
+            '<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
+          '</div>' +
+        '</div>';
 
-      '<div class="divider"></div>' +
-      '<div class="sec-title">كشف إضافات النقد</div>' +
-      '<table class="rpt-table">' +
-        '<thead>' +
-          '<tr>' +
-            '<th>حذف</th>' +
-            '<th>المصدر</th>' +
-            '<th>المبلغ</th>' +
-            '<th>اليوم</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody>' +
-          additionsRows +
-        '</tbody>' +
-      '</table>' +
-    '</div>' +
-  '</div>' +
-
-  '<div id="cashPurchasesBox" style="display:' + (openPanel === 'purchases' ? 'block' : 'none') + ';">' +
-  '<div class="mgr-card cherry" onclick="showManagerCash()" style="margin-bottom:14px;cursor:pointer;">' +
-    '<div class="mgr-icon">🛒</div>' +
-    '<div class="mgr-lbl" style="font-size:16px;color:var(--cherry2);">مشتريات</div>' +
-    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
-  '</div>' +
-
-  '<div class="detail-sec">' +
-    '<div class="sec-title">إضافة مشتريات</div>' +
-
-   '<div class="f-row">' +
-  '<div class="f-grp">' +
-    '<label class="f-lbl">الصنف</label>' +
-    '<select class="f-sel" id="cashPurchaseItem">' +
-      purchaseOptions +
-    '</select>' +
-  '</div>' +
-
-  '<div class="f-grp" style="max-width:130px;">' +
-    '<label class="f-lbl">المبلغ</label>' +
-    '<input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0">' +
-  '</div>' +
-'</div>' +
-
-
-    '<button class="btn-add" onclick="toast(\'سيتم تفعيل حفظ المشتريات في التعديل التالي\', \'info\')">+ حفظ المشتريات</button>' +
-
-    '<div class="divider"></div>' +
-    '<div class="sec-title">كشف مشتريات اليوم</div>' +
-    '<table class="rpt-table">' +
-      '<thead>' +
-        '<tr>' +
-          '<th>الصنف</th>' +
-          '<th>المبلغ</th>' +
-        '</tr>' +
-      '</thead>' +
-      '<tbody>' +
-        '<tr>' +
-          '<td colspan="2"><div class="empty">لا توجد مشتريات محفوظة بعد</div></td>' +
-        '</tr>' +
-      '</tbody>' +
-    '</table>' +
-
-    '<div class="total-bar" style="margin-top:10px;">' +
-      '<div class="total-lbl">مجموع المشتريات</div>' +
-      '<div class="total-amt">0.00 دينار</div>' +
-    '</div>' +
-  '</div>' +
-'</div>';
       document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
       hideLoad();
       console.error(e);
-      document.getElementById('modalBody').innerHTML =
-        '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
+      document.getElementById('modalBody').innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
     });
 }
+function calcCashPurchaseAmount() {
+  var qtyEl = document.getElementById('cashPurchaseQty');
+  var priceEl = document.getElementById('cashPurchasePrice');
+  var amountEl = document.getElementById('cashPurchaseAmount');
 
+  var qty = qtyEl ? Number(qtyEl.value || 0) : 0;
+  var price = priceEl ? Number(priceEl.value || 0) : 0;
+  var amount = qty * price;
+
+  if (amountEl) {
+    amountEl.value = amount > 0 ? amount.toFixed(2) : '';
+  }
+}
+
+function saveCashPurchase() {
+  var itemEl = document.getElementById('cashPurchaseItem');
+  var qtyEl = document.getElementById('cashPurchaseQty');
+  var amountEl = document.getElementById('cashPurchaseAmount');
+  var priceEl = document.getElementById('cashPurchasePrice');
+  var paymentEl = document.getElementById('cashPurchasePayment');
+
+  var itemName = itemEl ? itemEl.value : '';
+  var qty = qtyEl ? Number(qtyEl.value || 0) : 0;
+  var price = priceEl ? Number(priceEl.value || 0) : 0;
+var amount = qty * price;
+  var paymentMethod = paymentEl ? paymentEl.value : 'كاش';
+
+  if (!itemName) {
+    toast('اختر الصنف', 'error');
+    return;
+  }
+
+  if (!qty || qty <= 0) {
+    toast('أدخل العدد', 'error');
+    return;
+  }
+
+  if (!amount || amount <= 0) {
+    toast('أدخل المبلغ', 'error');
+    return;
+  }
+
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  var user = auth.currentUser || {};
+  var stockDocId = encodeURIComponent(itemName);
+
+  var purchaseData = {
+    work_date: S.workDate,
+    item_name: itemName,
+    qty: qty,
+    amount: amount,
+    price: price,
+    payment_method: paymentMethod,
+    created_by: user.uid || '',
+    created_by_email: user.email || '',
+    created_at: now,
+    deleted: false
+  };
+
+  var logData = {
+    work_date: S.workDate,
+    type: 'purchase',
+    item_name: itemName,
+    qty: qty,
+    amount: amount,
+    price: price,
+    payment_method: paymentMethod,
+    note: 'مشتريات',
+    created_by: user.uid || '',
+    created_by_email: user.email || '',
+    created_at: now,
+    deleted: false
+  };
+
+  db.collection('cashPurchases').add(purchaseData)
+    .then(function() {
+      return db.collection('warehouseLog').add(logData);
+    })
+    .then(function() {
+      return db.collection('warehouseStock').doc(stockDocId).set({
+        item_name: itemName,
+        qty: firebase.firestore.FieldValue.increment(qty),
+        updated_at: now
+      }, { merge: true });
+    })
+    .then(function() {
+      toast('تم حفظ المشتريات وتحديث رصيد النقد والمستودع', 'ok');
+      showManagerCash('purchases');
+    })
+    .catch(function(e) {
+      console.error(e);
+      toast('حدث خطأ أثناء حفظ المشتريات', 'error');
+    });
+}
 function openCashBalanceDetails() {
   var box = document.getElementById('cashBalanceDetails');
   var addBox = document.getElementById('addCashBox');
