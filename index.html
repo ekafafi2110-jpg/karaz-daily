@@ -2098,7 +2098,11 @@ function showManagerCash(openPanel) {
       var tableRows = '';
       var additionsRows = '';
       var purchaseRows = '';
+       var debtsRows = '';
       var totalPurchases = 0;
+      var totalDebts = 0;
+      var totalPurchases = 0;
+      var totalDebts = 0;
 
       rows.forEach(function(row) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
@@ -2169,7 +2173,18 @@ function showManagerCash(openPanel) {
       }
 
       if (purchasesSnap && purchasesSnap.docs) {
-        purchasesSnap.docs.forEach(function(d) {
+        
+      var purchaseDocs = purchasesSnap.docs.slice();
+
+      purchaseDocs.sort(function(a, b) {
+      var da = a.data();
+      var db = b.data();
+      var ta = da.created_at && da.created_at.toMillis ? da.created_at.toMillis() : 0;
+      var tb = db.created_at && db.created_at.toMillis ? db.created_at.toMillis() : 0;
+        return tb - ta;
+           });
+
+          purchaseDocs.forEach(function(d, index) {
           var p = Object.assign({ docId: d.id }, d.data());
           var amount = Number(p.amount || 0);
           var qty = Number(p.qty || 0);
@@ -2195,13 +2210,50 @@ function showManagerCash(openPanel) {
             }
           }
 
-          purchaseRows +=
-            '<tr style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + '">' +
-              '<td style="text-align:right;">' + (p.item_name || '-') + '</td>' +
-              '<td>' + qty.toFixed(2) + '</td>' +
-              '<td>' + paymentMethod + '</td>' +
-              '<td><strong>' + amount.toFixed(2) + '</strong></td>' +
-            '</tr>';
+          var invoiceItemsHtml = '';
+
+if (p.items && p.items.length) {
+  invoiceItemsHtml =
+    '<table class="rpt-table" style="margin-top:10px;">' +
+      '<thead>' +
+        '<tr>' +
+          '<th>الصنف</th>' +
+          '<th>العدد</th>' +
+          '<th>السعر</th>' +
+          '<th>المبلغ</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>';
+
+  p.items.forEach(function(it) {
+    invoiceItemsHtml +=
+      '<tr>' +
+        '<td style="text-align:right;">' + (it.item_name || '-') + '</td>' +
+        '<td>' + Number(it.qty || 0).toFixed(2) + '</td>' +
+        '<td>' + Number(it.price || 0).toFixed(2) + '</td>' +
+        '<td><strong>' + Number(it.amount || 0).toFixed(2) + '</strong></td>' +
+      '</tr>';
+  });
+
+  invoiceItemsHtml += '</tbody></table>';
+} else {
+  invoiceItemsHtml = '<div class="empty">لا توجد تفاصيل أصناف لهذه الفاتورة</div>';
+}
+
+purchaseRows +=
+  '<div class="mgr-card cherry" style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + 'margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'' + p.docId + '\')">' +
+    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
+      '<div style="text-align:right;">' +
+        '<div style="font-weight:900;color:var(--cherry2);">' + (p.title || ('مشتريات فاتورة ' + (p.invoice_no || ''))) + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (p.supplier_name || '-') + '</div>' +
+        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">الدفع: ' + paymentMethod + '</div>' +
+      '</div>' +
+      '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
+    '</div>' +
+    '<div id="purchaseInvoiceDetails_' + p.docId + '" style="display:none;margin-top:10px;">' +
+      invoiceItemsHtml +
+    '</div>' +
+  '</div>';
         });
       }
 
@@ -2210,8 +2262,7 @@ function showManagerCash(openPanel) {
 
       if (!tableRows) tableRows = '<tr><td colspan="3"><div class="empty">لا توجد بيانات نقد لهذا اليوم</div></td></tr>';
       if (!additionsRows) additionsRows = '<tr><td colspan="4"><div class="empty">لا توجد إضافات نقد</div></td></tr>';
-      if (!purchaseRows) purchaseRows = '<tr><td colspan="4"><div class="empty">لا توجد مشتريات محفوظة بعد</div></td></tr>';
-
+if (!purchaseRows) purchaseRows = '<div class="empty">لا توجد فواتير محفوظة بعد</div>';
       var cashCardsDisplay = openPanel ? 'none' : 'grid';
       var supplierOptions =
   '<option value="">اختر المورد</option>' +
@@ -2326,8 +2377,7 @@ function showManagerCash(openPanel) {
 '</div>' +
 
 '<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
-'<table class="rpt-table"><thead><tr><th>الصنف</th><th>العدد</th><th>الدفع</th><th>المبلغ</th></tr></thead><tbody>' + purchaseRows + '</tbody></table>' +
-'<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
+'<div id="purchaseInvoicesList">' + purchaseRows + '</div>' +'<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
 '</div>' +
 '</div>';
 
@@ -2339,6 +2389,13 @@ document.getElementById('modalBody').innerHTML = html;
       document.getElementById('modalBody').innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
     });
 }
+function togglePurchaseInvoiceDetails(docId) {
+  var box = document.getElementById('purchaseInvoiceDetails_' + docId);
+  if (!box) return;
+
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
 function onCashPurchaseSupplierChange() {
   var supplierEl = document.getElementById('cashPurchaseSupplier');
   var otherBox = document.getElementById('cashPurchaseOtherSupplierBox');
@@ -3131,7 +3188,7 @@ function showWarehouseBalance() {
         itemsMap[name] = true;
       });
 
-      return db.collection('stockPurchases').get();
+            return db.collection('stockPurchases').get();
     })
     .then(function(purchaseSnap) {
       purchaseSnap.docs.forEach(function(d) {
@@ -3140,6 +3197,18 @@ function showWarehouseBalance() {
         if (!name) return;
 
         purchasesMap[name] = (purchasesMap[name] || 0) + Number(x.quantity || 0);
+        itemsMap[name] = true;
+      });
+
+      return db.collection('warehouseStock').get();
+    })
+    .then(function(stockSnap) {
+      stockSnap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.item_name || d.id;
+        if (!name) return;
+
+        purchasesMap[name] = (purchasesMap[name] || 0) + Number(x.qty || 0);
         itemsMap[name] = true;
       });
 
