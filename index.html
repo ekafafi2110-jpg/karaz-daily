@@ -2271,21 +2271,42 @@ function showManagerCash(openPanel) {
             '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:16px;color:var(--cherry2);">مشتريات</div>' +
             '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
           '</div>' +
-          '<div class="detail-sec"><div class="sec-title">إضافة مشتريات</div>' +
-            '<div class="f-row">' +
-              '<div class="f-grp"><label class="f-lbl">الصنف</label><select class="f-sel" id="cashPurchaseItem">' + purchaseOptions + '</select></div>' +
-'<div class="f-grp" style="max-width:110px;"><label class="f-lbl">العدد</label><input type="number" class="f-inp2" id="cashPurchaseQty" placeholder="0" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +              '<div class="f-grp" style="max-width:110px;"><label class="f-lbl">السعر</label><input type="number" class="f-inp2" id="cashPurchasePrice" placeholder="0.00" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +
-'<div class="f-grp" style="max-width:130px;"><label class="f-lbl">المبلغ</label><input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0" readonly></div>' +
-              '<div class="f-grp" style="max-width:120px;"><label class="f-lbl">الدفع</label><select class="f-sel" id="cashPurchasePayment"><option value="كاش">كاش</option><option value="ذمم">ذمم</option></select></div>' +
-            '</div>' +
-            '<button class="btn-add" onclick="saveCashPurchase()">+ حفظ المشتريات</button><div id="cashPurchaseMsg"></div>' +
-            '<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
-            '<table class="rpt-table"><thead><tr><th>الصنف</th><th>العدد</th><th>الدفع</th><th>المبلغ</th></tr></thead><tbody>' + purchaseRows + '</tbody></table>' +
-            '<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
-          '</div>' +
-        '</div>';
 
-      document.getElementById('modalBody').innerHTML = html;
+          '<div class="detail-sec"><div class="sec-title">إضافة فاتورة</div>' +
+
+  '<div class="f-row">' +
+    '<div class="f-grp">' +
+      '<label class="f-lbl">رقم / نوع المورد</label>' +
+      '<select class="f-sel" id="cashPurchaseSupplier" onchange="onCashPurchaseSupplierChange()">' +
+        '<option value="فاتورة بلاستيك">فاتورة بلاستيك</option>' +
+        '<option value="فاتورة بوظة">فاتورة بوظة</option>' +
+        '<option value="فاتورة أبو زهرة">فاتورة أبو زهرة</option>' +
+        '<option value="فاتورة أخرى">فاتورة أخرى</option>' +
+      '</select>' +
+    '</div>' +
+  '</div>' +
+
+  '<div id="cashPurchaseOtherSupplierBox" style="display:none;margin-bottom:10px;">' +
+  '<label class="f-lbl">اسم المورد</label>' +
+  '<input type="text" class="f-inp2" id="cashPurchaseOtherSupplier" placeholder="اكتب اسم المورد..." style="width:100%;">' +
+'</div>' +
+
+'<div class="f-row">' +
+  '<div class="f-grp"><label class="f-lbl">الصنف</label><select class="f-sel" id="cashPurchaseItem">' + purchaseOptions + '</select></div>' +
+  '<div class="f-grp" style="max-width:110px;"><label class="f-lbl">العدد</label><input type="number" class="f-inp2" id="cashPurchaseQty" placeholder="0" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +
+  '<div class="f-grp" style="max-width:110px;"><label class="f-lbl">السعر</label><input type="number" class="f-inp2" id="cashPurchasePrice" placeholder="0.00" step="0.01" min="0" oninput="calcCashPurchaseAmount()"></div>' +
+  '<div class="f-grp" style="max-width:130px;"><label class="f-lbl">المبلغ</label><input type="number" class="f-inp2" id="cashPurchaseAmount" placeholder="0.00" step="0.01" min="0" readonly></div>' +
+  '<div class="f-grp" style="max-width:120px;"><label class="f-lbl">الدفع</label><select class="f-sel" id="cashPurchasePayment"><option value="كاش">كاش</option><option value="ذمم">ذمم</option></select></div>' +
+'</div>' +
+
+'<button class="btn-add" onclick="saveCashPurchase()">+ حفظ المشتريات</button><div id="cashPurchaseMsg"></div>' +
+'<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
+'<table class="rpt-table"><thead><tr><th>الصنف</th><th>العدد</th><th>الدفع</th><th>المبلغ</th></tr></thead><tbody>' + purchaseRows + '</tbody></table>' +
+'<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
+'</div>' +
+'</div>';
+
+document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
       hideLoad();
@@ -2293,6 +2314,15 @@ function showManagerCash(openPanel) {
       document.getElementById('modalBody').innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
     });
 }
+function onCashPurchaseSupplierChange() {
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+  var box = document.getElementById('cashPurchaseOtherSupplierBox');
+
+  if (!supplierEl || !box) return;
+
+  box.style.display = supplierEl.value === 'فاتورة أخرى' ? 'block' : 'none';
+}
+
 function calcCashPurchaseAmount() {
   var qtyEl = document.getElementById('cashPurchaseQty');
   var priceEl = document.getElementById('cashPurchasePrice');
