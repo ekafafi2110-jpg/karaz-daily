@@ -2282,7 +2282,17 @@ if (index < 5) {
 
 if (paymentMethod === 'ذمم' && !isDeleted) {
   totalDebts += amount;
-  debtsRows += invoiceCardHtml;
+  var debtInvoiceCardHtml = invoiceCardHtml
+  .replace(
+    "togglePurchaseInvoiceDetails('" + p.docId + "')",
+    "togglePurchaseInvoiceDetails('debt_" + p.docId + "')"
+  )
+  .replace(
+    "purchaseInvoiceDetails_" + p.docId,
+    "purchaseInvoiceDetails_debt_" + p.docId
+  );
+
+debtsRows += debtInvoiceCardHtml;
 }        });
       }
       if (manualDebtsSnap && manualDebtsSnap.docs) {
@@ -2297,16 +2307,30 @@ if (paymentMethod === 'ذمم' && !isDeleted) {
     totalDebts += amount;
 
     debtsRows +=
-      '<div class="mgr-card gold" style="margin-bottom:10px;">' +
+      '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'manualDebt_' + debt.docId + '\')">' +
         '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
           '<div style="text-align:right;">' +
             '<div style="font-weight:900;color:var(--gold);">التزام يدوي</div>' +
             '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (debt.supplier_name || '-') + '</div>' +
             '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' + (debt.note || '') + '</div>' +
           '</div>' +
-          '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
-        '</div>' +
-      '</div>';
+'<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +        '</div>' +
+    
+'<div id="purchaseInvoiceDetails_manualDebt_' + debt.docId + '" style="display:none;margin-top:10px;">' +
+  '<div class="empty" style="text-align:right;">' +
+    '<div><strong>نوع الحركة:</strong> التزام يدوي</div>' +
+    '<div><strong>المورد:</strong> ' + (debt.supplier_name || '-') + '</div>' +
+    '<div><strong>المبلغ:</strong> ' + amount.toFixed(2) + ' دينار</div>' +
+    '<div><strong>الملاحظات:</strong> ' + (debt.note || '-') + '</div>' +
+  '</div>' +
+'</div>' +
+
+'<div style="display:flex;justify-content:flex-start;margin-top:10px;width:100%;">' +
+  debt.paid === true
+    ? '<span style="color:var(--green);font-size:12px;font-weight:900;">مسدد</span>'
+    : '<button class="btn-add" style="max-width:90px;padding:8px 12px;background:var(--green);" onclick="event.stopPropagation(); payManualDebt(\'' + debt.docId + '\')">دفع</button>'
+'</div>' +
+'</div>';
   });
 }
 
@@ -2488,6 +2512,25 @@ document.getElementById('modalBody').innerHTML = html;
       document.getElementById('modalBody').innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
     });
 }
+function payManualDebt(docId) {
+  if (!confirm('هل تريد دفع هذا الالتزام من النقد؟')) return;
+
+  db.collection('manualDebts').doc(docId).update({
+    paid: true,
+    paid_at: firebase.firestore.FieldValue.serverTimestamp(),
+    paid_by: S.user ? S.user.uid : '',
+    paid_by_email: S.user ? S.user.email : ''
+  })
+  .then(function() {
+    toast('تم دفع الالتزام من النقد', 'success');
+    showManagerCash('debts');
+  })
+  .catch(function(e) {
+    console.error(e);
+    toast('حدث خطأ أثناء دفع الالتزام', 'error');
+  });
+}
+
 function saveManualDebt() {
   var supplierEl = document.getElementById('debtSupplierName');
   var amountEl = document.getElementById('debtAmount');
