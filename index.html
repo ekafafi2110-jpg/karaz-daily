@@ -1574,14 +1574,14 @@ function loadExistingEntries() {
     results[0].docs.forEach(function(d){
       var data=d.data();
       if (
-  (data.shift === 'A' && S.sessionData && S.sessionData.shift_a_sent === true) ||
-  (data.shift === 'B' && S.sessionData && S.sessionData.shift_b_sent === true)
+  data.shift === 'B' &&
+  S.sessionData &&
+  S.sessionData.shift_b_sent === true
 ) {
   return;
 }
 
-S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);
-    });
+S.invData[data.item_id+'_'+data.shift]=Object.assign({docId:d.id},data);    });
     S.expenses=results[1].docs.map(function(d){return Object.assign({docId:d.id},d.data());});
    S.cashEntries = [];
 
