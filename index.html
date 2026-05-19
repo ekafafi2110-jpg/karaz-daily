@@ -2316,12 +2316,13 @@ if (paymentMethod === 'ذمم' && !isDeleted) {
   supplierRow.balance += amount;
 
   supplierRow.movements.push({
-    time: p.created_at && p.created_at.toMillis ? p.created_at.toMillis() : 0,
-    type: 'invoice',
-    title: 'فاتورة رقم ' + (p.invoice_no || '-'),
-    amount: amount,
-    docId: p.docId
-  });
+  time: p.created_at && p.created_at.toMillis ? p.created_at.toMillis() : 0,
+  type: 'invoice',
+  title: 'فاتورة رقم ' + (p.invoice_no || '-'),
+  amount: amount,
+  docId: p.docId,
+  detailsHtml: invoiceItemsHtml
+});
 }
 
 });
@@ -2437,14 +2438,14 @@ Object.keys(supplierDebtMap).forEach(function(name) {
     if (m.type === 'invoice' || m.type === 'manualDebt') {
       runningBalance += m.amount;
       debtCol = m.type === 'invoice'
-        ? '<span onclick="event.stopPropagation(); togglePurchaseInvoiceDetails(\'' + m.docId + '\')" style="color:var(--gold);text-decoration:underline;cursor:pointer;">' + m.title + '</span>'
-        : m.title + ' ' + m.amount.toFixed(2);
-    }
-
-    if (m.type === 'payment') {
-      runningBalance -= m.amount;
-      payCol = m.title + ' ' + m.amount.toFixed(2);
-    }
+  ? '<div>' +
+      '<span onclick="event.stopPropagation(); openSupplierInvoiceDetails(\'' + encodeURIComponent(m.title) + '\', \'' + encodeURIComponent(m.detailsHtml || '') + '\')" style="color:var(--gold);text-decoration:underline;cursor:pointer;font-weight:700;">' + m.title + '</span>' +
+      '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + m.amount.toFixed(2) + ' دينار</div>' +
+    '</div>'
+  : '<div>' +
+      '<div>' + m.title + '</div>' +
+      '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + m.amount.toFixed(2) + ' دينار</div>' +
+    '</div>';    }
 
     movementRows +=
       '<tr>' +
@@ -2456,7 +2457,7 @@ Object.keys(supplierDebtMap).forEach(function(name) {
   });
 
   debtsRows +=
-    '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'supplierDebt_' + name.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_') + '\')">' +
+    '<div class="mgr-card gold" data-movements="' + encodeURIComponent(movementRows) + '" style="margin-bottom:10px;cursor:pointer;" onclick="openSupplierDebtPopup(\'' + encodeURIComponent(s.name) + '\', this)">' +
       '<div style="width:100%;text-align:right;">' +
         '<div style="font-weight:900;color:var(--gold);font-size:16px;">المورد: ' + s.name + '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">' +
@@ -2468,12 +2469,7 @@ Object.keys(supplierDebtMap).forEach(function(name) {
   '<button class="btn-add" style="background:var(--green);" onclick="event.stopPropagation(); paySupplierDebt(\'' + encodeURIComponent(s.name) + '\',' + s.balance + ')">دفع</button>' +
 '</div>' +
 
-      '<div id="purchaseInvoiceDetails_supplierDebt_' + name.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_') + '" style="display:none;margin-top:12px;width:100%;">' +
-        '<table class="rpt-table">' +
-          '<thead><tr><th>التاريخ</th><th>الذمم</th><th>الدفعات</th><th>الرصيد</th></tr></thead>' +
-          '<tbody>' + movementRows + '</tbody>' +
-        '</table>' +
-'</div>' +
+      
 '</div>' +
 '</div>';
 });
@@ -2762,6 +2758,35 @@ function paySupplierDebt(supplierName, currentBalance) {
   });
 }
 
+function openSupplierDebtPopup(nameEncoded, el) {
+  var supplierName = decodeURIComponent(nameEncoded || '');
+
+  var card = el.closest('.mgr-card');
+  if (!card) return;
+
+  var titleEl = document.getElementById('supplierDebtTitle');
+  var bodyEl = document.getElementById('supplierDebtBody');
+  var popup = document.getElementById('supplierDebtOv');
+
+  if (titleEl) {
+    titleEl.textContent = 'كشف المورد: ' + supplierName;
+  }
+
+  var movementRows = decodeURIComponent(card.getAttribute('data-movements') || '');
+
+bodyEl.innerHTML =
+  '<div style="margin-bottom:14px;font-size:13px;color:var(--text2);">كشف تفصيلي لحركة المورد</div>' +
+  '<table class="rpt-table">' +
+    '<thead><tr><th>التاريخ</th><th>الذمم</th><th>الدفعات</th><th>الرصيد</th></tr></thead>' +
+    '<tbody>' + (movementRows || '<tr><td colspan="4"><div class="empty">لا توجد حركات</div></td></tr>') + '</tbody>' +
+  '</table>';
+  popup.style.display = 'block';
+}
+
+function closeSupplierDebtPopup() {
+  var popup = document.getElementById('supplierDebtOv');
+  if (popup) popup.style.display = 'none';
+}
 function saveManualDebt() {
   var supplierEl = document.getElementById('debtSupplierName');
   var amountEl = document.getElementById('debtAmount');
@@ -2810,6 +2835,33 @@ function saveManualDebt() {
   });
 }
 
+var lastSupplierDebtPopupHtml = '';
+var lastSupplierDebtPopupTitle = '';
+
+function openSupplierInvoiceDetails(titleEncoded, detailsEncoded) {
+  var title = decodeURIComponent(titleEncoded || 'تفاصيل الفاتورة');
+  var detailsHtml = decodeURIComponent(detailsEncoded || '');
+
+  var titleEl = document.getElementById('supplierDebtTitle');
+  var bodyEl = document.getElementById('supplierDebtBody');
+
+  lastSupplierDebtPopupTitle = titleEl ? titleEl.textContent : 'كشف المورد';
+  lastSupplierDebtPopupHtml = bodyEl ? bodyEl.innerHTML : '';
+
+  if (titleEl) titleEl.textContent = title;
+
+  bodyEl.innerHTML =
+    '<button class="btn-add" style="background:var(--gold);margin-bottom:12px;" onclick="backToSupplierDebtPopup()">رجوع للكشف</button>' +
+    (detailsHtml || '<div class="empty">لا توجد تفاصيل لهذه الفاتورة</div>');
+}
+
+function backToSupplierDebtPopup() {
+  var titleEl = document.getElementById('supplierDebtTitle');
+  var bodyEl = document.getElementById('supplierDebtBody');
+
+  if (titleEl) titleEl.textContent = lastSupplierDebtPopupTitle || 'كشف المورد';
+  if (bodyEl) bodyEl.innerHTML = lastSupplierDebtPopupHtml || '<div class="empty">لا توجد حركات</div>';
+}
 function togglePurchaseInvoiceDetails(docId) {
   var box = document.getElementById('purchaseInvoiceDetails_' + docId);
   if (!box) return;
