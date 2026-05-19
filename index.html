@@ -256,7 +256,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 .mgr-lbl{font-size:13px;font-weight:700;}
 
 /* MODAL */
-.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;
+.modal-ov{position:fixed;top:76px;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);z-index:300;
   display:none;align-items:flex-end;justify-content:center;
   max-width:480px;margin:0 auto;}
 .modal-ov.active{display:flex;}
@@ -1188,7 +1188,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">
-      <button class="modal-x" onclick="closeModal()">x</button>
+      <button class="modal-x" onclick="if(document.getElementById('modalTitleTxt').textContent==='النقد'){showManagerCash(null)}else{closeModal()}">x</button>
       <span id="modalTitleTxt"></span>
     </div>
     <div id="modalBody"></div>
@@ -2039,6 +2039,7 @@ function setAdminTabActive(tab) {
 }
 
 function showManagerHome() {
+  closeModal();
   setAdminTabActive('home');
   document.querySelector('.mgr-grid').style.display = 'grid';
   document.getElementById('warehouseAdminSection').style.display = 'none';
@@ -3063,6 +3064,7 @@ function showWarehouseAdmin() {
   document.getElementById('warehouseBalanceSection').style.display = 'none';
   loadOpeningItems();
 }
+closeModal();
 function showWarehousePurchaseForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
