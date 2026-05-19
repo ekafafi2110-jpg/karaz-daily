@@ -2799,9 +2799,15 @@ bodyEl.innerHTML =
 
   '</div>' +
 
-  '<button class="btn-sec" style="margin-bottom:12px;" onclick="clearSupplierDebtDateFilter()">عرض الكل</button>' +
+  '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
+  '<button class="btn-sec" onclick="filterSupplierDebtRows(\'all\')">الكل</button>' +
+  '<button class="btn-sec" onclick="filterSupplierDebtRows(\'debt\')">الذمم</button>' +
+  '<button class="btn-sec" onclick="filterSupplierDebtRows(\'pay\')">الدفعات</button>' +
+'</div>' +
+'<button class="btn-sec" style="margin-bottom:12px;" onclick="clearSupplierDebtDateFilter()">عرض الكل حسب التاريخ</button>' +
 
   '<div style="margin-bottom:14px;font-size:13px;color:var(--text2);">كشف تفصيلي لحركة المورد</div>' +
+  '<div id="supplierDebtNoRows" class="empty" style="display:none;margin-bottom:10px;">لا توجد حركات ضمن التاريخ المحدد</div>' +
 
   '<table class="rpt-table">' +
     '<thead>' +
@@ -2816,6 +2822,10 @@ bodyEl.innerHTML =
       (movementRows || '<tr><td colspan="4"><div class="empty">لا توجد حركات</div></td></tr>') +
     '</tbody>' +
   '</table>';
+
+  if (popup) {
+    popup.style.display = 'block';
+  }
 }
 
 function closeSupplierDebtPopup() {
@@ -2879,26 +2889,29 @@ function filterSupplierDebtByDate() {
 
   if (!body) return;
 
-  var from = fromEl && fromEl.value ? new Date(fromEl.value + 'T00:00:00').getTime() : null;
-  var to = toEl && toEl.value ? new Date(toEl.value + 'T23:59:59').getTime() : null;
+  var from = fromEl && fromEl.value ? fromEl.value : '';
+  var to = toEl && toEl.value ? toEl.value : '';
 
   var rows = body.querySelectorAll('tbody tr');
+  var visibleCount = 0;
 
   rows.forEach(function(row) {
-    var rowTime = Number(row.getAttribute('data-time') || 0);
-
-    if (!rowTime) {
-      row.style.display = '';
-      return;
-    }
+    var rowDate = row.getAttribute('data-date') || '';
 
     var show = true;
 
-    if (from !== null && rowTime < from) show = false;
-    if (to !== null && rowTime > to) show = false;
+    if (from && rowDate < from) show = false;
+    if (to && rowDate > to) show = false;
 
     row.style.display = show ? '' : 'none';
+    if (show) visibleCount++;
   });
+
+  var noRows = document.getElementById('supplierDebtNoRows');
+  var table = body.querySelector('table');
+
+  if (noRows) noRows.style.display = visibleCount === 0 ? 'block' : 'none';
+  if (table) table.style.display = visibleCount === 0 ? 'none' : 'table';
 }
 
 function clearSupplierDebtDateFilter() {
@@ -2909,6 +2922,12 @@ function clearSupplierDebtDateFilter() {
   if (toEl) toEl.value = '';
 
   filterSupplierDebtByDate();
+  var body = document.getElementById('supplierDebtBody');
+var noRows = document.getElementById('supplierDebtNoRows');
+var table = body ? body.querySelector('table') : null;
+
+if (noRows) noRows.style.display = 'none';
+if (table) table.style.display = 'table';
 }
 
 function filterSupplierDebtRows(type) {
@@ -3804,7 +3823,7 @@ function showWarehouseBalance() {
       var html =
   '<table class="balance-table">' +
     '<thead>' +
-      '<tr data-time="' + (m.time || 0) + '">' +
+      '<tr data-date="' + (m.time ? new Date(m.time).toISOString().split('T')[0] : '') + '">' +
         '<th>الصنف</th>' +
         '<th>رصيد المحل</th>' +
         '<th>رصيد المستودع</th>' +
@@ -3822,7 +3841,7 @@ Object.keys(itemsMap).sort().forEach(function(name) {
   var totalBalance = warehouseBalance + shopBalance;
 
   html +=
-    '<tr>' +
+    '<tr data-time="' + (m.time || 0) + '">' +
       '<td>' + name + '</td>' +
       '<td>' + shopBalance + '</td>' +
       '<td>' + warehouseBalance + '</td>' +
