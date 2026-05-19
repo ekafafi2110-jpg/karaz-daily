@@ -1194,6 +1194,16 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     <div id="modalBody"></div>
   </div>
 </div>
+<div class="modal-ov" id="supplierDebtOv" style="display:none;z-index:500;top:0;">
+  <div class="modal-sheet" style="height:100vh;max-height:100vh;border-radius:0;padding-bottom:20px;">
+    <div class="modal-title">
+      <button class="modal-x" onclick="closeSupplierDebtPopup()">x</button>
+      <span id="supplierDebtTitle">كشف المورد</span>
+    </div>
+
+    <div id="supplierDebtBody"></div>
+  </div>
+</div>
 
 <script>
 // ==================== FIREBASE INIT ====================
@@ -2106,8 +2116,22 @@ db.collection('cashPayments').where('work_date', '==', S.workDate).get()
        var debtsRows = '';
       var totalPurchases = 0;
       var totalDebts = 0;
-      var totalPurchases = 0;
-      var totalDebts = 0;
+      var supplierDebtMap = {};
+      function getSupplierDebtRow(name) {
+  var supplierName = (name || 'غير محدد').trim();
+
+  if (!supplierDebtMap[supplierName]) {
+    supplierDebtMap[supplierName] = {
+      name: supplierName,
+      debts: 0,
+      payments: 0,
+      balance: 0,
+      movements: []
+    };
+  }
+
+  return supplierDebtMap[supplierName];
+}
 
       rows.forEach(function(row) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
@@ -2285,18 +2309,22 @@ if (index < 5) {
 
 if (paymentMethod === 'ذمم' && !isDeleted) {
   totalDebts += amount;
-  var debtInvoiceCardHtml = invoiceCardHtml
-  .replace(
-    "togglePurchaseInvoiceDetails('" + p.docId + "')",
-    "togglePurchaseInvoiceDetails('debt_" + p.docId + "')"
-  )
-  .replace(
-    "purchaseInvoiceDetails_" + p.docId,
-    "purchaseInvoiceDetails_debt_" + p.docId
-  );
 
-debtsRows += debtInvoiceCardHtml;
-}        });
+  var supplierRow = getSupplierDebtRow(p.supplier_name || 'غير محدد');
+
+  supplierRow.debts += amount;
+  supplierRow.balance += amount;
+
+  supplierRow.movements.push({
+    time: p.created_at && p.created_at.toMillis ? p.created_at.toMillis() : 0,
+    type: 'invoice',
+    title: 'فاتورة رقم ' + (p.invoice_no || '-'),
+    amount: amount,
+    docId: p.docId
+  });
+}
+
+});
       }
       if (manualDebtsSnap && manualDebtsSnap.docs) {
   manualDebtsSnap.docs.forEach(function(d) {
@@ -2315,30 +2343,31 @@ debtsRows += debtInvoiceCardHtml;
   ? '<span style="color:var(--green);font-size:12px;font-weight:900;">مسدد</span>'
   : '<button class="btn-add" style="max-width:90px;padding:8px 12px;background:var(--green);" onclick="event.stopPropagation(); payManualDebt(\'' + debt.docId + '\')">دفع</button>';
 
-debtsRows +=
-  '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'manualDebt_' + debt.docId + '\')">' +
-    '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
-      '<div style="text-align:right;">' +
-        '<div style="font-weight:900;color:var(--gold);">التزام يدوي</div>' +
-        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (debt.supplier_name || '-') + '</div>' +
-        '<div style="font-size:11px;color:var(--text2);margin-top:4px;">' + (debt.note || '') + '</div>' +
-      '</div>' +
-      '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
-    '</div>' +
+var supplierRow = getSupplierDebtRow(debt.supplier_name || 'غير محدد');
 
-    '<div id="purchaseInvoiceDetails_manualDebt_' + debt.docId + '" style="display:none;margin-top:10px;">' +
-      '<div class="empty" style="text-align:right;">' +
-        '<div><strong>نوع الحركة:</strong> التزام يدوي</div>' +
-        '<div><strong>المورد:</strong> ' + (debt.supplier_name || '-') + '</div>' +
-        '<div><strong>المبلغ:</strong> ' + amount.toFixed(2) + ' دينار</div>' +
-        '<div><strong>الملاحظات:</strong> ' + (debt.note || '-') + '</div>' +
-      '</div>' +
-    '</div>' +
+if (debt.paid === true) {
+  supplierRow.payments += amount;
+  supplierRow.balance -= amount;
 
-    '<div style="display:flex;justify-content:flex-start;margin-top:10px;width:100%;">' +
-      manualDebtActionHtml +
-    '</div>' +
-  '</div>';
+  supplierRow.movements.push({
+    time: debt.paid_at && debt.paid_at.toMillis ? debt.paid_at.toMillis() : 0,
+    type: 'payment',
+    title: 'دفعة التزام',
+    amount: amount,
+    docId: debt.docId
+  });
+} else {
+  supplierRow.debts += amount;
+  supplierRow.balance += amount;
+
+  supplierRow.movements.push({
+    time: debt.created_at && debt.created_at.toMillis ? debt.created_at.toMillis() : 0,
+    type: 'manualDebt',
+    title: 'التزام يدوي',
+    amount: amount,
+    docId: debt.docId
+  });
+}
   });
 }
 
@@ -2352,6 +2381,18 @@ if (cashPaymentsSnap && cashPaymentsSnap.docs) {
     if (isDeleted) return;
 
     totalActualCash -= amount;
+    var supplierRow = getSupplierDebtRow(pay.supplier_name || 'غير محدد');
+
+supplierRow.payments += amount;
+supplierRow.balance -= amount;
+
+supplierRow.movements.push({
+  time: pay.created_at && pay.created_at.toMillis ? pay.created_at.toMillis() : 0,
+  type: 'payment',
+  title: pay.title || 'دفعة نقدية',
+  amount: amount,
+  docId: pay.docId
+});
 
     var payTime = pay.created_at && pay.created_at.toMillis ? pay.created_at.toMillis() : 0;
 
@@ -2377,7 +2418,67 @@ if (cashPaymentsSnap && cashPaymentsSnap.docs) {
       if (!tableRows) tableRows = '<tr><td colspan="3"><div class="empty">لا توجد بيانات نقد لهذا اليوم</div></td></tr>';
       if (!additionsRows) additionsRows = '<tr><td colspan="4"><div class="empty">لا توجد إضافات نقد</div></td></tr>';
 if (!purchaseRows) purchaseRows = '<div class="empty">لا توجد فواتير محفوظة بعد</div>';
-if (!debtsRows) debtsRows = '<div class="empty">لا توجد فواتير ذمم</div>';
+debtsRows = '';
+
+Object.keys(supplierDebtMap).forEach(function(name) {
+  var s = supplierDebtMap[name];
+
+  s.movements.sort(function(a, b) {
+    return a.time - b.time;
+  });
+
+  var runningBalance = 0;
+  var movementRows = '';
+
+  s.movements.forEach(function(m) {
+    var debtCol = '-';
+    var payCol = '-';
+
+    if (m.type === 'invoice' || m.type === 'manualDebt') {
+      runningBalance += m.amount;
+      debtCol = m.type === 'invoice'
+        ? '<span onclick="event.stopPropagation(); togglePurchaseInvoiceDetails(\'' + m.docId + '\')" style="color:var(--gold);text-decoration:underline;cursor:pointer;">' + m.title + '</span>'
+        : m.title + ' ' + m.amount.toFixed(2);
+    }
+
+    if (m.type === 'payment') {
+      runningBalance -= m.amount;
+      payCol = m.title + ' ' + m.amount.toFixed(2);
+    }
+
+    movementRows +=
+      '<tr>' +
+        '<td>' + (m.time ? new Date(m.time).toLocaleDateString('ar-JO') : '-') + '</td>' +
+        '<td>' + debtCol + '</td>' +
+        '<td>' + payCol + '</td>' +
+        '<td><strong>' + runningBalance.toFixed(2) + '</strong></td>' +
+      '</tr>';
+  });
+
+  debtsRows +=
+    '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'supplierDebt_' + name.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_') + '\')">' +
+      '<div style="width:100%;text-align:right;">' +
+        '<div style="font-weight:900;color:var(--gold);font-size:16px;">المورد: ' + s.name + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">' +
+  '<div><div style="font-size:10px;color:var(--text2);">الذمم</div><strong>' + s.debts.toFixed(2) + '</strong></div>' +
+  '<div><div style="font-size:10px;color:var(--text2);">الدفعات</div><strong style="color:var(--green);">' + s.payments.toFixed(2) + '</strong></div>' +
+  '<div><div style="font-size:10px;color:var(--text2);">الرصيد</div><strong style="color:var(--gold);">' + s.balance.toFixed(2) + '</strong></div>' +
+'</div>' +
+'<div style="width:100%;margin-top:10px;">' +
+  '<button class="btn-add" style="background:var(--green);" onclick="event.stopPropagation(); paySupplierDebt(\'' + encodeURIComponent(s.name) + '\',' + s.balance + ')">دفع</button>' +
+'</div>' +
+
+      '<div id="purchaseInvoiceDetails_supplierDebt_' + name.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_') + '" style="display:none;margin-top:12px;width:100%;">' +
+        '<table class="rpt-table">' +
+          '<thead><tr><th>التاريخ</th><th>الذمم</th><th>الدفعات</th><th>الرصيد</th></tr></thead>' +
+          '<tbody>' + movementRows + '</tbody>' +
+        '</table>' +
+'</div>' +
+'</div>' +
+'</div>';
+});
+
+if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على الموردين</div>';
       var cashCardsDisplay = openPanel ? 'none' : 'grid';
       var supplierOptions =
   '<option value="">اختر المورد</option>' +
@@ -2407,7 +2508,8 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد فواتير ذم�
 
 '<div class="mgr-card gold" onclick="showManagerCash(\'debts\')" style="cursor:pointer;">' +
   '<div class="mgr-icon">📒</div><div class="mgr-lbl" style="font-size:15px;color:var(--gold);">الذمم</div>' +
-  '<div style="font-size:11px;color:var(--text2);margin-top:6px;">سجل فواتير الذمم</div>' +
+  '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' + totalDebts.toFixed(2) + '</div>' +
+  '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
 '</div>' +
 
 '</div>' +
@@ -2509,6 +2611,10 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد فواتير ذم�
   '</div>' +
 
   '<div class="detail-sec">' +
+'<div class="total-bar" style="margin-bottom:14px;">' +
+  '<div class="total-lbl">مجموع الذمم</div>' +
+  '<div class="total-amt">' + totalDebts.toFixed(2) + ' دينار</div>' +
+'</div>' +
   '<div class="sec-title">إضافة التزام</div>' +
 
   '<div class="f-row">' +
@@ -2534,10 +2640,7 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد فواتير ذم�
   '<div class="divider"></div>' +
   '<div class="sec-title">سجل الذمم: فواتير + التزامات</div>' +
     '<div id="debtsInvoicesList">' + debtsRows + '</div>' +
-    '<div class="total-bar" style="margin-top:10px;">' +
-      '<div class="total-lbl">مجموع الذمم</div>' +
-      '<div class="total-amt">' + totalDebts.toFixed(2) + ' دينار</div>' +
-    '</div>' +
+    
   '</div>' +
 '</div>';
 
@@ -2607,6 +2710,56 @@ function payManualDebt(docId) {
       console.error(e);
       toast('خطأ: ' + e.message, 'error');
     });
+}
+function paySupplierDebt(supplierName, currentBalance) {
+  supplierName = decodeURIComponent(supplierName || '');
+  currentBalance = Number(currentBalance || 0);
+
+  if (!supplierName) {
+    toast('اسم المورد غير صحيح', 'error');
+    return;
+  }
+
+  if (currentBalance <= 0) {
+    toast('لا يوجد رصيد مستحق على هذا المورد', 'info');
+    return;
+  }
+
+  var amountText = prompt('أدخل مبلغ الدفع للمورد: ' + supplierName + '\nالرصيد الحالي: ' + currentBalance.toFixed(2));
+  if (amountText === null) return;
+
+  var amount = Number(amountText);
+
+  if (!amount || amount <= 0) {
+    toast('أدخل مبلغًا صحيحًا', 'error');
+    return;
+  }
+
+  if (amount > currentBalance) {
+    toast('المبلغ أكبر من رصيد المورد', 'error');
+    return;
+  }
+
+  db.collection('cashPayments').add({
+    work_date: S.workDate,
+    type: 'supplier_payment',
+    title: 'دفعة مورد',
+    supplier_name: supplierName,
+    amount: amount,
+    note: 'دفعة من بطاقة المورد',
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+    deleted: false
+  })
+  .then(function() {
+    toast('تم تسجيل دفعة المورد', 'success');
+    showManagerCash('debts');
+  })
+  .catch(function(e) {
+    console.error(e);
+    toast('خطأ: ' + e.message, 'error');
+  });
 }
 
 function saveManualDebt() {
@@ -4366,8 +4519,12 @@ if (allExpNms.length) {
 
         expHtml =
           '<div class="detail-sec">' +
-            '<div class="sec-title">المصاريف</div>' +
-            '<table class="rpt-table">' +
+'<div class="total-bar" style="margin-bottom:14px;">' +
+  '<div class="total-lbl">مجموع الذمم</div>' +
+  '<div class="total-amt">' + totalDebts.toFixed(2) + ' دينار</div>' +
+'</div>' +
+'<div class="sec-title">إضافة التزام</div>' +        
+    '<table class="rpt-table">' +
               '<thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
 
         allExpNms.forEach(function(nm) {
