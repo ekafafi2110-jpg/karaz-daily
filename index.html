@@ -2458,13 +2458,12 @@ Object.keys(supplierDebtMap).forEach(function(name) {
 }
 
     movementRows +=
-      '<tr>' +
-        '<td>' + (m.time ? new Date(m.time).toLocaleDateString('ar-JO') : '-') + '</td>' +
-        '<td>' + debtCol + '</td>' +
-        '<td>' + payCol + '</td>' +
-        '<td><strong>' + runningBalance.toFixed(2) + '</strong></td>' +
-      '</tr>';
-  });
+  '<tr data-date="' + (m.time ? new Date(m.time).toISOString().split('T')[0] : '') + '">' +
+    '<td>' + (m.time ? new Date(m.time).toLocaleDateString('ar-JO') : '-') + '</td>' +
+    '<td>' + debtCol + '</td>' +
+    '<td>' + payCol + '</td>' +
+    '<td><strong>' + runningBalance.toFixed(2) + '</strong></td>' +
+  '</tr>';  });
 
   debtsRows +=
     '<div class="mgr-card gold" data-movements="' + encodeURIComponent(movementRows) + '" style="margin-bottom:10px;cursor:pointer;" onclick="openSupplierDebtPopup(\'' + encodeURIComponent(s.name) + '\', this)">' +
@@ -2891,7 +2890,11 @@ function filterSupplierDebtByDate() {
 
   var from = fromEl && fromEl.value ? fromEl.value : '';
   var to = toEl && toEl.value ? toEl.value : '';
-
+if (from && to && to < from) {
+  toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+  if (toEl) toEl.value = from;
+  to = from;
+}
   var rows = body.querySelectorAll('tbody tr');
   var visibleCount = 0;
 
@@ -3823,7 +3826,7 @@ function showWarehouseBalance() {
       var html =
   '<table class="balance-table">' +
     '<thead>' +
-      '<tr data-date="' + (m.time ? new Date(m.time).toISOString().split('T')[0] : '') + '">' +
+      '<tr>' +
         '<th>الصنف</th>' +
         '<th>رصيد المحل</th>' +
         '<th>رصيد المستودع</th>' +
