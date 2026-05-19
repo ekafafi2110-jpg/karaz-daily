@@ -2447,6 +2447,16 @@ Object.keys(supplierDebtMap).forEach(function(name) {
       '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + m.amount.toFixed(2) + ' دينار</div>' +
     '</div>';    }
 
+    if (m.type === 'payment') {
+  runningBalance -= m.amount;
+
+  payCol =
+    '<div>' +
+      '<div style="color:var(--green);font-weight:900;">' + (m.title || 'دفعة مورد') + '</div>' +
+      '<div style="font-size:13px;font-weight:900;color:var(--green);margin-top:4px;">' + m.amount.toFixed(2) + ' دينار</div>' +
+    '</div>';
+}
+
     movementRows +=
       '<tr>' +
         '<td>' + (m.time ? new Date(m.time).toLocaleDateString('ar-JO') : '-') + '</td>' +
@@ -2775,12 +2785,37 @@ function openSupplierDebtPopup(nameEncoded, el) {
   var movementRows = decodeURIComponent(card.getAttribute('data-movements') || '');
 
 bodyEl.innerHTML =
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+
+    '<div>' +
+      '<label class="f-lbl">من تاريخ</label>' +
+      '<input type="date" class="f-inp2" id="supplierDebtFromDate" onchange="filterSupplierDebtByDate()">' +
+    '</div>' +
+
+    '<div>' +
+      '<label class="f-lbl">إلى تاريخ</label>' +
+      '<input type="date" class="f-inp2" id="supplierDebtToDate" onchange="filterSupplierDebtByDate()">' +
+    '</div>' +
+
+  '</div>' +
+
+  '<button class="btn-sec" style="margin-bottom:12px;" onclick="clearSupplierDebtDateFilter()">عرض الكل</button>' +
+
   '<div style="margin-bottom:14px;font-size:13px;color:var(--text2);">كشف تفصيلي لحركة المورد</div>' +
+
   '<table class="rpt-table">' +
-    '<thead><tr><th>التاريخ</th><th>الذمم</th><th>الدفعات</th><th>الرصيد</th></tr></thead>' +
-    '<tbody>' + (movementRows || '<tr><td colspan="4"><div class="empty">لا توجد حركات</div></td></tr>') + '</tbody>' +
+    '<thead>' +
+      '<tr>' +
+        '<th>التاريخ</th>' +
+        '<th>الذمم</th>' +
+        '<th>الدفعات</th>' +
+        '<th>الرصيد</th>' +
+      '</tr>' +
+    '</thead>' +
+    '<tbody>' +
+      (movementRows || '<tr><td colspan="4"><div class="empty">لا توجد حركات</div></td></tr>') +
+    '</tbody>' +
   '</table>';
-  popup.style.display = 'block';
 }
 
 function closeSupplierDebtPopup() {
@@ -2837,6 +2872,64 @@ function saveManualDebt() {
 
 var lastSupplierDebtPopupHtml = '';
 var lastSupplierDebtPopupTitle = '';
+function filterSupplierDebtByDate() {
+  var fromEl = document.getElementById('supplierDebtFromDate');
+  var toEl = document.getElementById('supplierDebtToDate');
+  var body = document.getElementById('supplierDebtBody');
+
+  if (!body) return;
+
+  var from = fromEl && fromEl.value ? new Date(fromEl.value + 'T00:00:00').getTime() : null;
+  var to = toEl && toEl.value ? new Date(toEl.value + 'T23:59:59').getTime() : null;
+
+  var rows = body.querySelectorAll('tbody tr');
+
+  rows.forEach(function(row) {
+    var rowTime = Number(row.getAttribute('data-time') || 0);
+
+    if (!rowTime) {
+      row.style.display = '';
+      return;
+    }
+
+    var show = true;
+
+    if (from !== null && rowTime < from) show = false;
+    if (to !== null && rowTime > to) show = false;
+
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+function clearSupplierDebtDateFilter() {
+  var fromEl = document.getElementById('supplierDebtFromDate');
+  var toEl = document.getElementById('supplierDebtToDate');
+
+  if (fromEl) fromEl.value = '';
+  if (toEl) toEl.value = '';
+
+  filterSupplierDebtByDate();
+}
+
+function filterSupplierDebtRows(type) {
+  var body = document.getElementById('supplierDebtBody');
+  if (!body) return;
+
+  var rows = body.querySelectorAll('tbody tr');
+
+  rows.forEach(function(row) {
+    var debtText = row.children[1] ? row.children[1].textContent.trim() : '';
+    var payText = row.children[2] ? row.children[2].textContent.trim() : '';
+
+    if (type === 'all') {
+      row.style.display = '';
+    } else if (type === 'debt') {
+      row.style.display = debtText && debtText !== '-' ? '' : 'none';
+    } else if (type === 'pay') {
+      row.style.display = payText && payText !== '-' ? '' : 'none';
+    }
+  });
+}
 
 function openSupplierInvoiceDetails(titleEncoded, detailsEncoded) {
   var title = decodeURIComponent(titleEncoded || 'تفاصيل الفاتورة');
@@ -3711,7 +3804,7 @@ function showWarehouseBalance() {
       var html =
   '<table class="balance-table">' +
     '<thead>' +
-      '<tr>' +
+      '<tr data-time="' + (m.time || 0) + '">' +
         '<th>الصنف</th>' +
         '<th>رصيد المحل</th>' +
         '<th>رصيد المستودع</th>' +
