@@ -22,6 +22,7 @@
   --cherry:#c0392b;--cherry2:#e74c3c;--grape:#6c3483;--grape2:#8e44ad;
   --gold:#d4af37;--green:#27ae60;--orange:#e67e22;--red:#e74c3c;
   --text:#f0f0f0;--text2:#aaaaaa;--text3:#555555;--r:16px;--rs:10px;
+  --modal-sheet-top-gap:148px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
@@ -87,7 +88,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 /* HEADER */
 .app-header{background:linear-gradient(135deg,#1a0a0e,#0a0616);
   padding:8px 14px 7px;border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:100;}.h-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+  position:sticky;top:0;z-index:380;}.h-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
 .h-logo{display:flex;align-items:center;gap:8px;}
 .h-logo-icon{
   width:34px;
@@ -256,12 +257,12 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 .mgr-lbl{font-size:13px;font-weight:700;}
 
 /* MODAL */
-.modal-ov{position:fixed;top:76px;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);z-index:300;
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:300;
   display:none;align-items:flex-end;justify-content:center;
-  max-width:480px;margin:0 auto;}
+  max-width:480px;margin:0 auto;overflow:hidden;}
 .modal-ov.active{display:flex;}
 .modal-sheet{background:var(--bg2);border-radius:20px 20px 0 0;padding:18px 14px;
-  width:100%;max-height:88vh;overflow-y:auto;animation:slideUp .28s ease;}
+  width:100%;min-height:calc(100vh - var(--modal-sheet-top-gap) - env(safe-area-inset-bottom, 0px) - 16px);max-height:calc(100vh - var(--modal-sheet-top-gap) - env(safe-area-inset-bottom, 0px) - 16px);overflow-y:auto;animation:slideUp .28s ease;}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-handle{width:38px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
 .modal-title{font-size:17px;font-weight:700;text-align:center;margin-bottom:14px;
@@ -860,6 +861,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 </style>
 </head>
 <body>
+<div style="text-align:center;padding:6px 12px;font-size:12px;color:#aaaaaa;background:#161616;border-bottom:1px solid #2a2a2a;">نسخة تجريبية</div>
 
 <div class="loading-ov" id="loadingOv">
   <div class="spinner"></div>
@@ -2364,7 +2366,7 @@ if (debt.paid === true) {
   supplierRow.movements.push({
     time: debt.created_at && debt.created_at.toMillis ? debt.created_at.toMillis() : 0,
     type: 'manualDebt',
-    title: 'التزام يدوي',
+    title: 'التزام يدوي رقم ' + (debt.invoice_no || '-'),
     amount: amount,
     docId: debt.docId
   });
@@ -2557,6 +2559,14 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
           '</div>' +
 
           '<div class="detail-sec"><div class="sec-title">إضافة فاتورة</div>' +
+
+          '<div class="f-row" style="align-items:flex-end;">' +
+            '<div class="f-grp" style="display:flex;gap:8px;">' +
+              '<button class="btn-add" onclick="if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة فاتورة</button>' +
+              '<button class="btn-add" style="background:rgba(231,76,60,.15);border:1px solid var(--cherry);color:var(--cherry2);" onclick="deleteCashPurchaseByInvoice()">حذف فاتورة</button>' +
+              '<button class="btn-add" style="background:rgba(212,175,55,.15);border:1px solid var(--gold);color:var(--gold);opacity:.7;cursor:not-allowed;" onclick="toast(&quot;قريباً&quot;,&quot;info&quot;)">تعديل فاتورة</button>' +
+            '</div>' +
+          '</div>' +
 
   '<div class="f-row">' +
   '<div class="f-grp">' +
@@ -2855,28 +2865,64 @@ function saveManualDebt() {
     msg.innerHTML = '<div class="empty">جاري حفظ الالتزام...</div>';
   }
 
-  db.collection('manualDebts').add({
-    work_date: S.workDate,
-    supplier_name: supplierName,
-    amount: amount,
-    note: note,
-    created_by: S.user ? S.user.uid : '',
-    created_by_email: S.user ? S.user.email : '',
-    created_at: firebase.firestore.FieldValue.serverTimestamp(),
-    deleted: false
-  })
-  .then(function() {
-    toast('تم حفظ الالتزام', 'success');
-    showManagerCash('debts');
-  })
-  .catch(function(e) {
-    console.error(e);
-    toast('حدث خطأ أثناء حفظ الالتزام', 'error');
+  var baseInvoiceNo = note || '';
 
-    if (msg) {
-      msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ الالتزام</div>';
-    }
-  });
+  db.collection('manualDebts')
+    .where('supplier_name', '==', supplierName)
+    .get()
+    .then(function(snap) {
+      var existing = [];
+      snap.docs.forEach(function(d) {
+        var x = d.data() || {};
+        if (x.deleted === true) return;
+        if (!x.invoice_no) return;
+        existing.push(String(x.invoice_no));
+      });
+
+      if (!baseInvoiceNo) {
+        var maxNum = 0;
+        existing.forEach(function(v) {
+          var n = parseInt(String(v).split('/')[0], 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        });
+        baseInvoiceNo = String(maxNum + 1);
+      }
+
+      var finalInvoiceNo = baseInvoiceNo;
+      if (existing.indexOf(finalInvoiceNo) !== -1) {
+        var i = 1;
+        while (existing.indexOf(baseInvoiceNo + '/' + i) !== -1) i++;
+        finalInvoiceNo = baseInvoiceNo + '/' + i;
+      }
+
+      if (noteEl) {
+        noteEl.value = finalInvoiceNo;
+      }
+
+      return db.collection('manualDebts').add({
+        work_date: S.workDate,
+        supplier_name: supplierName,
+        invoice_no: finalInvoiceNo,
+        amount: amount,
+        note: note,
+        created_by: S.user ? S.user.uid : '',
+        created_by_email: S.user ? S.user.email : '',
+        created_at: firebase.firestore.FieldValue.serverTimestamp(),
+        deleted: false
+      });
+    })
+    .then(function() {
+      toast('تم حفظ الالتزام', 'success');
+      showManagerCash('debts');
+    })
+    .catch(function(e) {
+      console.error(e);
+      toast('حدث خطأ أثناء حفظ الالتزام', 'error');
+
+      if (msg) {
+        msg.innerHTML = '<div class="empty">حدث خطأ أثناء حفظ الالتزام</div>';
+      }
+    });
 }
 
 var lastSupplierDebtPopupHtml = '';
@@ -2982,6 +3028,113 @@ function togglePurchaseInvoiceDetails(docId) {
   if (!box) return;
 
   box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function deleteCashPurchaseByInvoice() {
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+  var invoiceNoEl = document.getElementById('cashPurchaseInvoiceNo');
+  var otherSupplierEl = document.getElementById('cashPurchaseOtherSupplier');
+
+  var supplierName = supplierEl ? supplierEl.value : '';
+  var invoiceNo = invoiceNoEl ? invoiceNoEl.value.trim() : '';
+
+  if (supplierName === 'فاتورة أخرى') {
+    supplierName = otherSupplierEl ? otherSupplierEl.value.trim() : '';
+  }
+
+  if (!supplierName) {
+    toast('اختر المورد', 'error');
+    return;
+  }
+
+  if (!invoiceNo) {
+    toast('أدخل رقم الفاتورة', 'error');
+    return;
+  }
+
+  if (!confirm('هل تريد حذف الفاتورة رقم ' + invoiceNo + ' للمورد ' + supplierName + '؟')) {
+    return;
+  }
+
+  showLoad('جاري حذف الفاتورة...');
+
+  db.collection('cashPurchases')
+    .where('supplier_name', '==', supplierName)
+    .where('invoice_no', '==', invoiceNo)
+    .get()
+    .then(function(snap) {
+      if (!snap || snap.empty) {
+        hideLoad();
+        var err = new Error('invoice_not_found');
+        err.code = 'invoice_not_found';
+        throw err;
+      }
+
+      var doc = snap.docs[0];
+      var data = doc.data() || {};
+      if (data.deleted === true) {
+        hideLoad();
+        var err2 = new Error('invoice_already_deleted');
+        err2.code = 'invoice_already_deleted';
+        throw err2;
+      }
+
+      var items = Array.isArray(data.items) ? data.items : [];
+      var now = firebase.firestore.FieldValue.serverTimestamp();
+
+      var batch = db.batch();
+      batch.update(doc.ref, {
+        deleted: true,
+        deleted_at: now,
+        deleted_by: S.user ? (S.user.uid || '') : '',
+        deleted_by_email: S.user ? (S.user.email || '') : ''
+      });
+
+      items.forEach(function(it) {
+        var name = it && it.item_name ? String(it.item_name) : '';
+        var qty = it && it.qty !== undefined ? Number(it.qty || 0) : 0;
+        if (!name || !qty) return;
+
+        var stockDocId = encodeURIComponent(name);
+        var stockRef = db.collection('warehouseStock').doc(stockDocId);
+        batch.set(stockRef, {
+          item_name: name,
+          qty: firebase.firestore.FieldValue.increment(-qty),
+          updated_at: now
+        }, { merge: true });
+      });
+
+      return db.collection('warehouseLog')
+        .where('invoice_id', '==', doc.id)
+        .get()
+        .then(function(logSnap) {
+          if (logSnap && logSnap.docs) {
+            logSnap.docs.forEach(function(l) {
+              batch.update(l.ref, { deleted: true, deleted_at: now });
+            });
+          }
+
+          return batch.commit();
+        });
+    })
+    .then(function() {
+      hideLoad();
+      toast('تم حذف الفاتورة', 'info');
+      showManagerCash('purchases');
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      if (e && e.code === 'invoice_not_found') {
+        toast('لا توجد فاتورة بهذا الرقم لهذا المورد', 'error');
+        return;
+      }
+      if (e && e.code === 'invoice_already_deleted') {
+        toast('الفاتورة محذوفة مسبقًا', 'info');
+        return;
+      }
+      toast('حدث خطأ أثناء حذف الفاتورة', 'error');
+    });
 }
 
 function onCashPurchaseSupplierChange() {
@@ -3157,26 +3310,62 @@ if (!invoiceTotal || invoiceTotal <= 0) {
 
   var now = firebase.firestore.FieldValue.serverTimestamp();
   var user = auth.currentUser || {};
-  var invoiceTitle = invoiceNo ? ('مشتريات فاتورة رقم ' + invoiceNo) : 'مشتريات فاتورة';
+  var baseInvoiceNo = invoiceNo || '';
 
-var purchaseData = {
-  work_date: S.workDate,
-  invoice_no: invoiceNo,
-  supplier_name: supplierName,
-  items: invoiceItems,
-  amount: invoiceTotal,
-  payment_method: paymentMethod,
-  title: invoiceTitle,
-  created_by: user.uid || '',
-  created_by_email: user.email || '',
-  created_at: now,
-  deleted: false
-};
+  db.collection('cashPurchases')
+    .where('supplier_name', '==', supplierName)
+    .get()
+    .then(function(snap) {
+      var existing = [];
+      snap.docs.forEach(function(d) {
+        var x = d.data() || {};
+        if (x.deleted === true) return;
+        if (!x.invoice_no) return;
+        existing.push(String(x.invoice_no));
+      });
 
-var batch = db.batch();
-var purchaseRef = db.collection('cashPurchases').doc();
+      // If empty: generate sequential (per supplier) using max numeric invoice_no.
+      if (!baseInvoiceNo) {
+        var maxNum = 0;
+        existing.forEach(function(v) {
+          var n = parseInt(String(v).split('/')[0], 10);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
+        });
+        baseInvoiceNo = String(maxNum + 1);
+      }
 
-batch.set(purchaseRef, purchaseData);
+      // Ensure uniqueness per supplier: if exists, append /1, /2, ...
+      var finalInvoiceNo = baseInvoiceNo;
+      if (existing.indexOf(finalInvoiceNo) !== -1) {
+        var i = 1;
+        while (existing.indexOf(baseInvoiceNo + '/' + i) !== -1) i++;
+        finalInvoiceNo = baseInvoiceNo + '/' + i;
+      }
+
+      if (invoiceNoEl) {
+        invoiceNoEl.value = finalInvoiceNo;
+      }
+
+      var invoiceTitle = 'مشتريات فاتورة رقم ' + finalInvoiceNo;
+
+      var purchaseData = {
+        work_date: S.workDate,
+        invoice_no: finalInvoiceNo,
+        supplier_name: supplierName,
+        items: invoiceItems,
+        amount: invoiceTotal,
+        payment_method: paymentMethod,
+        title: invoiceTitle,
+        created_by: user.uid || '',
+        created_by_email: user.email || '',
+        created_at: now,
+        deleted: false
+      };
+
+      var batch = db.batch();
+      var purchaseRef = db.collection('cashPurchases').doc();
+
+      batch.set(purchaseRef, purchaseData);
 
 if (supplierEl && supplierEl.value === 'فاتورة أخرى') {
   var supplierRef = db.collection('suppliers').doc(encodeURIComponent(supplierName));
@@ -3202,7 +3391,7 @@ invoiceItems.forEach(function(it) {
     work_date: S.workDate,
     type: 'purchase',
     invoice_id: purchaseRef.id,
-    invoice_no: invoiceNo,
+    invoice_no: finalInvoiceNo,
     supplier_name: supplierName,
     item_name: it.item_name,
     qty: it.qty,
@@ -3217,15 +3406,16 @@ invoiceItems.forEach(function(it) {
   });
 });
 
-batch.commit()
-  .then(function() {
-    toast('تم حفظ الفاتورة وتحديث رصيد النقد والمستودع', 'ok');
-    showManagerCash('purchases');
-  })
-  .catch(function(e) {
-    console.error(e);
-    toast('حدث خطأ أثناء حفظ الفاتورة', 'error');
-  });
+      return batch.commit();
+    })
+    .then(function() {
+      toast('تم حفظ الفاتورة وتحديث رصيد النقد والمستودع', 'ok');
+      showManagerCash('purchases');
+    })
+    .catch(function(e) {
+      console.error(e);
+      toast('حدث خطأ أثناء حفظ الفاتورة', 'error');
+    });
 }
 function openCashBalanceDetails() {
   var box = document.getElementById('cashBalanceDetails');
@@ -3375,6 +3565,7 @@ function deleteCashAddition(docId, checkboxEl) {
     });
 }
 function showWarehouseAdmin() {
+  closeModal();
   setAdminTabActive('warehouse');
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
@@ -3844,7 +4035,7 @@ Object.keys(itemsMap).sort().forEach(function(name) {
   var totalBalance = warehouseBalance + shopBalance;
 
   html +=
-    '<tr data-time="' + (m.time || 0) + '">' +
+    '<tr>' +
       '<td>' + name + '</td>' +
       '<td>' + shopBalance + '</td>' +
       '<td>' + warehouseBalance + '</td>' +
