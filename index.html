@@ -2261,7 +2261,7 @@ var totalDebts = 0;
     }
 
     cashExpensesRows +=
-      '<tr style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + '">' +
+  '<tr data-date="' + (x.work_date || S.workDate) + '" data-type="' + (x.type || 'مصروف') + '" data-amount="' + amount + '" style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + '">' +
         '<td>' +
           (isDeleted
             ? '<span style="color:var(--text3);font-size:11px;">محذوف</span>'
@@ -2670,8 +2670,48 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
     '<button class="btn-add" onclick="saveCashExpense()">+ حفظ المصروف</button><div id="cashExpenseMsg"></div>' +
 
     '<div class="divider"></div><div class="sec-title">كشف المصروفات</div>' +
-    '<table class="rpt-table"><thead><tr><th>حذف</th><th>النوع</th><th>المبلغ</th><th>اليوم</th></tr></thead><tbody>' + (cashExpensesRows || '<tr><td colspan="4"><div class="empty">لا توجد مصروفات</div></td></tr>') + '</tbody></table>' +
+
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+  '<div>' +
+    '<label class="f-lbl">من تاريخ</label>' +
+    '<input type="date" class="f-inp2" id="cashExpenseFromDate" onchange="filterCashExpensesTable()">' +
   '</div>' +
+  '<div>' +
+    '<label class="f-lbl">إلى تاريخ</label>' +
+    '<input type="date" class="f-inp2" id="cashExpenseToDate" onchange="filterCashExpensesTable()">' +
+  '</div>' +
+'</div>' +
+
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+  '<div>' +
+    '<label class="f-lbl">نوع المصروف</label>' +
+    '<select class="f-sel" id="cashExpenseFilterType" onchange="filterCashExpensesTable()">' +
+      '<option value="">الكل</option>' +
+      '<option value="ايجار">ايجار</option>' +
+      '<option value="كهرباء">كهرباء</option>' +
+      '<option value="صيانه واصلاح">صيانه واصلاح</option>' +
+      '<option value="سحوبات ابو ايهم">سحوبات ابو ايهم</option>' +
+      '<option value="سحوبات اسامه">سحوبات اسامه</option>' +
+      '<option value="ادوات محل">ادوات محل</option>' +
+      '<option value="ماكينات">ماكينات</option>' +
+      '<option value="اخرى">اخرى</option>' +
+    '</select>' +
+  '</div>' +
+  '<div>' +
+    '<label class="f-lbl">ترتيب المبلغ</label>' +
+    '<select class="f-sel" id="cashExpenseSortAmount" onchange="sortCashExpensesByAmount()">' +
+      '<option value="">بدون ترتيب</option>' +
+      '<option value="desc">الأكبر أولًا</option>' +
+      '<option value="asc">الأصغر أولًا</option>' +
+    '</select>' +
+  '</div>' +
+'</div>' +
+
+'<button class="btn-sec" style="margin-bottom:10px;" onclick="clearCashExpensesFilters()">عرض الكل</button>' +
+
+'<div id="cashExpenseNoRows" class="empty" style="display:none;margin-bottom:10px;">لا توجد مصروفات ضمن الفلتر المحدد</div>' +
+
+'<table class="rpt-table" id="cashExpensesTable"><thead><tr><th>حذف</th><th>النوع</th><th>المبلغ</th><th>اليوم</th></tr></thead><tbody>' + (cashExpensesRows || '<tr><td colspan="4"><div class="empty">لا توجد مصروفات</div></td></tr>') + '</tbody></table>' +  '</div>' +
 '</div>' +
 
         '<div id="cashPurchasesBox" style="display:' + (openPanel === 'purchases' ? 'block' : 'none') + ';">' +
@@ -2753,17 +2793,21 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
   '<div class="sec-title">إضافة التزام</div>' +
 
   '<div class="f-row">' +
-    '<div class="f-grp">' +
-      '<label class="f-lbl">اسم المورد</label>' +
-      '<input type="text" class="f-inp2" id="debtSupplierName" placeholder="اسم المورد" style="width:100%;">' +
-    '</div>' +
-
-    '<div class="f-grp" style="max-width:130px;">' +
-      '<label class="f-lbl">المبلغ</label>' +
-      '<input type="number" class="f-inp2" id="debtAmount" placeholder="0.00" step="0.01" min="0">' +
-    '</div>' +
+  '<div class="f-grp">' +
+    '<label class="f-lbl">اسم المورد</label>' +
+    '<input type="text" class="f-inp2" id="debtSupplierName" placeholder="اسم المورد" style="width:100%;">' +
   '</div>' +
 
+  '<div class="f-grp" style="max-width:130px;">' +
+    '<label class="f-lbl">رقم الفاتورة</label>' +
+    '<input type="text" class="f-inp2" id="debtInvoiceNo" placeholder="تلقائي">' +
+  '</div>' +
+
+  '<div class="f-grp" style="max-width:130px;">' +
+    '<label class="f-lbl">المبلغ</label>' +
+    '<input type="number" class="f-inp2" id="debtAmount" placeholder="0.00" step="0.01" min="0">' +
+  '</div>' +
+'</div>' +
   '<div style="margin-bottom:10px;">' +
     '<label class="f-lbl">ملاحظات</label>' +
     '<input type="text" class="f-inp2" id="debtNote" placeholder="ملاحظات اختيارية" style="width:100%;">' +
@@ -2970,14 +3014,15 @@ function closeSupplierDebtPopup() {
 }
 function saveManualDebt() {
   var supplierEl = document.getElementById('debtSupplierName');
-  var amountEl = document.getElementById('debtAmount');
-  var noteEl = document.getElementById('debtNote');
-  var msg = document.getElementById('debtMsg');
+var amountEl = document.getElementById('debtAmount');
+var invoiceNoEl = document.getElementById('debtInvoiceNo');
+var noteEl = document.getElementById('debtNote');
+var msg = document.getElementById('debtMsg');
 
-  var supplierName = supplierEl ? supplierEl.value.trim() : '';
-  var amount = amountEl ? Number(amountEl.value || 0) : 0;
-  var note = noteEl ? noteEl.value.trim() : '';
-
+var supplierName = supplierEl ? supplierEl.value.trim() : '';
+var amount = amountEl ? Number(amountEl.value || 0) : 0;
+var manualInvoiceNo = invoiceNoEl ? invoiceNoEl.value.trim() : '';
+var note = noteEl ? noteEl.value.trim() : '';
   if (!supplierName) {
     toast('أدخل اسم المورد', 'error');
     return;
@@ -2992,7 +3037,7 @@ function saveManualDebt() {
     msg.innerHTML = '<div class="empty">جاري حفظ الالتزام...</div>';
   }
 
-  var baseInvoiceNo = note || '';
+  var baseInvoiceNo = manualInvoiceNo || '';
 
   db.collection('manualDebts')
     .where('supplier_name', '==', supplierName)
@@ -3590,14 +3635,42 @@ if (!invoiceTotal || invoiceTotal <= 0) {
       batch.set(purchaseRef, purchaseData);
 
 if (supplierEl && supplierEl.value === 'فاتورة أخرى') {
+  if (supplierEl && supplierEl.value === 'فاتورة أخرى') {
   var supplierRef = db.collection('suppliers').doc(encodeURIComponent(supplierName));
   batch.set(supplierRef, {
     name: supplierName,
     updated_at: now,
     deleted: false
   }, { merge: true });
-}
 
+  var alreadyExists = false;
+
+  for (var si = 0; si < supplierEl.options.length; si++) {
+    if (supplierEl.options[si].value === supplierName) {
+      alreadyExists = true;
+      break;
+    }
+  }
+
+  if (!alreadyExists) {
+    supplierEl.insertBefore(
+      new Option(supplierName, supplierName),
+      supplierEl.querySelector('option[value="فاتورة أخرى"]')
+    );
+  }
+}
+  var alreadyExists = false;
+  for (var si = 0; si < supplierEl.options.length; si++) {
+    if (supplierEl.options[si].value === supplierName) {
+      alreadyExists = true;
+      break;
+    }
+  }
+
+  if (!alreadyExists) {
+    supplierEl.insertBefore(new Option(supplierName, supplierName), supplierEl.querySelector('option[value="فاتورة أخرى"]'));
+  }
+}
 invoiceItems.forEach(function(it) {
   var stockDocId = encodeURIComponent(it.item_name);
 
@@ -4037,6 +4110,93 @@ function deleteCashExpense(docId, checkbox) {
   });
 }
 
+function filterCashExpensesTable() {
+  var fromEl = document.getElementById('cashExpenseFromDate');
+  var toEl = document.getElementById('cashExpenseToDate');
+  var typeEl = document.getElementById('cashExpenseFilterType');
+
+  var table = document.getElementById('cashExpensesTable');
+  var noRows = document.getElementById('cashExpenseNoRows');
+
+  if (!table) return;
+
+  var from = fromEl && fromEl.value ? fromEl.value : '';
+  var to = toEl && toEl.value ? toEl.value : '';
+  var type = typeEl && typeEl.value ? typeEl.value : '';
+
+  if (from && to && to < from) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    if (toEl) toEl.value = from;
+    to = from;
+  }
+
+  var rows = table.querySelectorAll('tbody tr');
+  var visibleCount = 0;
+
+  rows.forEach(function(row) {
+    var rowDate = row.getAttribute('data-date') || '';
+    var rowType = row.getAttribute('data-type') || '';
+
+    var show = true;
+
+    if (from && rowDate < from) show = false;
+    if (to && rowDate > to) show = false;
+    if (type && rowType !== type) show = false;
+
+    row.style.display = show ? '' : 'none';
+    if (show) visibleCount++;
+  });
+
+  if (noRows) noRows.style.display = visibleCount === 0 ? 'block' : 'none';
+  table.style.display = visibleCount === 0 ? 'none' : 'table';
+}
+
+function clearCashExpensesFilters() {
+  var fromEl = document.getElementById('cashExpenseFromDate');
+  var toEl = document.getElementById('cashExpenseToDate');
+  var typeEl = document.getElementById('cashExpenseFilterType');
+  var sortEl = document.getElementById('cashExpenseSortAmount');
+  var table = document.getElementById('cashExpensesTable');
+  var noRows = document.getElementById('cashExpenseNoRows');
+
+  if (fromEl) fromEl.value = '';
+  if (toEl) toEl.value = '';
+  if (typeEl) typeEl.value = '';
+  if (sortEl) sortEl.value = '';
+
+  if (table) {
+    table.style.display = 'table';
+    var rows = table.querySelectorAll('tbody tr');
+    rows.forEach(function(row) {
+      row.style.display = '';
+    });
+  }
+
+  if (noRows) noRows.style.display = 'none';
+}
+
+function sortCashExpensesByAmount() {
+  var sortEl = document.getElementById('cashExpenseSortAmount');
+  var table = document.getElementById('cashExpensesTable');
+
+  if (!sortEl || !table || !sortEl.value) return;
+
+  var tbody = table.querySelector('tbody');
+  var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+
+  rows.sort(function(a, b) {
+    var av = Number(a.getAttribute('data-amount') || 0);
+    var bv = Number(b.getAttribute('data-amount') || 0);
+
+    return sortEl.value === 'asc' ? av - bv : bv - av;
+  });
+
+  rows.forEach(function(row) {
+    tbody.appendChild(row);
+  });
+
+  filterCashExpensesTable();
+}
 function showWarehouseAdmin() {
   closeModal();
   setAdminTabActive('warehouse');
