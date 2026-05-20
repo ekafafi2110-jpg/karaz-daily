@@ -2124,7 +2124,8 @@ function showManagerCash(openPanel) {
   db.collection('cashPurchases').where('work_date', '==', S.workDate).get(),
   db.collection('manualDebts').where('work_date', '==', S.workDate).get(),
   db.collection('cashPayments').where('work_date', '==', S.workDate).get(),
-  db.collection('cashExpenses').where('work_date', '==', S.workDate).get()
+  db.collection('cashExpenses').where('work_date', '==', S.workDate).get(),
+db.collection('suppliers').get()
 ]);
     })
     .then(function(results) {
@@ -2136,6 +2137,7 @@ function showManagerCash(openPanel) {
       var manualDebtsSnap = results[3];
       var cashPaymentsSnap = results[4];
 var cashExpensesSnap = results[5];
+var suppliersSnap = results[6];
 
 var totalActualCash = 0;
 var balanceRows = [];
@@ -2516,9 +2518,11 @@ Object.keys(supplierDebtMap).forEach(function(name) {
       '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + m.amount.toFixed(2) + ' دينار</div>' +
     '</div>'
   : '<div>' +
-      '<div>' + m.title + '</div>' +
+      '<span onclick="event.stopPropagation(); openSupplierManualDebtDetails(\'' + encodeURIComponent(m.title) + '\', \'' + m.amount + '\')" style="color:var(--gold);text-decoration:underline;cursor:pointer;font-weight:700;">' + m.title + '</span>' +
       '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + m.amount.toFixed(2) + ' دينار</div>' +
-    '</div>';    }
+    '</div>';
+  
+  }
 
     if (m.type === 'payment') {
   runningBalance -= m.amount;
@@ -2558,13 +2562,32 @@ Object.keys(supplierDebtMap).forEach(function(name) {
 
 if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على الموردين</div>';
       var cashCardsDisplay = openPanel ? 'none' : 'grid';
-      var supplierOptions =
+      var supplierNames = [
+  'فاتورة بلاستيك',
+  'فاتورة بوظة',
+  'فاتورة أبو زهرة'
+];
+
+if (suppliersSnap && suppliersSnap.docs) {
+  suppliersSnap.docs.forEach(function(d) {
+    var x = d.data() || {};
+    var name = x.name || '';
+
+    if (x.deleted === true) return;
+    if (!name) return;
+
+    if (supplierNames.indexOf(name) === -1) {
+      supplierNames.push(name);
+    }
+  });
+}
+
+var supplierOptions =
   '<option value="">اختر المورد</option>' +
-  '<option value="فاتورة بلاستيك">فاتورة بلاستيك</option>' +
-  '<option value="فاتورة بوظة">فاتورة بوظة</option>' +
-  '<option value="فاتورة أبو زهرة">فاتورة أبو زهرة</option>' +
-  '<option value="فاتورة أخرى">فاتورة أخرى</option>';
-      var purchaseOptions = S.items.map(function(item) {
+  supplierNames.map(function(name) {
+    return '<option value="' + name + '">' + name + '</option>';
+  }).join('') +
+  '<option value="فاتورة أخرى">فاتورة أخرى</option>';      var purchaseOptions = S.items.map(function(item) {
         return '<option value="' + item.name + '">' + item.name + '</option>';
       }).join('');
 
@@ -3186,6 +3209,31 @@ function openSupplierInvoiceDetails(titleEncoded, detailsEncoded) {
   bodyEl.innerHTML =
     '<button class="btn-add" style="background:var(--gold);margin-bottom:12px;" onclick="backToSupplierDebtPopup()">رجوع للكشف</button>' +
     (detailsHtml || '<div class="empty">لا توجد تفاصيل لهذه الفاتورة</div>');
+}
+
+function openSupplierManualDebtDetails(titleEncoded, amountValue) {
+  var title = decodeURIComponent(titleEncoded || 'تفاصيل الالتزام');
+  var amount = Number(amountValue || 0);
+
+  var titleEl = document.getElementById('supplierDebtTitle');
+  var bodyEl = document.getElementById('supplierDebtBody');
+
+  lastSupplierDebtPopupTitle = titleEl ? titleEl.textContent : 'كشف المورد';
+  lastSupplierDebtPopupHtml = bodyEl ? bodyEl.innerHTML : '';
+
+  if (titleEl) titleEl.textContent = title;
+
+  bodyEl.innerHTML =
+    '<button class="btn-add" style="background:var(--gold);margin-bottom:12px;" onclick="backToSupplierDebtPopup()">رجوع للكشف</button>' +
+    '<div class="detail-sec">' +
+      '<div class="sec-title">تفاصيل الالتزام</div>' +
+      '<table class="rpt-table">' +
+        '<tbody>' +
+          '<tr><th>البيان</th><td>' + title + '</td></tr>' +
+          '<tr><th>المبلغ</th><td><strong>' + amount.toFixed(2) + '</strong> دينار</td></tr>' +
+        '</tbody>' +
+      '</table>' +
+    '</div>';
 }
 
 function backToSupplierDebtPopup() {
