@@ -2576,9 +2576,16 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
             '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
           '</div>' +
           '<div class="mgr-card green" onclick="showManagerCash(\'add\')" style="cursor:pointer;">' +
+            
             '<div class="mgr-icon">➕</div><div class="mgr-lbl" style="font-size:15px;color:var(--green);">إضافة نقد</div>' +
             '<div style="font-size:11px;color:var(--text2);margin-top:6px;">إدخال مبلغ نقدي</div>' +
           '</div>' +
+
+          '<div class="mgr-card cherry" onclick="showManagerCash(\'expenses\')" style="cursor:pointer;">' +
+  '<div class="mgr-icon">💸</div><div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">المصروفات</div>' +
+  '<div style="font-size:22px;font-weight:900;color:var(--cherry2);margin-top:4px;">' + totalCashExpenses.toFixed(2) + '</div>' +
+  '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
+'</div>' +
           '<div class="mgr-card cherry" onclick="showManagerCash(\'purchases\')" style="cursor:pointer;">' +
   '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:15px;color:var(--cherry2);">مشتريات</div>' +
   '<div style="font-size:11px;color:var(--text2);margin-top:6px;">آخر 5 فواتير</div>' +
@@ -3951,6 +3958,85 @@ function deleteCashAddition(docId, checkboxEl) {
       }
     });
 }
+function onCashExpenseTypeChange() {
+  var typeEl = document.getElementById('cashExpenseType');
+  var otherBox = document.getElementById('cashExpenseOtherBox');
+
+  if (!typeEl || !otherBox) return;
+
+  otherBox.style.display = typeEl.value === 'اخرى' ? 'block' : 'none';
+}
+
+function saveCashExpense() {
+  var typeEl = document.getElementById('cashExpenseType');
+  var otherEl = document.getElementById('cashExpenseOtherType');
+  var amountEl = document.getElementById('cashExpenseAmount');
+  var noteEl = document.getElementById('cashExpenseNote');
+
+  var type = typeEl ? typeEl.value : '';
+  var amount = amountEl ? Number(amountEl.value || 0) : 0;
+  var note = noteEl ? noteEl.value.trim() : '';
+
+  if (type === 'اخرى') {
+    type = otherEl ? otherEl.value.trim() : '';
+  }
+
+  if (!type) {
+    toast('اختر نوع المصروف', 'error');
+    return;
+  }
+
+  if (!amount || amount <= 0) {
+    toast('أدخل مبلغًا صحيحًا', 'error');
+    return;
+  }
+
+  showLoad('جاري حفظ المصروف...');
+
+  db.collection('cashExpenses').add({
+    work_date: S.workDate,
+    type: type,
+    amount: amount,
+    note: note,
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+    deleted: false
+  })
+  .then(function() {
+    hideLoad();
+    toast('تم حفظ المصروف', 'success');
+    showManagerCash('expenses');
+  })
+  .catch(function(e) {
+    hideLoad();
+    console.error(e);
+    toast('حدث خطأ أثناء حفظ المصروف', 'error');
+  });
+}
+
+function deleteCashExpense(docId, checkbox) {
+  if (!confirm('هل تريد حذف هذا المصروف؟')) {
+    if (checkbox) checkbox.checked = false;
+    return;
+  }
+
+  db.collection('cashExpenses').doc(docId).update({
+    deleted: true,
+    deleted_at: firebase.firestore.FieldValue.serverTimestamp(),
+    deleted_by: S.user ? S.user.uid : '',
+    deleted_by_email: S.user ? S.user.email : ''
+  })
+  .then(function() {
+    toast('تم حذف المصروف', 'info');
+    showManagerCash('expenses');
+  })
+  .catch(function(e) {
+    console.error(e);
+    toast('حدث خطأ أثناء حذف المصروف', 'error');
+  });
+}
+
 function showWarehouseAdmin() {
   closeModal();
   setAdminTabActive('warehouse');
