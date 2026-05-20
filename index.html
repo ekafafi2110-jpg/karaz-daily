@@ -273,12 +273,37 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   display:flex;align-items:center;justify-content:center;}
 
 /* REPORT */
-.rpt-table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px;}
-.rpt-table th{background:var(--bg3);color:var(--gold);padding:9px 5px;
-  text-align:center;font-weight:700;border:1px solid var(--border);}
-.rpt-table td{padding:7px 5px;text-align:center;border:1px solid var(--border);color:var(--text);}
-.rpt-table tr:nth-child(even) td{background:rgba(255,255,255,.02);}
-.d-pos{color:var(--green);font-weight:700;}
+.rpt-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-bottom:14px;
+  font-size:12px;
+  border:1.5px solid #3a3a3a;
+}
+
+.rpt-table th{
+  background:var(--bg3);
+  color:var(--gold);
+  padding:10px 6px;
+  text-align:center;
+  font-weight:800;
+  border:1.5px solid #3a3a3a;
+}
+
+.rpt-table td{
+  padding:9px 6px;
+  text-align:center;
+  border:1.5px solid #3a3a3a;
+  color:var(--text);
+}
+
+.rpt-table tr:nth-child(even) td{
+  background:rgba(255,255,255,.035);
+}
+
+.rpt-table tr:hover td{
+  background:rgba(212,175,55,.06);
+}.d-pos{color:var(--green);font-weight:700;}
 .d-neg{color:var(--red);font-weight:700;}
 .d-zer{color:var(--text3);}
 .acc-inp{background:var(--bg3);border:1px solid var(--border);border-radius:6px;
@@ -1174,7 +1199,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     <div class="mgr-card green" onclick="mgrOpen('expTypes')">
       <div class="mgr-icon">&#128179;</div><div class="mgr-lbl">ادارة المصاريف</div>
     </div>
-    <div class="mgr-card" onclick="mgrOpen('cash')">
+    <div class="mgr-card gold" onclick="mgrOpen('cash')">
   <div class="mgr-icon">💵</div>
   <div class="mgr-lbl">الكاش</div>
 </div>
@@ -2098,7 +2123,8 @@ function showManagerCash(openPanel) {
   db.collection('cashAdditions').where('work_date', '==', S.workDate).get(),
   db.collection('cashPurchases').where('work_date', '==', S.workDate).get(),
   db.collection('manualDebts').where('work_date', '==', S.workDate).get(),
-db.collection('cashPayments').where('work_date', '==', S.workDate).get()
+  db.collection('cashPayments').where('work_date', '==', S.workDate).get(),
+  db.collection('cashExpenses').where('work_date', '==', S.workDate).get()
 ]);
     })
     .then(function(results) {
@@ -2109,15 +2135,18 @@ db.collection('cashPayments').where('work_date', '==', S.workDate).get()
       var purchasesSnap = results[2];
       var manualDebtsSnap = results[3];
       var cashPaymentsSnap = results[4];
+var cashExpensesSnap = results[5];
 
-      var totalActualCash = 0;
-      var balanceRows = [];
-      var tableRows = '';
-      var additionsRows = '';
-      var purchaseRows = '';
-       var debtsRows = '';
-      var totalPurchases = 0;
-      var totalDebts = 0;
+var totalActualCash = 0;
+var balanceRows = [];
+var tableRows = '';
+var additionsRows = '';
+var cashExpensesRows = '';
+var purchaseRows = '';
+var debtsRows = '';
+var totalPurchases = 0;
+var totalCashExpenses = 0;
+var totalDebts = 0;
       var supplierDebtMap = {};
       function getSupplierDebtRow(name) {
   var supplierName = (name || 'غير محدد').trim();
@@ -2202,6 +2231,48 @@ db.collection('cashPayments').where('work_date', '==', S.workDate).get()
             '</tr>';
         });
       }
+
+      if (cashExpensesSnap && cashExpensesSnap.docs) {
+  cashExpensesSnap.docs.forEach(function(d) {
+    var x = Object.assign({ docId: d.id }, d.data());
+    var amount = Number(x.amount || 0);
+    var isDeleted = x.deleted === true;
+
+    if (!amount || amount <= 0) return;
+
+    if (!isDeleted) {
+      totalCashExpenses += amount;
+      totalActualCash -= amount;
+
+      var expTime = x.created_at && x.created_at.toMillis ? x.created_at.toMillis() : 0;
+
+      balanceRows.push({
+        time: expTime,
+        html:
+          '<tr>' +
+            '<td>' + fmtDate(x.work_date || S.workDate) + '</td>' +
+            '<td style="text-align:right;">' +
+              (x.type || 'مصروف') +
+              '<div style="font-size:10px;color:var(--text2);">' + (x.note || '') + '</div>' +
+            '</td>' +
+            '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +
+          '</tr>'
+      });
+    }
+
+    cashExpensesRows +=
+      '<tr style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + '">' +
+        '<td>' +
+          (isDeleted
+            ? '<span style="color:var(--text3);font-size:11px;">محذوف</span>'
+            : '<input type="checkbox" onchange="deleteCashExpense(\'' + x.docId + '\', this)">') +
+        '</td>' +
+        '<td style="text-align:right;">' + (x.type || 'مصروف') + '</td>' +
+        '<td><strong>' + amount.toFixed(2) + '</strong></td>' +
+        '<td style="font-size:10px;color:var(--text2);">' + fmtDate(x.work_date || S.workDate) + '</td>' +
+      '</tr>';
+  });
+}
 
       if (purchasesSnap && purchasesSnap.docs) {
 
@@ -2552,6 +2623,50 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
           '</div>' +
         '</div>' +
 
+'<div id="cashExpensesBox" style="display:' + (openPanel === 'expenses' ? 'block' : 'none') + ';">' +
+  '<div class="mgr-card cherry" onclick="showManagerCash(null)" style="margin-bottom:14px;cursor:pointer;">' +
+    '<div class="mgr-icon">💸</div><div class="mgr-lbl" style="font-size:16px;color:var(--cherry2);">المصروفات</div>' +
+    '<div style="font-size:26px;font-weight:900;color:var(--cherry2);margin-top:6px;">' + totalCashExpenses.toFixed(2) + '</div>' +
+    '<div style="font-size:12px;color:var(--text3);">دينار</div>' +
+    '<div style="font-size:11px;color:var(--text2);margin-top:6px;">اضغط لإغلاق البطاقة</div>' +
+  '</div>' +
+
+  '<div class="detail-sec"><div class="sec-title">إضافة مصروف</div>' +
+    '<div class="f-row">' +
+      '<div class="f-grp">' +
+        '<label class="f-lbl">نوع المصروف</label>' +
+        '<select class="f-sel" id="cashExpenseType" onchange="onCashExpenseTypeChange()">' +
+          '<option value="ايجار">ايجار</option>' +
+          '<option value="كهرباء">كهرباء</option>' +
+          '<option value="صيانه واصلاح">صيانه واصلاح</option>' +
+          '<option value="سحوبات ابو ايهم">سحوبات ابو ايهم</option>' +
+          '<option value="سحوبات اسامه">سحوبات اسامه</option>' +
+          '<option value="ادوات محل">ادوات محل</option>' +
+          '<option value="ماكينات">ماكينات</option>' +
+          '<option value="اخرى">اخرى</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="f-grp" style="max-width:130px;">' +
+        '<label class="f-lbl">المبلغ</label>' +
+        '<input type="number" class="f-inp2" id="cashExpenseAmount" placeholder="0.00" step="0.01" min="0">' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="cashExpenseOtherBox" style="display:none;margin-bottom:9px;">' +
+      '<input type="text" class="f-inp2" id="cashExpenseOtherType" placeholder="اكتب نوع المصروف..." style="width:100%;">' +
+    '</div>' +
+
+    '<div style="margin-bottom:9px;">' +
+      '<input type="text" class="f-inp2" id="cashExpenseNote" placeholder="ملاحظات اختيارية" style="width:100%;">' +
+    '</div>' +
+
+    '<button class="btn-add" onclick="saveCashExpense()">+ حفظ المصروف</button><div id="cashExpenseMsg"></div>' +
+
+    '<div class="divider"></div><div class="sec-title">كشف المصروفات</div>' +
+    '<table class="rpt-table"><thead><tr><th>حذف</th><th>النوع</th><th>المبلغ</th><th>اليوم</th></tr></thead><tbody>' + (cashExpensesRows || '<tr><td colspan="4"><div class="empty">لا توجد مصروفات</div></td></tr>') + '</tbody></table>' +
+  '</div>' +
+'</div>' +
+
         '<div id="cashPurchasesBox" style="display:' + (openPanel === 'purchases' ? 'block' : 'none') + ';">' +
           '<div class="mgr-card cherry" onclick="showManagerCash(null)" style="margin-bottom:14px;cursor:pointer;">' +
             '<div class="mgr-icon">🛒</div><div class="mgr-lbl" style="font-size:16px;color:var(--cherry2);">مشتريات</div>' +
@@ -2560,12 +2675,10 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
 
           '<div class="detail-sec"><div class="sec-title">إضافة فاتورة</div>' +
 
-          '<div class="f-row" style="align-items:flex-end;">' +
-            '<div class="f-grp" style="display:flex;gap:8px;">' +
-              '<button class="btn-add" onclick="if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة فاتورة</button>' +
-              '<button class="btn-add" style="background:rgba(231,76,60,.15);border:1px solid var(--cherry);color:var(--cherry2);" onclick="deleteCashPurchaseByInvoice()">حذف فاتورة</button>' +
-              '<button class="btn-add" style="background:rgba(212,175,55,.15);border:1px solid var(--gold);color:var(--gold);opacity:.7;cursor:not-allowed;" onclick="toast(&quot;قريباً&quot;,&quot;info&quot;)">تعديل فاتورة</button>' +
-            '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
+  '<button class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;" onclick="if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة</button>' +
+  '<button class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;background:rgba(231,76,60,.15);border:1px solid var(--cherry);color:var(--cherry2);" onclick="deleteCashPurchaseByInvoice()">حذف</button>' +
+'<button class="btn-add" style="background:rgba(212,175,55,.15);border:1px solid var(--gold);color:var(--gold);" onclick="loadCashPurchaseForEdit()">تعديل</button>' +'</div>' +
           '</div>' +
 
   '<div class="f-row">' +
@@ -2611,7 +2724,7 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
 '</div>' +
 
 '<input type="hidden" id="cashPurchaseInvoiceTotal" value="0">' +
-  '<button class="btn-add" onclick="saveCashPurchase()">+ حفظ الفاتورة</button><div id="cashPurchaseMsg"></div>' +
+  '<button class="btn-add" id="cashPurchaseSaveBtn" onclick="saveCashPurchase()">+ حفظ الفاتورة</button><div id="cashPurchaseMsg"></div>' +
 '</div>' +
 
 '<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
@@ -2662,10 +2775,17 @@ if (!debtsRows) debtsRows = '<div class="empty">لا توجد ذمم على ال
 document.getElementById('modalBody').innerHTML = html;
     })
     .catch(function(e) {
-      hideLoad();
-      console.error(e);
-      document.getElementById('modalBody').innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد النقد</div>';
-    });
+  hideLoad();
+  console.error(e);
+
+  var msg = e && e.message ? e.message : String(e || 'خطأ غير معروف');
+
+  document.getElementById('modalBody').innerHTML =
+    '<div class="empty" style="text-align:right;">' +
+      '<div style="font-weight:900;color:var(--red);margin-bottom:8px;">حدث خطأ أثناء تحميل رصيد النقد</div>' +
+      '<div style="font-size:12px;color:var(--text2);direction:ltr;text-align:left;white-space:pre-wrap;">' + msg + '</div>' +
+    '</div>';
+});
 }
 function payManualDebt(docId) {
   if (!confirm('هل تريد دفع هذا الالتزام من النقد؟')) return;
@@ -3137,6 +3257,101 @@ function deleteCashPurchaseByInvoice() {
     });
 }
 
+function loadCashPurchaseForEdit() {
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+  var invoiceNoEl = document.getElementById('cashPurchaseInvoiceNo');
+  var otherSupplierEl = document.getElementById('cashPurchaseOtherSupplier');
+
+  var supplierName = supplierEl ? supplierEl.value : '';
+  var invoiceNo = invoiceNoEl ? invoiceNoEl.value.trim() : '';
+
+  if (supplierName === 'فاتورة أخرى') {
+    supplierName = otherSupplierEl ? otherSupplierEl.value.trim() : '';
+  }
+
+  if (!supplierName) {
+    toast('اختر المورد أولًا', 'error');
+    return;
+  }
+
+  if (!invoiceNo) {
+    toast('أدخل رقم الفاتورة', 'error');
+    return;
+  }
+
+  showLoad('جاري تحميل الفاتورة للتعديل...');
+
+  db.collection('cashPurchases')
+    .where('supplier_name', '==', supplierName)
+    .where('invoice_no', '==', invoiceNo)
+    .get()
+    .then(function(snap) {
+      hideLoad();
+
+      if (!snap || snap.empty) {
+        toast('لا توجد فاتورة بهذا الرقم لهذا المورد', 'error');
+        return;
+      }
+
+      var doc = snap.docs[0];
+      var data = doc.data() || {};
+
+      if (data.deleted === true) {
+        toast('هذه الفاتورة محذوفة ولا يمكن تعديلها', 'error');
+        return;
+      }
+
+      window.editCashPurchaseDocId = doc.id;
+      window.editCashPurchaseOldData = data;
+
+      onCashPurchaseSupplierChange();
+
+      var items = Array.isArray(data.items) ? data.items : [];
+      var countEl = document.getElementById('cashPurchaseItemsCount');
+      var paymentEl = document.getElementById('cashPurchasePayment');
+
+      if (countEl) {
+        countEl.value = items.length || 1;
+      }
+
+      renderCashPurchaseItemRows();
+
+      var rows = document.querySelectorAll('.cash-purchase-row');
+
+      items.forEach(function(it, index) {
+        var row = rows[index];
+        if (!row) return;
+
+        var itemEl = row.querySelector('.cashPurchaseItem');
+        var qtyEl = row.querySelector('.cashPurchaseQty');
+        var priceEl = row.querySelector('.cashPurchasePrice');
+
+        if (itemEl) itemEl.value = it.item_name || '';
+        if (qtyEl) qtyEl.value = Number(it.qty || 0);
+        if (priceEl) priceEl.value = Number(it.price || 0);
+      });
+
+      if (paymentEl) {
+        paymentEl.value = data.payment_method || 'كاش';
+      }
+
+      calcCashPurchaseInvoiceTotal();
+
+var saveBtn = document.getElementById('cashPurchaseSaveBtn');
+if (saveBtn) {
+  saveBtn.textContent = 'حفظ التعديل';
+  saveBtn.onclick = saveCashPurchaseEdit;
+}
+
+toast('تم تحميل الفاتورة. راجع البيانات قبل حفظ التعديل', 'success');
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('حدث خطأ أثناء تحميل الفاتورة', 'error');
+    });
+}
+
 function onCashPurchaseSupplierChange() {
   var supplierEl = document.getElementById('cashPurchaseSupplier');
   var otherBox = document.getElementById('cashPurchaseOtherSupplierBox');
@@ -3417,6 +3632,178 @@ invoiceItems.forEach(function(it) {
       toast('حدث خطأ أثناء حفظ الفاتورة', 'error');
     });
 }
+function saveCashPurchaseEdit() {
+  var docId = window.editCashPurchaseDocId;
+  var oldData = window.editCashPurchaseOldData || {};
+
+  if (!docId) {
+    toast('لا توجد فاتورة محملة للتعديل', 'error');
+    return;
+  }
+
+  var rows = document.querySelectorAll('.cash-purchase-row');
+  var paymentEl = document.getElementById('cashPurchasePayment');
+  var totalEl = document.getElementById('cashPurchaseInvoiceTotal');
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+  var invoiceNoEl = document.getElementById('cashPurchaseInvoiceNo');
+  var otherSupplierEl = document.getElementById('cashPurchaseOtherSupplier');
+
+  var supplierName = supplierEl ? supplierEl.value : '';
+  if (supplierName === 'فاتورة أخرى') {
+    supplierName = otherSupplierEl ? otherSupplierEl.value.trim() : '';
+  }
+
+  var invoiceNo = invoiceNoEl ? invoiceNoEl.value.trim() : '';
+  var paymentMethod = paymentEl ? paymentEl.value : 'كاش';
+  var invoiceTotal = totalEl ? Number(totalEl.value || 0) : 0;
+
+  var newItems = [];
+
+  rows.forEach(function(row) {
+    var itemEl = row.querySelector('.cashPurchaseItem');
+    var qtyEl = row.querySelector('.cashPurchaseQty');
+    var priceEl = row.querySelector('.cashPurchasePrice');
+
+    var itemName = itemEl ? itemEl.value : '';
+    var qty = qtyEl ? Number(qtyEl.value || 0) : 0;
+    var price = priceEl ? Number(priceEl.value || 0) : 0;
+    var amount = qty * price;
+
+    if (itemName && qty > 0 && price > 0 && amount > 0) {
+      newItems.push({
+        item_name: itemName,
+        qty: qty,
+        price: price,
+        amount: amount
+      });
+    }
+  });
+
+  if (!supplierName) {
+    toast('اختر المورد', 'error');
+    return;
+  }
+
+  if (!invoiceNo) {
+    toast('رقم الفاتورة مطلوب', 'error');
+    return;
+  }
+
+  if (!newItems.length) {
+    toast('أدخل صنف واحد على الأقل مع العدد والسعر', 'error');
+    return;
+  }
+
+  if (!invoiceTotal || invoiceTotal <= 0) {
+    toast('مجموع الفاتورة غير صحيح', 'error');
+    return;
+  }
+
+  if (!confirm('هل تريد حفظ تعديل الفاتورة رقم ' + invoiceNo + '؟')) {
+    return;
+  }
+
+  showLoad('جاري حفظ تعديل الفاتورة...');
+
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  var user = auth.currentUser || {};
+  var oldItems = Array.isArray(oldData.items) ? oldData.items : [];
+  var purchaseRef = db.collection('cashPurchases').doc(docId);
+
+  var qtyDeltaMap = {};
+
+  oldItems.forEach(function(it) {
+    var name = it.item_name || '';
+    if (!name) return;
+    qtyDeltaMap[name] = (qtyDeltaMap[name] || 0) - Number(it.qty || 0);
+  });
+
+  newItems.forEach(function(it) {
+    var name = it.item_name || '';
+    if (!name) return;
+    qtyDeltaMap[name] = (qtyDeltaMap[name] || 0) + Number(it.qty || 0);
+  });
+
+  db.collection('warehouseLog')
+    .where('invoice_id', '==', docId)
+    .get()
+    .then(function(logSnap) {
+      var batch = db.batch();
+
+      batch.update(purchaseRef, {
+        supplier_name: supplierName,
+        invoice_no: invoiceNo,
+        items: newItems,
+        amount: invoiceTotal,
+        payment_method: paymentMethod,
+        title: 'مشتريات فاتورة رقم ' + invoiceNo,
+        updated_at: now,
+        updated_by: user.uid || '',
+        updated_by_email: user.email || ''
+      });
+
+      Object.keys(qtyDeltaMap).forEach(function(name) {
+        var delta = Number(qtyDeltaMap[name] || 0);
+        if (!delta) return;
+
+        var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(name));
+        batch.set(stockRef, {
+          item_name: name,
+          qty: firebase.firestore.FieldValue.increment(delta),
+          updated_at: now
+        }, { merge: true });
+      });
+
+      if (logSnap && logSnap.docs) {
+        logSnap.docs.forEach(function(l) {
+          batch.update(l.ref, {
+            deleted: true,
+            edited: true,
+            edited_at: now
+          });
+        });
+      }
+
+      newItems.forEach(function(it) {
+        var logRef = db.collection('warehouseLog').doc();
+
+        batch.set(logRef, {
+          work_date: S.workDate,
+          type: 'purchase_edit',
+          invoice_id: docId,
+          invoice_no: invoiceNo,
+          supplier_name: supplierName,
+          item_name: it.item_name,
+          qty: it.qty,
+          price: it.price,
+          amount: it.amount,
+          payment_method: paymentMethod,
+          note: 'تعديل فاتورة رقم ' + invoiceNo,
+          created_by: user.uid || '',
+          created_by_email: user.email || '',
+          created_at: now,
+          deleted: false
+        });
+      });
+
+      return batch.commit();
+    })
+    .then(function() {
+      hideLoad();
+
+      window.editCashPurchaseDocId = null;
+      window.editCashPurchaseOldData = null;
+
+      toast('تم حفظ تعديل الفاتورة وتحديث الرصيد', 'success');
+      showManagerCash('purchases');
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('حدث خطأ أثناء حفظ تعديل الفاتورة', 'error');
+    });
+}
+
 function openCashBalanceDetails() {
   var box = document.getElementById('cashBalanceDetails');
   var addBox = document.getElementById('addCashBox');
@@ -4875,40 +5262,49 @@ var expHtml = '';
 
 if (allExpNms.length) {
 
-        expHtml =
-          '<div class="detail-sec">' +
-'<div class="total-bar" style="margin-bottom:14px;">' +
-  '<div class="total-lbl">مجموع الذمم</div>' +
-  '<div class="total-amt">' + totalDebts.toFixed(2) + ' دينار</div>' +
-'</div>' +
-'<div class="sec-title">إضافة التزام</div>' +        
-    '<table class="rpt-table">' +
-              '<thead><tr><th>النوع</th><th>A</th><th>B</th><th>المجموع</th></tr></thead><tbody>';
+  expHtml =
+    '<div class="detail-sec">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+        '<div class="sec-title" style="margin-bottom:0;">المصاريف</div>' +
+        '<div style="font-size:12px;color:var(--text2);">تفصيل حسب الشفت</div>' +
+      '</div>' +
 
-        allExpNms.forEach(function(nm) {
-          var a = expMapAB.A[nm] || 0;
-          var b = expMapAB.B[nm] || 0;
-          var rowTotal = a + b;
+      '<table class="rpt-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>نوع المصروف</th>' +
+            '<th>شفت A</th>' +
+            '<th>شفت B</th>' +
+            '<th>المجموع</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
 
-          expensesDayTotal += rowTotal;
+  allExpNms.forEach(function(nm) {
+    var a = expMapAB.A[nm] || 0;
+    var b = expMapAB.B[nm] || 0;
+    var rowTotal = a + b;
 
-          expHtml +=
-            '<tr>' +
-              '<td style="text-align:right;font-size:11px;">' + nm + '</td>' +
-              '<td>' + a.toFixed(2) + '</td>' +
-              '<td>' + b.toFixed(2) + '</td>' +
-              '<td><strong>' + rowTotal.toFixed(2) + '</strong></td>' +
-            '</tr>';
-        });
+    expensesDayTotal += rowTotal;
 
-        expHtml +=
-              '</tbody></table>' +
-              '<div class="total-bar" style="margin-top:10px;margin-bottom:0;">' +
-                '<div class="total-lbl">مصاريف اليوم</div>' +
-                '<div class="total-amt">' + expensesDayTotal.toFixed(2) + ' دينار</div>' +
-              '</div>' +
-          '</div>';
-      } else {
+    expHtml +=
+      '<tr>' +
+        '<td style="text-align:right;font-weight:800;">' + nm + '</td>' +
+        '<td>' + a.toFixed(2) + '</td>' +
+        '<td>' + b.toFixed(2) + '</td>' +
+        '<td><strong style="color:var(--gold);">' + rowTotal.toFixed(2) + '</strong></td>' +
+      '</tr>';
+  });
+
+  expHtml +=
+        '</tbody>' +
+      '</table>' +
+
+      '<div class="total-bar" style="margin-top:10px;margin-bottom:0;">' +
+        '<div class="total-lbl">مصاريف اليوم</div>' +
+        '<div class="total-amt">' + expensesDayTotal.toFixed(2) + ' دينار</div>' +
+      '</div>' +
+    '</div>';      } else {
         expHtml =
           '<div class="detail-sec">' +
             '<div class="sec-title">المصاريف</div>' +
@@ -4925,8 +5321,11 @@ if (allExpNms.length) {
       });
 
       var cashHtml =
-        '<div class="detail-sec">' +
-          '<div class="sec-title">الكاش</div>' +
+  '<div class="detail-sec">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+      '<div class="sec-title" style="margin-bottom:0;">الكاش</div>' +
+      '<div style="font-size:12px;color:var(--text2);">A / B / النهائي</div>' +
+    '</div>' +
           '<table class="rpt-table">' +
             '<thead><tr><th>البيان</th><th>A</th><th>B</th><th>النهائي</th></tr></thead><tbody>';
 
