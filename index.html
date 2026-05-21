@@ -1402,14 +1402,29 @@ function doLogin() {
 function doLogout() {
   showLoad('جاري الخروج...');
   auth.signOut().then(function() {
-    S.user=null; S.profile=null; S.shift=null;
-    S.invData={}; S.expenses=[]; S.cashData={};
-    S.invImgs=[]; S.posImgs=[];
+    closeModal();
+
+    var mgrGrid = document.querySelector('.mgr-grid');
+    if (mgrGrid) mgrGrid.style.display = 'none';
+
+    var warehouseAdmin = document.getElementById('warehouseAdminSection');
+    if (warehouseAdmin) warehouseAdmin.style.display = 'none';
+
+    hideWarehouseSections();
+
+    S.user = null;
+    S.profile = null;
+    S.shift = null;
+    S.invData = {};
+    S.expenses = [];
+    S.cashData = {};
+    S.invImgs = [];
+    S.posImgs = [];
+
     hideLoad();
   });
 }
 
-// ==================== SEED ====================
 function seedDefaults() {
   return db.collection('items').limit(1).get().then(function(snap) {
     if (snap.empty) {
@@ -2100,7 +2115,7 @@ function showManagerCash(openPanel) {
 
       sessionSnap.docs.forEach(function(d) {
         var s = d.data();
-        if (s.archived === true) return;
+        
         sessions.push({ id: d.id, data: s });
       });
 
