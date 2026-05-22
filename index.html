@@ -1213,6 +1213,11 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="warehouse-card-icon">🧾</div>
 </button>
 
+<button onclick="showWarehouseSalesLog()" class="warehouse-card-btn">
+  <div class="warehouse-card-title">سجل المبيعات</div>
+  <div class="warehouse-card-icon">📋</div>
+</button>
+
     <div id="openingStockSection" style="display:none;">
       <h3>الرصيد الافتتاحي</h3>
       <select id="openingItemName" class="input">
@@ -4409,6 +4414,124 @@ function showWarehouseSalesForm() {
   loadWarehouseSalesItems();
 }
 
+function showWarehouseSalesLog() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+
+  var section = document.getElementById('warehouseSalesLogSection');
+  var isOpen = section && section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) return;
+
+  section.style.display = 'block';
+  loadWarehouseSalesLog();
+}
+
+function loadWarehouseSalesLog() {
+  var box = document.getElementById('warehouseSalesLogList');
+  if (!box) return;
+
+  box.innerHTML = 'جاري تحميل سجل المبيعات...';
+
+  db.collection('inventorySessions')
+    .where('work_date', '==', S.workDate)
+    .where('sales_done', '==', true)
+    .get()
+    .then(function(sessionSnap) {
+      if (sessionSnap.empty) {
+        box.innerHTML = '<div class="empty">لا توجد مبيعات محفوظة لهذا اليوم</div>';
+        return;
+      }
+
+      var html = '';
+
+      sessionSnap.docs.forEach(function(d) {
+        var s = d.data() || {};
+        var shift = s.shift || '-';
+        var total = parseFloat(s.sales_total_qty || 0);
+
+        html += '<div class="balance-card">';
+        html += '<div class="balance-title">رقم الجرد: ' + d.id + '</div>';
+        html += '<div class="balance-row"><span>الشفت</span><strong>' + shift + '</strong></div>';
+        html += '<div class="balance-row total"><span>إجمالي المبيعات</span><strong>' + total + '</strong></div>';
+        html += '<button class="warehouse-action-btn" onclick="editWarehouseSalesSession(\'' + d.id + '\')">تعديل المبيعات</button>';
+        html += '</div>';
+      });
+
+      box.innerHTML = html;
+    });
+}
+function editWarehouseSalesSession(sessionId) {
+  openModal(
+    'تعديل مبيعات الجرد',
+    '<div id="salesEditPopupBody">جاري تحميل المبيعات...</div>' +
+    '<button class="warehouse-action-btn" onclick="saveWarehouseSalesFromPopup()">حفظ التعديل</button>'
+  );
+
+  loadWarehouseSalesEditPopup(sessionId);
+}
+
+function loadWarehouseSalesEditPopup(sessionId) {
+  var box = document.getElementById('salesEditPopupBody');
+  if (!box) return;
+
+  S.currentSalesSessionId = sessionId;
+
+  Promise.all([
+    db.collection('inventorySessions').doc(sessionId).get(),
+    db.collection('items').get(),
+    db.collection('warehouseSales')
+      .where('inventory_session_id', '==', sessionId)
+      .get()
+  ]).then(function(res) {
+    var sessionDoc = res[0];
+    var itemsSnap = res[1];
+    var salesSnap = res[2];
+
+    if (!sessionDoc.exists) {
+      box.innerHTML = '<div class="error">لم يتم العثور على الجرد</div>';
+      return;
+    }
+
+    S.currentSalesSessionData = sessionDoc.data() || {};
+
+    var oldSales = {};
+    salesSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      oldSales[x.item_name] = parseFloat(x.quantity || 0);
+    });
+
+    var html = '<div class="empty">رقم الجرد: ' + sessionId + '</div>';
+    html += '<div class="table-wrap"><table class="mini-table">';
+    html += '<thead><tr><th>الصنف</th><th>المبيعات</th></tr></thead><tbody>';
+
+    itemsSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      var name = x.name || '';
+      if (!name) return;
+
+      var oldQty = oldSales[name] || '';
+
+      html += '<tr>';
+      html += '<td>' + name + '</td>';
+      html += '<td><input class="warehouse-sale-input" type="number" min="0" inputmode="decimal" data-item="' + name + '" value="' + oldQty + '" placeholder="0"></td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    box.innerHTML = html;
+  });
+}
+
+function saveWarehouseSalesFromPopup() {
+  saveWarehouseSales();
+  setTimeout(function() {
+    closeModal();
+    showWarehouseSalesLog();
+  }, 600);
+}
 function loadWarehouseSalesItems() {
   var box = document.getElementById('warehouseSalesTable');
   if (!box) return;
@@ -4510,14 +4633,17 @@ function openWarehouseSalesSession(sessionId) {
   });
 }
 function saveWarehouseSales() {
+  var msg = document.getElementById('warehouseSalesMsg');
+
   if (!S.currentSalesSessionId) {
-    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="error">افتح رقم جرد أولًا قبل الحفظ</div>';
+    if (msg) msg.innerHTML = '<div class="error">افتح رقم جرد أولًا قبل الحفظ</div>';
     return;
   }
 
+  if (msg) msg.innerHTML = '<div class="empty">جاري حفظ المبيعات...</div>';
+
   var inputs = document.querySelectorAll('.warehouse-sale-input');
   var batch = db.batch();
-  var count = 0;
   var totalQty = 0;
 
   inputs.forEach(function(inp) {
@@ -4527,7 +4653,8 @@ function saveWarehouseSales() {
     if (!item) return;
     if (isNaN(qty) || qty < 0) qty = 0;
 
-    var ref = db.collection('warehouseSales').doc(S.currentSalesSessionId + '_' + item);
+    var safeItemId = encodeURIComponent(item);
+    var ref = db.collection('warehouseSales').doc(S.currentSalesSessionId + '_' + safeItemId);
 
     batch.set(ref, {
       work_date: S.workDate,
@@ -4540,10 +4667,7 @@ function saveWarehouseSales() {
       updated_at: FS.serverTimestamp()
     }, { merge: true });
 
-    if (qty > 0) {
-      count++;
-      totalQty += qty;
-    }
+    totalQty += qty;
   });
 
   var sessionRef = db.collection('inventorySessions').doc(S.currentSalesSessionId);
@@ -4554,12 +4678,19 @@ function saveWarehouseSales() {
     sales_updated_at: FS.serverTimestamp()
   }, { merge: true });
 
-  batch.commit().then(function() {
-    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="ok">تم حفظ مبيعات الجرد وترحيلها للسجل</div>';
-    S.currentSalesSessionId = null;
-    S.currentSalesSessionData = null;
-    loadWarehouseSalesItems();
-  });
+  batch.commit()
+    .then(function() {
+      if (msg) msg.innerHTML = '<div class="ok">تم حفظ مبيعات الجرد وترحيلها للسجل</div>';
+
+      S.currentSalesSessionId = null;
+      S.currentSalesSessionData = null;
+
+      loadWarehouseSalesItems();
+    })
+    .catch(function(err) {
+      console.error('saveWarehouseSales error:', err);
+      if (msg) msg.innerHTML = '<div class="error">فشل حفظ المبيعات: ' + err.message + '</div>';
+    });
 }
 
 function showOpeningStockForm() {
