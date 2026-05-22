@@ -1433,9 +1433,12 @@ auth.onAuthStateChanged(function(user) {
 
 seedDefaults()
   .then(function () {
-    return loadItems();
+    return upgradeExistingItemsCategories();
   })
   .then(function () {
+    return loadItems();
+  })
+    .then(function () {
     return loadExpTypes();
   })
   .then(function () {
@@ -1631,6 +1634,55 @@ if (snap.empty) {
       });
       return batch.commit();
     }
+  });
+}
+function upgradeExistingItemsCategories() {
+  var itemMeta = {
+    'علب أسود': ['العبوات','حبة',10],
+    'علب فلين': ['العبوات','حبة',10],
+    'كاسات صغير': ['العبوات','حبة',10],
+    'كاسات وسط': ['العبوات','حبة',10],
+    'كاسات كبير': ['العبوات','حبة',10],
+    'لتر': ['العبوات','حبة',5],
+    'بسكويت بوظة': ['العبوات','حبة',10],
+    'علب بوظة صغير': ['العبوات','حبة',10],
+    'علب بوظة كبير': ['العبوات','حبة',10],
+    'علب صحن': ['العبوات','حبة',5],
+    'شاورما سوبر': ['العبوات','حبة',5],
+    'بيج / سموثي': ['العبوات','حبة',5],
+    'أسود مدور': ['العبوات','حبة',10],
+    'بلاستيك شفاف': ['العبوات','حبة',10],
+    'سفن': ['المشروبات','حبة',10],
+    'بي ام': ['المشروبات','حبة',10],
+    'بوب بوم': ['المشروبات','حبة',10],
+    'ريد بول': ['المشروبات','حبة',3],
+    'مكسرات': ['المواد الخام','كجم',0.5],
+    'عجين وافل': ['المواد الخام','كجم',1],
+    'عجين كريب': ['المواد الخام','كجم',1]
+  };
+
+  return db.collection('items').get().then(function(snap) {
+    var batch = db.batch();
+    var changed = 0;
+
+    snap.docs.forEach(function(d) {
+      var x = d.data();
+      if (x.category) return;
+
+      var meta = itemMeta[x.name] || ['العبوات','حبة',5];
+
+      batch.update(d.ref, {
+        category: meta[0],
+        unit: meta[1],
+        minQty: meta[2],
+        updated_at: FS.serverTimestamp()
+      });
+
+      changed++;
+    });
+
+    if (!changed) return null;
+    return batch.commit();
   });
 }
 
