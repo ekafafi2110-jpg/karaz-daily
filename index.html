@@ -5531,8 +5531,9 @@ var warehouseOpeningMap = {};
 var shopOpeningMap = {};
 var purchasesMap = {};
 var withdrawalsMap = {};
+var todayWithdrawalsMap = {};
+var todaySalesMap = {};
 var shopMap = {};
-
 db.collection('items').get()
   .then(function(itemsSnap) {
     itemsSnap.docs.forEach(function(d) {
@@ -5576,16 +5577,6 @@ db.collection('items').get()
 
     return db.collection('stockPurchases').get();
     })
-    .then(function(openingSnap) {
-      openingSnap.docs.forEach(function(d) {
-        var x = d.data();
-        var name = x.item_name || d.id;
-        openingMap[name] = Number(x.quantity || 0);
-        itemsMap[name] = true;
-      });
-
-            return db.collection('stockPurchases').get();
-    })
     .then(function(purchaseSnap) {
       purchaseSnap.docs.forEach(function(d) {
         var x = d.data();
@@ -5612,11 +5603,35 @@ db.collection('items').get()
     })
     .then(function(withdrawSnap) {
       withdrawSnap.docs.forEach(function(d) {
-        var x = d.data();
+  var x = d.data() || {};
+  var name = x.item_name || '';
+  if (!name) return;
+
+  var qty = Number(x.quantity || 0);
+
+  withdrawalsMap[name] = (withdrawalsMap[name] || 0) + qty;
+
+  if (x.created_at && x.created_at.toDate) {
+    var dateKey = x.created_at.toDate().toISOString().split('T')[0];
+
+    if (dateKey === S.workDate) {
+      todayWithdrawalsMap[name] = (todayWithdrawalsMap[name] || 0) + qty;
+    }
+  }
+
+  itemsMap[name] = true;
+});
+      return db.collection('warehouseSales')
+  .where('work_date', '==', S.workDate)
+  .get();
+    })
+    .then(function(salesSnap) {
+      salesSnap.docs.forEach(function(d) {
+        var x = d.data() || {};
         var name = x.item_name || '';
         if (!name) return;
 
-        withdrawalsMap[name] = (withdrawalsMap[name] || 0) + Number(x.quantity || 0);
+        todaySalesMap[name] = (todaySalesMap[name] || 0) + Number(x.quantity || 0);
         itemsMap[name] = true;
       });
 
@@ -5634,23 +5649,33 @@ db.collection('items').get()
 
 Object.keys(itemsMap).sort().forEach(function(name) {
   var meta = itemMetaMap[name] || {};
-  var warehouseOpening = warehouseOpeningMap[name] || 0;
+ var warehouseOpening = warehouseOpeningMap[name] || 0;
 var shopOpening = shopOpeningMap[name] || 0;
 var purchases = purchasesMap[name] || 0;
 var withdrawals = withdrawalsMap[name] || 0;
+var todayWithdrawals = todayWithdrawalsMap[name] || 0;
+var todaySales = todaySalesMap[name] || 0;
+
+var actualShopBalance = shopMap[name] || 0;
 
 var warehouseBalance = warehouseOpening + purchases - withdrawals;
-var shopBalance = shopOpening + (shopMap[name] || 0);
+var accountingBalance = shopOpening + todayWithdrawals - todaySales;
+var difference = actualShopBalance - accountingBalance;
 
+var shopBalance = actualShopBalance;
 var totalBalance = warehouseBalance + shopBalance;
   warehouseBalanceItems.push({
     name: name,
     category: meta.category || 'العبوات',
     unit: meta.unit || '',
-    shopBalance: shopBalance,
-    warehouseBalance: warehouseBalance,
-    totalBalance: totalBalance
-  });
+    shopOpening: shopOpening,
+todayWithdrawals: todayWithdrawals,
+todaySales: todaySales,
+accountingBalance: accountingBalance,
+shopBalance: shopBalance,
+difference: difference,
+warehouseBalance: warehouseBalance,
+totalBalance: totalBalance  });
 });
 
 if (!warehouseBalanceItems.length) {
@@ -5741,12 +5766,14 @@ function renderWarehouseBalanceTable() {
       '<table class="mini-table" style="width:100%;border-collapse:collapse;text-align:center;">' +
         '<thead>' +
           '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
-            '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">الوحدة</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">المحل</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">المستودع</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">الإجمالي</th>' +
-          '</tr>' +
+           '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">افتتاحي المحل</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">سحوبات اليوم</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">مبيعات اليوم</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">المحاسبي</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">الفعلي</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">الفرق</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">المستودع</th>' +          '</tr>' +
         '</thead>' +
         '<tbody>';
 
@@ -5754,11 +5781,13 @@ function renderWarehouseBalanceTable() {
     html +=
       '<tr style="border-bottom:1px solid #2a2a2a;">' +
         '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + item.name + '</td>' +
-        '<td style="padding:10px;color:var(--text2);">' + (item.unit || '-') + '</td>' +
-        '<td style="padding:10px;font-weight:800;">' + item.shopBalance + '</td>' +
-        '<td style="padding:10px;font-weight:800;">' + item.warehouseBalance + '</td>' +
-        '<td style="padding:10px;font-weight:900;color:var(--gold);">' + item.totalBalance + '</td>' +
-      '</tr>';
+'<td style="padding:10px;font-weight:800;">' + item.shopOpening + '</td>' +
+'<td style="padding:10px;font-weight:800;">' + item.todayWithdrawals + '</td>' +
+'<td style="padding:10px;font-weight:800;">' + item.todaySales + '</td>' +
+'<td style="padding:10px;font-weight:900;color:var(--gold);">' + item.accountingBalance + '</td>' +
+'<td style="padding:10px;font-weight:900;">' + item.shopBalance + '</td>' +
+'<td style="padding:10px;font-weight:900;color:' + (item.difference === 0 ? 'var(--ok)' : 'var(--red)') + ';">' + item.difference + '</td>' +
+'<td style="padding:10px;font-weight:800;">' + item.warehouseBalance + '</td>' +      '</tr>';
   });
 
   html +=
