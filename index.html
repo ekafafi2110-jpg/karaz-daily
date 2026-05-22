@@ -2410,6 +2410,25 @@ function restoreWarehouseSections() {
     }
   });
 }
+
+function restoreWarehouseSections() {
+  var home = document.querySelector('#warehouseAdminSection .warehouse-box');
+  if (!home) return;
+
+  [
+    'openingStockSection',
+    'warehouseBalanceSection',
+    'adminWithdrawalsSection',
+    'warehouseSalesSection',
+    'warehouseSalesLogSection'
+  ].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.parentElement && el.parentElement.id === 'modalBody') {
+      el.style.display = 'none';
+      home.appendChild(el);
+    }
+  });
+}
 function hideWarehouseSections() {
   document.getElementById('openingStockSection').style.display = 'none';
   document.getElementById('warehouseBalanceSection').style.display = 'none';
@@ -4656,35 +4675,24 @@ function setAdminTabActive(tab) {
 }
 function showOpeningStockForm() {
   restoreWarehouseSections();
-  var grid = document.querySelector('.mgr-grid');
 
-  var admin = document.getElementById('warehouseAdminSection');
   var section = document.getElementById('openingStockSection');
-
-  if (grid) grid.style.display = 'none';
-  if (admin) admin.style.display = 'block';
+  if (!section) return;
 
   hideWarehouseSections();
 
-  if (!section) {
-    toast('لم يتم العثور على قسم الرصيد الافتتاحي', 'error');
-    return;
-  }
-
   section.style.display = 'block';
 
-  var msg = document.getElementById('openingStockMsg');
-  if (msg) {
-    msg.innerHTML = '<div class="empty">تم فتح الرصيد الافتتاحي</div>';
-  }
+  setModal('الرصيد الافتتاحي');
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
+
+  openModal();
 
   loadOpeningItems();
-
-  setTimeout(function() {
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
 }
-
 function showWarehouseAdmin() {
   closeModal();
   setAdminTabActive('warehouse');
