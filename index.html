@@ -5558,14 +5558,25 @@ function loadAdminWithdrawalItems() {
     .then(function(snap) {
       var html = '<option value="">كل الأصناف</option>';
 
-      snap.docs.forEach(function(d) {
-        var x = d.data();
-        var name = x.name || x.item_name || '';
-        if (!name) return;
+      var groups = {};
 
-        html += '<option value="' + name + '">' + name + '</option>';
-      });
+snap.docs.forEach(function(d) {
+  var x = d.data();
+  var name = x.name || x.item_name || '';
+  var cat = x.category || 'العبوات';
+  if (!name) return;
 
+  if (!groups[cat]) groups[cat] = [];
+  groups[cat].push(name);
+});
+
+Object.keys(groups).forEach(function(cat) {
+  html += '<optgroup label="' + cat + '">';
+  groups[cat].forEach(function(name) {
+    html += '<option value="' + name + '">' + name + '</option>';
+  });
+  html += '</optgroup>';
+});
       select.innerHTML = html;
     })
     .catch(function(e) {
@@ -5661,8 +5672,9 @@ function loadAdminWithdrawalsLog() {
           '<thead>' +
             '<tr>' +
               '<th>التاريخ</th>' +
-              '<th>الصنف</th>' +
-              '<th>الكمية</th>' +
+              '<th>الفئة</th>' +
+'<th>الصنف</th>' +
+'<th>الكمية</th>' +
               '<th>الشفت</th>' +
               '<th>رقم الجرد</th>' +
               '<th>ملاحظة</th>' +
@@ -5674,9 +5686,9 @@ function loadAdminWithdrawalsLog() {
         html +=
           '<tr>' +
             '<td style="font-size:10px;">' + formatWithdrawTime(x) + '</td>' +
-            '<td style="text-align:right;">' + (x.item_name || '-') + '</td>' +
-            '<td><strong>' + (x.quantity || 0) + '</strong></td>' +
-            '<td>' + (x.shift || '-') + '</td>' +
+            '<td style="font-size:10px;color:var(--gold);">' + (x.item_category || '-') + '</td>' +
+'<td style="text-align:right;">' + (x.item_name || '-') + '</td>' +
+'<td><strong>' + (x.quantity || 0) + '</strong></td>' +            '<td>' + (x.shift || '-') + '</td>' +
             '<td style="font-size:10px;">' + (x.inventory_session_id || '-') + '</td>' +
             '<td style="font-size:10px;">' + (x.note || '') + '</td>' +
           '</tr>';
@@ -5718,7 +5730,8 @@ function addWithdrawal() {
     shift: S.shift,
     item_id: itemId,
     item_name: item ? item.name : '',
-    quantity: Number(qty),
+item_category: item ? (item.category || 'العبوات') : '',
+quantity: Number(qty),
     note: note || '',
     created_by: S.user.uid,
     created_at: firebase.firestore.FieldValue.serverTimestamp()
@@ -6483,9 +6496,12 @@ var sessionData = det.session || {};
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
 
-var cats = getItemCategories();
+var cats = getItemCategories ? getItemCategories() : [];
+if (!cats.length) {
+  cats = ['العبوات'];
+}
 var firstCat = cats[0] || 'العبوات';
-
+var hasAcc = false;
 var itemsHtml =
   '<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">';
 
@@ -6522,10 +6538,14 @@ itemsHtml+='<tr class="mgr-report-row" data-cat="'+(item.category || 'العبو
 
   var expMapAB={A:{},B:{}};
   expenses.forEach(function(e){
-    var nm=e.custom_expense_name||getExpNm(e.expense_type_id);
-    if(!expMapAB[e.shift][nm]) expMapAB[e.shift][nm]=0;
-    expMapAB[e.shift][nm]+=Number(e.amount);
-  });
+  var sh = e.shift || 'A';
+  if (!expMapAB[sh]) expMapAB[sh] = {};
+
+  var nm = e.custom_expense_name || getExpNm(e.expense_type_id);
+
+  if (!expMapAB[sh][nm]) expMapAB[sh][nm] = 0;
+  expMapAB[sh][nm] += Number(e.amount || 0);
+});
   var allExpNms=[];
   expenses.forEach(function(e){ var nm=e.custom_expense_name||getExpNm(e.expense_type_id); if(allExpNms.indexOf(nm)<0) allExpNms.push(nm); });
  var expensesDayTotal = 0;
@@ -6715,24 +6735,172 @@ function sendWA(sessId) {
 
 // ==================== MANAGE ====================
 function renderItemsMgr() {
-  var body=document.getElementById('modalBody');
-  var html='<div class="add-row"><input type="text" id="newItemInp" placeholder="اسم الصنف الجديد"><button class="btn-sm-add" onclick="addItem()">اضافة</button></div>';
-  S.items.forEach(function(item){
-    html+='<div class="manage-item"><span class="manage-name">'+item.name+'</span>'+
-      '<button class="btn-stop" onclick="deactivate(\'items\',\''+item.id+'\')">ايقاف</button></div>';
-  });
-  body.innerHTML=html;
-}
-function addItem() {
-  var nm=document.getElementById('newItemInp').value.trim();
-  if(!nm){ toast('يرجى إدخال اسم الصنف','error'); return; }
-  showLoad('جاري الاضافة...');
-  db.collection('items').add({name:nm,active:true,sort_order:S.items.length,created_at:FS.serverTimestamp()})
-    .then(function(){ return loadItems(); })
-    .then(function(){ document.getElementById('newItemInp').value=''; renderItemsMgr(); hideLoad(); toast('تم اضافة الصنف','success'); })
-    .catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
+  var body = document.getElementById('modalBody');
+  var cats = getItemCategories();
+
+  if (!cats.length) cats = ['العبوات'];
+
+  var catOptions = cats.map(function(c) {
+    return '<option value="' + c + '">' + c + '</option>';
+  }).join('');
+
+  var html =
+    '<div class="detail-sec">' +
+      '<div class="sec-title">إضافة فئة جديدة</div>' +
+      '<div class="add-row">' +
+        '<input type="text" id="newCatInp" placeholder="اسم الفئة الجديدة">' +
+        '<button class="btn-sm-add" onclick="addItemCategory()">إضافة فئة</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="detail-sec">' +
+      '<div class="sec-title">إضافة صنف جديد</div>' +
+      '<div class="add-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<input type="text" id="newItemInp" placeholder="اسم الصنف الجديد">' +
+        '<select id="newItemCat" style="height:44px;border-radius:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);font-family:Cairo;font-weight:800;padding:0 10px;">' +
+          catOptions +
+        '</select>' +
+        '<input type="text" id="newItemUnit" placeholder="الوحدة: حبة / كجم / لتر" value="حبة">' +
+        '<input type="number" id="newItemMin" placeholder="الحد الأدنى" value="1" min="0">' +
+        '<button class="btn-sm-add" onclick="addItem()" style="grid-column:1 / -1;">إضافة صنف</button>' +
+      '</div>' +
+    '</div>';
+
+  html +=
+  '<div class="detail-sec">' +
+    '<div class="sec-title">إيقاف صنف</div>' +
+    '<div class="add-row" style="display:grid;grid-template-columns:1fr auto;gap:8px;">' +
+      '<select id="stopItemSelect" style="height:44px;border-radius:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);font-family:Cairo;font-weight:800;padding:0 10px;">';
+
+S.items.forEach(function(item) {
+  html +=
+    '<option value="' + item.id + '">' +
+      (item.category || 'العبوات') + ' - ' + item.name +
+    '</option>';
+});
+
+html +=
+      '</select>' +
+      '<button class="btn-stop" onclick="stopSelectedItem()">إيقاف</button>' +
+    '</div>' +
+  '</div>';
+  body.innerHTML = html;
 }
 
+function stopSelectedItem() {
+  var sel = document.getElementById('stopItemSelect');
+
+  if (!sel || !sel.value) {
+    toast('اختر الصنف أولاً', 'error');
+    return;
+  }
+
+  deactivate('items', sel.value);
+}
+function addItemCategory() {
+  var nm = document.getElementById('newCatInp').value.trim();
+
+  if (!nm) {
+    toast('يرجى إدخال اسم الفئة', 'error');
+    return;
+  }
+
+  var exists = S.items.some(function(item) {
+    return (item.category || 'العبوات') === nm;
+  });
+
+  if (exists) {
+    toast('هذه الفئة موجودة بالفعل', 'info');
+    return;
+  }
+
+  showLoad('جاري إضافة الفئة...');
+
+  db.collection('items').add({
+    name: 'صنف مؤقت - ' + nm,
+    category: nm,
+    unit: 'حبة',
+    minQty: 1,
+    active: true,
+    is_placeholder: true,
+    sort_order: S.items.length,
+    created_at: FS.serverTimestamp()
+  })
+  .then(function() {
+    return loadItems();
+  })
+  .then(function() {
+    hideLoad();
+    renderItemsMgr();
+    toast('تمت إضافة الفئة. أضف أصنافها ثم أوقف الصنف المؤقت.', 'success');
+  })
+  .catch(function(e) {
+    hideLoad();
+    toast('خطا: ' + e.message, 'error');
+  });
+}
+function addItem() {
+  var nm = document.getElementById('newItemInp').value.trim();
+  var cat = document.getElementById('newItemCat').value;
+  var unit = document.getElementById('newItemUnit').value.trim() || 'حبة';
+  var minQty = Number(document.getElementById('newItemMin').value || 1);
+
+  if (!nm) {
+    toast('يرجى إدخال اسم الصنف', 'error');
+    return;
+  }
+
+  if (!cat) {
+    toast('يرجى اختيار الفئة', 'error');
+    return;
+  }
+
+  showLoad('جاري الاضافة...');
+
+  db.collection('items').add({
+    name: nm,
+    category: cat,
+    unit: unit,
+    minQty: minQty,
+    active: true,
+    sort_order: S.items.length,
+    created_at: FS.serverTimestamp()
+  })
+  .then(function() {
+    return loadItems();
+  })
+  .then(function() {
+    document.getElementById('newItemInp').value = '';
+    renderItemsMgr();
+    hideLoad();
+    toast('تم اضافة الصنف', 'success');
+  })
+  .catch(function(e) {
+    hideLoad();
+    toast('خطا: ' + e.message, 'error');
+  });
+}
+
+function updateItemCategory(itemId, cat) {
+  showLoad('جاري تحديث الفئة...');
+
+  db.collection('items').doc(itemId).update({
+    category: cat,
+    updated_at: FS.serverTimestamp()
+  })
+  .then(function() {
+    return loadItems();
+  })
+  .then(function() {
+    renderItemsMgr();
+    hideLoad();
+    toast('تم تحديث فئة الصنف', 'success');
+  })
+  .catch(function(e) {
+    hideLoad();
+    toast('خطا: ' + e.message, 'error');
+  });
+}
 function renderExpTypesMgr() {
   var body=document.getElementById('modalBody');
   var html='<div class="add-row"><input type="text" id="newExpTypeInp" placeholder="اسم نوع المصروف"><button class="btn-sm-add" onclick="addExpType()">اضافة</button></div>';
