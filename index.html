@@ -5341,7 +5341,8 @@ function archiveDailyInventoryAndReset(snapshotId) {
       }
 
     };
-
+var warehouseBalanceItems = [];
+var warehouseBalanceSelectedCategory = '';
 
 function showWarehouseBalance() {
   restoreWarehouseSections();
@@ -5365,21 +5366,24 @@ openModal();
 var list = document.getElementById('warehouseBalanceList');
 list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
   var itemsMap = {};
-  var openingMap = {};
-  var purchasesMap = {};
-  var withdrawalsMap = {};
-  var shopMap = {};
-
-  db.collection('items').get()
-    .then(function(itemsSnap) {
-      itemsSnap.docs.forEach(function(d) {
-        var x = d.data();
-        var name = x.name || x.item_name || x.itemName || '';
-        if (name) {
-          itemsMap[name] = true;
-        }
-      });
-
+var itemMetaMap = {};
+var openingMap = {};
+var purchasesMap = {};
+var withdrawalsMap = {};
+var shopMap = {};
+ db.collection('items').get()
+  .then(function(itemsSnap) {
+    itemsSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      var name = x.name || x.item_name || x.itemName || '';
+      if (name) {
+        itemsMap[name] = true;
+        itemMetaMap[name] = {
+          category: x.category || 'العبوات',
+          unit: x.unit || ''
+        };
+      }
+    });
       return db.collection('warehouseOpeningStock').get();
     })
     .then(function(openingSnap) {
@@ -5437,18 +5441,10 @@ list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف
  
       });
       var html =
-  '<table class="balance-table">' +
-    '<thead>' +
-      '<tr>' +
-        '<th>الصنف</th>' +
-        '<th>رصيد المحل</th>' +
-        '<th>رصيد المستودع</th>' +
-        '<th>الإجمالي</th>' +
-      '</tr>' +
-    '</thead>' +
-    '<tbody>';
+  warehouseBalanceItems = [];
 
 Object.keys(itemsMap).sort().forEach(function(name) {
+  var meta = itemMetaMap[name] || {};
   var opening = openingMap[name] || 0;
   var purchases = purchasesMap[name] || 0;
   var withdrawals = withdrawalsMap[name] || 0;
@@ -5456,20 +5452,39 @@ Object.keys(itemsMap).sort().forEach(function(name) {
   var shopBalance = shopMap[name] || 0;
   var totalBalance = warehouseBalance + shopBalance;
 
-  html +=
-    '<tr>' +
-      '<td>' + name + '</td>' +
-      '<td>' + shopBalance + '</td>' +
-      '<td>' + warehouseBalance + '</td>' +
-      '<td class="total-cell">' + totalBalance + '</td>' +
-    '</tr>';
+  warehouseBalanceItems.push({
+    name: name,
+    category: meta.category || 'العبوات',
+    unit: meta.unit || '',
+    shopBalance: shopBalance,
+    warehouseBalance: warehouseBalance,
+    totalBalance: totalBalance
+  });
 });
 
-html += '</tbody></table>';
-
-      if (Object.keys(itemsMap).length === 0) {
-  html = '<div class="empty">لا توجد أصناف لعرضها</div>';
+if (!warehouseBalanceItems.length) {
+  list.innerHTML = '<div class="empty">لا توجد أصناف لعرضها</div>';
+  return;
 }
+
+var categories = [];
+
+warehouseBalanceItems.forEach(function(item) {
+  if (categories.indexOf(item.category) === -1) {
+    categories.push(item.category);
+  }
+});
+
+if (!warehouseBalanceSelectedCategory || categories.indexOf(warehouseBalanceSelectedCategory) === -1) {
+  warehouseBalanceSelectedCategory = categories[0] || '';
+}
+
+list.innerHTML =
+  '<div id="warehouseBalanceCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
+  '<div id="warehouseBalanceTableBox"></div>';
+
+renderWarehouseBalanceCategoryTabs(categories);
+renderWarehouseBalanceTable();
 
       list.innerHTML = html;
     })
@@ -5478,6 +5493,88 @@ html += '</tbody></table>';
       list.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد الأصناف</div>';
     });
     
+}
+
+function renderWarehouseBalanceCategoryTabs(categories) {
+  var tabs = document.getElementById('warehouseBalanceCategoryTabs');
+  if (!tabs) return;
+
+  var html = '';
+
+  categories.forEach(function(cat) {
+    var isActive = cat === warehouseBalanceSelectedCategory;
+
+    var activeStyle = isActive
+      ? 'background:linear-gradient(135deg,var(--gold),#ffe08a);color:#111;border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,.25),0 8px 20px rgba(212,175,55,.18);'
+      : 'background:#181818;color:var(--text);border-color:#333;';
+
+    html +=
+      '<button type="button" onclick="selectWarehouseBalanceCategory(\'' + cat + '\')" ' +
+      'style="white-space:nowrap;border:1px solid;border-radius:999px;padding:9px 14px;font-weight:900;transition:.15s;' + activeStyle + '">' +
+        cat +
+      '</button>';
+  });
+
+  tabs.innerHTML = html;
+}
+
+function selectWarehouseBalanceCategory(category) {
+  warehouseBalanceSelectedCategory = category;
+
+  var categories = [];
+
+  warehouseBalanceItems.forEach(function(item) {
+    if (categories.indexOf(item.category) === -1) {
+      categories.push(item.category);
+    }
+  });
+
+  renderWarehouseBalanceCategoryTabs(categories);
+  renderWarehouseBalanceTable();
+}
+
+function renderWarehouseBalanceTable() {
+  var box = document.getElementById('warehouseBalanceTableBox');
+  if (!box) return;
+
+  var filtered = warehouseBalanceItems.filter(function(item) {
+    return item.category === warehouseBalanceSelectedCategory;
+  });
+
+  if (!filtered.length) {
+    box.innerHTML = '<div class="empty">لا توجد أصناف داخل هذه الفئة</div>';
+    return;
+  }
+
+  var html =
+    '<div class="table-wrap">' +
+      '<table class="mini-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>الصنف</th>' +
+            '<th>المحل</th>' +
+            '<th>المستودع</th>' +
+            '<th>الإجمالي</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+  filtered.forEach(function(item) {
+    html +=
+      '<tr>' +
+        '<td style="font-weight:900;text-align:right;">' + item.name + '</td>' +
+        '<td>' + item.shopBalance + '</td>' +
+        '<td>' + item.warehouseBalance + '</td>' +
+        '<td class="total-cell">' + item.totalBalance + '</td>' +
+      '</tr>';
+  });
+
+  html +=
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+
+  box.innerHTML = html;
 }
 function showOpeningStockForm() {
   var section = document.getElementById('openingStockSection');
@@ -5572,9 +5669,18 @@ function renderOpeningCategoryTabs(categories) {
 }
 function selectOpeningCategory(category) {
   openingSelectedCategory = category;
+
+  var categories = [];
+
+  openingStockItems.forEach(function(item) {
+    if (categories.indexOf(item.category) === -1) {
+      categories.push(item.category);
+    }
+  });
+
+  renderOpeningCategoryTabs(categories);
   renderOpeningItemsTable();
 }
-
 function renderOpeningItemsTable() {
   var box = document.getElementById('openingItemsBox');
   if (!box) return;
