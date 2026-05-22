@@ -1836,7 +1836,8 @@ var data = {
   work_date: S.workDate,
   status: 'new',
   archived: false,
-  tracking_id: S.sessionId,        created_by: S.user.uid,
+  tracking_id: S.sessionId,
+          created_by: S.user.uid,
         created_at: FS.serverTimestamp(),
         updated_at: FS.serverTimestamp()
       };
@@ -5524,17 +5525,20 @@ openModal();
 
 var list = document.getElementById('warehouseBalanceList');
 list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
-  var itemsMap = {};
+ var itemsMap = {};
 var itemMetaMap = {};
-var openingMap = {};
+var warehouseOpeningMap = {};
+var shopOpeningMap = {};
 var purchasesMap = {};
 var withdrawalsMap = {};
 var shopMap = {};
- db.collection('items').get()
+
+db.collection('items').get()
   .then(function(itemsSnap) {
     itemsSnap.docs.forEach(function(d) {
       var x = d.data() || {};
       var name = x.name || x.item_name || x.itemName || '';
+
       if (name) {
         itemsMap[name] = true;
         itemMetaMap[name] = {
@@ -5543,7 +5547,34 @@ var shopMap = {};
         };
       }
     });
-      return db.collection('warehouseOpeningStock').get();
+
+    return db.collection('warehouseOpeningStock').get();
+  })
+  .then(function(openingSnap) {
+    openingSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      var name = x.item_name || '';
+
+      if (!name) return;
+
+      warehouseOpeningMap[name] = Number(x.quantity || 0);
+      itemsMap[name] = true;
+    });
+
+    return db.collection('shopOpeningStock').get();
+  })
+  .then(function(shopOpeningSnap) {
+    shopOpeningSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      var name = x.item_name || '';
+
+      if (!name) return;
+
+      shopOpeningMap[name] = Number(x.quantity || 0);
+      itemsMap[name] = true;
+    });
+
+    return db.collection('stockPurchases').get();
     })
     .then(function(openingSnap) {
       openingSnap.docs.forEach(function(d) {
@@ -5603,13 +5634,15 @@ var shopMap = {};
 
 Object.keys(itemsMap).sort().forEach(function(name) {
   var meta = itemMetaMap[name] || {};
-  var opening = openingMap[name] || 0;
-  var purchases = purchasesMap[name] || 0;
-  var withdrawals = withdrawalsMap[name] || 0;
-  var warehouseBalance = opening + purchases - withdrawals;
-  var shopBalance = shopMap[name] || 0;
-  var totalBalance = warehouseBalance + shopBalance;
+  var warehouseOpening = warehouseOpeningMap[name] || 0;
+var shopOpening = shopOpeningMap[name] || 0;
+var purchases = purchasesMap[name] || 0;
+var withdrawals = withdrawalsMap[name] || 0;
 
+var warehouseBalance = warehouseOpening + purchases - withdrawals;
+var shopBalance = shopOpening + (shopMap[name] || 0);
+
+var totalBalance = warehouseBalance + shopBalance;
   warehouseBalanceItems.push({
     name: name,
     category: meta.category || 'العبوات',
