@@ -4907,6 +4907,108 @@ function loadWarehouseSalesItems() {
     });
 }
 
+var warehouseSalesItems = [];
+var warehouseSalesSelectedCategory = '';
+var warehouseSalesDraft = {};
+
+function collectWarehouseSalesDraftInputs() {
+  var inputs = document.querySelectorAll('.warehouse-sale-input');
+
+  inputs.forEach(function(inp) {
+    var item = inp.getAttribute('data-item') || '';
+    if (!item) return;
+
+    warehouseSalesDraft[item] = inp.value || '';
+  });
+}
+
+function renderWarehouseSalesCategoryTabs(categories) {
+  var tabs = document.getElementById('warehouseSalesCategoryTabs');
+  if (!tabs) return;
+
+  var html = '';
+
+  categories.forEach(function(cat) {
+    var isActive = cat === warehouseSalesSelectedCategory;
+
+    var activeStyle = isActive
+      ? 'background:linear-gradient(135deg,var(--gold),#ffe08a);color:#111;border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,.25),0 8px 20px rgba(212,175,55,.18);'
+      : 'background:#181818;color:var(--text);border-color:#333;';
+
+    html +=
+      '<button type="button" onclick="selectWarehouseSalesCategory(\'' + cat + '\')" ' +
+      'style="white-space:nowrap;border:1px solid;border-radius:999px;padding:9px 14px;font-weight:900;transition:.15s;' + activeStyle + '">' +
+        cat +
+      '</button>';
+  });
+
+  tabs.innerHTML = html;
+}
+
+function selectWarehouseSalesCategory(category) {
+  collectWarehouseSalesDraftInputs();
+
+  warehouseSalesSelectedCategory = category;
+
+  var categories = [];
+
+  warehouseSalesItems.forEach(function(item) {
+    if (categories.indexOf(item.category) === -1) {
+      categories.push(item.category);
+    }
+  });
+
+  renderWarehouseSalesCategoryTabs(categories);
+  renderWarehouseSalesTable();
+}
+
+function renderWarehouseSalesTable() {
+  var box = document.getElementById('warehouseSalesItemsBox');
+  if (!box) return;
+
+  var filtered = warehouseSalesItems.filter(function(item) {
+    return item.category === warehouseSalesSelectedCategory;
+  });
+
+  if (!filtered.length) {
+    box.innerHTML = '<div class="empty">لا توجد أصناف داخل هذه الفئة</div>';
+    return;
+  }
+
+  var html =
+    '<div style="margin-top:10px;border:1px solid #333;border-radius:16px;overflow:hidden;background:#111;">' +
+      '<table class="mini-table" style="width:100%;border-collapse:collapse;text-align:center;">' +
+        '<thead>' +
+          '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
+            '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الوحدة</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">مبيعات اليوم</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+  filtered.forEach(function(item) {
+    var value = warehouseSalesDraft[item.name] || '';
+
+    html +=
+      '<tr style="border-bottom:1px solid #2a2a2a;">' +
+        '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + item.name + '</td>' +
+        '<td style="padding:10px;color:var(--text2);">' + (item.unit || '-') + '</td>' +
+        '<td style="padding:10px;">' +
+          '<input class="warehouse-sale-input f-inp2" type="number" min="0" inputmode="decimal" ' +
+          'data-item="' + item.name + '" value="' + value + '" placeholder="0" ' +
+          'style="max-width:95px;text-align:center;font-weight:900;">' +
+        '</td>' +
+      '</tr>';
+  });
+
+  html +=
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+
+  box.innerHTML = html;
+}
 function openWarehouseSalesSession(sessionId) {
   var box = document.getElementById('warehouseSalesTable');
   if (!box) return;
@@ -4938,26 +5040,42 @@ function openWarehouseSalesSession(sessionId) {
       oldSales[x.item_name] = parseFloat(x.quantity || 0);
     });
 
-    var html = '<div class="empty">رقم الجرد: ' + sessionId + '</div>';
-    html += '<div class="table-wrap"><table class="mini-table">';
-    html += '<thead><tr><th>الصنف</th><th>مبيعات اليوم</th></tr></thead><tbody>';
+    warehouseSalesItems = [];
+warehouseSalesDraft = {};
 
-    itemsSnap.docs.forEach(function(d) {
-      var x = d.data() || {};
-      var name = x.name || '';
-      if (!name) return;
+var categories = [];
 
-      var oldQty = oldSales[name] || '';
+itemsSnap.docs.forEach(function(d) {
+  var x = d.data() || {};
+  var name = x.name || x.item_name || '';
+  var cat = x.category || 'العبوات';
 
-      html += '<tr>';
-      html += '<td>' + name + '</td>';
-      html += '<td><input class="warehouse-sale-input" type="number" min="0" inputmode="decimal" data-item="' + name + '" value="' + oldQty + '" placeholder="0"></td>';
-      html += '</tr>';
-    });
+  if (!name) return;
 
-    html += '</tbody></table></div>';
-    box.innerHTML = html;
+  if (categories.indexOf(cat) === -1) {
+    categories.push(cat);
+  }
+
+  warehouseSalesDraft[name] = oldSales[name] || '';
+
+  warehouseSalesItems.push({
+    name: name,
+    category: cat,
+    unit: x.unit || ''
   });
+});
+
+if (!warehouseSalesSelectedCategory || categories.indexOf(warehouseSalesSelectedCategory) === -1) {
+  warehouseSalesSelectedCategory = categories[0] || '';
+}
+
+box.innerHTML =
+  '<div class="empty">رقم الجرد: ' + sessionId + '</div>' +
+  '<div id="warehouseSalesCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
+  '<div id="warehouseSalesItemsBox"></div>';
+
+renderWarehouseSalesCategoryTabs(categories);
+renderWarehouseSalesTable();  });
 }
 function saveWarehouseSales() {
   var msg = document.getElementById('warehouseSalesMsg');
@@ -4969,34 +5087,37 @@ function saveWarehouseSales() {
 
   if (msg) msg.innerHTML = '<div class="empty">جاري حفظ المبيعات...</div>';
 
-  var inputs = document.querySelectorAll('.warehouse-sale-input');
-  var batch = db.batch();
-  var totalQty = 0;
+  collectWarehouseSalesDraftInputs();
 
-  inputs.forEach(function(inp) {
-    var qty = parseFloat(inp.value || '0');
-    var item = inp.getAttribute('data-item') || '';
+var batch = db.batch();
+var totalQty = 0;
 
-    if (!item) return;
-    if (isNaN(qty) || qty < 0) qty = 0;
+warehouseSalesItems.forEach(function(row) {
+  var item = row.name || '';
+  if (!item) return;
 
-    var safeItemId = encodeURIComponent(item);
-    var ref = db.collection('warehouseSales').doc(S.currentSalesSessionId + '_' + safeItemId);
+  var qty = parseFloat(warehouseSalesDraft[item] || '0');
 
-    batch.set(ref, {
-      work_date: S.workDate,
-      inventory_session_id: S.currentSalesSessionId,
-      shift: S.currentSalesSessionData && S.currentSalesSessionData.shift ? S.currentSalesSessionData.shift : '',
-      item_name: item,
-      quantity: qty,
-      created_by: S.user.uid,
-      updated_by: S.user.uid,
-      updated_at: FS.serverTimestamp()
-    }, { merge: true });
+  if (isNaN(qty) || qty < 0) qty = 0;
 
-    totalQty += qty;
-  });
+  var safeItemId = encodeURIComponent(item);
+  var ref = db.collection('warehouseSales').doc(S.currentSalesSessionId + '_' + safeItemId);
 
+  batch.set(ref, {
+    work_date: S.workDate,
+    inventory_session_id: S.currentSalesSessionId,
+    shift: S.currentSalesSessionData && S.currentSalesSessionData.shift ? S.currentSalesSessionData.shift : '',
+    item_name: item,
+    category: row.category || 'العبوات',
+    unit: row.unit || '',
+    quantity: qty,
+    created_by: S.user.uid,
+    updated_by: S.user.uid,
+    updated_at: FS.serverTimestamp()
+  }, { merge: true });
+
+  totalQty += qty;
+});
   var sessionRef = db.collection('inventorySessions').doc(S.currentSalesSessionId);
   batch.set(sessionRef, {
     sales_done: true,
@@ -5440,7 +5561,6 @@ var shopMap = {};
     itemsMap[name] = true;
  
       });
-      var html =
   warehouseBalanceItems = [];
 
 Object.keys(itemsMap).sort().forEach(function(name) {
@@ -5486,7 +5606,6 @@ list.innerHTML =
 renderWarehouseBalanceCategoryTabs(categories);
 renderWarehouseBalanceTable();
 
-      list.innerHTML = html;
     })
     .catch(function(error) {
       console.error(error);
@@ -5547,25 +5666,27 @@ function renderWarehouseBalanceTable() {
   }
 
   var html =
-    '<div class="table-wrap">' +
-      '<table class="mini-table">' +
+    '<div style="margin-top:10px;border:1px solid #333;border-radius:16px;overflow:hidden;background:#111;">' +
+      '<table class="mini-table" style="width:100%;border-collapse:collapse;text-align:center;">' +
         '<thead>' +
-          '<tr>' +
-            '<th>الصنف</th>' +
-            '<th>المحل</th>' +
-            '<th>المستودع</th>' +
-            '<th>الإجمالي</th>' +
+          '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
+            '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الوحدة</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">المحل</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">المستودع</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الإجمالي</th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>';
 
   filtered.forEach(function(item) {
     html +=
-      '<tr>' +
-        '<td style="font-weight:900;text-align:right;">' + item.name + '</td>' +
-        '<td>' + item.shopBalance + '</td>' +
-        '<td>' + item.warehouseBalance + '</td>' +
-        '<td class="total-cell">' + item.totalBalance + '</td>' +
+      '<tr style="border-bottom:1px solid #2a2a2a;">' +
+        '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + item.name + '</td>' +
+        '<td style="padding:10px;color:var(--text2);">' + (item.unit || '-') + '</td>' +
+        '<td style="padding:10px;font-weight:800;">' + item.shopBalance + '</td>' +
+        '<td style="padding:10px;font-weight:800;">' + item.warehouseBalance + '</td>' +
+        '<td style="padding:10px;font-weight:900;color:var(--gold);">' + item.totalBalance + '</td>' +
       '</tr>';
   });
 
@@ -5576,6 +5697,7 @@ function renderWarehouseBalanceTable() {
 
   box.innerHTML = html;
 }
+
 function showOpeningStockForm() {
   var section = document.getElementById('openingStockSection');
   if (!section) return;
