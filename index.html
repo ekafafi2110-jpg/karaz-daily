@@ -1519,17 +1519,107 @@ function doLogout() {
 
 function seedDefaults() {
   return db.collection('items').limit(1).get().then(function(snap) {
-    if (snap.empty) {
-      var names=['علب أسود','علب فلين','كاسات صغير','كاسات وسط','كاسات كبير',
-        'لتر','بسكويت بوظة','علب بوظة صغير','علب بوظة كبير','علب صحن',
-        'شاورما سوبر','بيج / سموثي','أسود مدور','بلاستيك شفاف','سفن',
-        'بي ام','بوب بوم','مكسرات','ريد بول','عجين وافل','عجين كريب'];
-      var batch=db.batch();
-      names.forEach(function(n,i){
-        batch.set(db.collection('items').doc(), {name:n,active:true,sort_order:i,created_at:FS.serverTimestamp()});
+if (snap.empty) {
+  var sections = {
+    'العبوات': [
+      {name:'علب أسود', unit:'حبة', minQty:10},
+      {name:'علب فلين', unit:'حبة', minQty:10},
+      {name:'كاسات صغير', unit:'حبة', minQty:10},
+      {name:'كاسات وسط', unit:'حبة', minQty:10},
+      {name:'كاسات كبير', unit:'حبة', minQty:10},
+      {name:'لتر', unit:'حبة', minQty:5},
+      {name:'بسكويت بوظة', unit:'حبة', minQty:10},
+      {name:'علب بوظة صغير', unit:'حبة', minQty:10},
+      {name:'علب بوظة كبير', unit:'حبة', minQty:10},
+      {name:'علب صحن', unit:'حبة', minQty:5},
+      {name:'شاورما سوبر', unit:'حبة', minQty:5},
+      {name:'سوشي', unit:'حبة', minQty:5},
+      {name:'أسود مدور', unit:'حبة', minQty:10},
+      {name:'بلاستيك شفاف', unit:'حبة', minQty:10},
+      {name:'كاسات سخن', unit:'حبة', minQty:10},
+      {name:'شلمون', unit:'حبة', minQty:2},
+      {name:'أكياس بسطة', unit:'كجم', minQty:1},
+      {name:'شوك+سكاكين', unit:'ربطة', minQty:3},
+      {name:'حمالات ثنائية', unit:'حبة', minQty:2},
+      {name:'حمالات رباعية', unit:'حبة', minQty:2},
+      {name:'معالق تذوق', unit:'باكيت', minQty:1},
+      {name:'كاسات أبيض بلاستيك', unit:'حبة', minQty:5},
+      {name:'رول كاش', unit:'حبة', minQty:2},
+      {name:'ستيك خشب', unit:'حبة', minQty:2}
+    ],
+    'المشروبات': [
+      {name:'سفن', unit:'حبة', minQty:10},
+      {name:'بي ام', unit:'حبة', minQty:10},
+      {name:'XL', unit:'حبة', minQty:10},
+      {name:'ريد بول', unit:'حبة', minQty:3}
+    ],
+    'المواد الخام': [
+      {name:'نوتيلا 20كغ', unit:'كجم', minQty:2},
+      {name:'شوكولاته بيضاء 5كغ', unit:'كجم', minQty:1},
+      {name:'شوكولاته لوتس 5كغ', unit:'كجم', minQty:1},
+      {name:'شوكولاته بستاشيو 5كغ', unit:'كجم', minQty:1},
+      {name:'فارماسيل', unit:'كجم', minQty:1},
+      {name:'كرنش', unit:'كجم', minQty:0.5},
+      {name:'بسكويت لوتس حب', unit:'باكيت', minQty:1},
+      {name:'بسكويت لوتس برش', unit:'كجم', minQty:0.5},
+      {name:'سيرب كاراميل', unit:'كجم', minQty:1},
+      {name:'سيرب فراولة', unit:'كجم', minQty:1},
+      {name:'كاجو كسر', unit:'كجم', minQty:0.5},
+      {name:'شعرية باكستانية', unit:'باكيت', minQty:2},
+      {name:'حليب', unit:'لتر', minQty:2},
+      {name:'زبدة قوالب', unit:'قالب', minQty:1},
+      {name:'زبدة رش', unit:'علبة', minQty:1},
+      {name:'فانيلا', unit:'كجم', minQty:0.5},
+      {name:'باكنج باودر', unit:'كجم', minQty:0.5},
+      {name:'نشا', unit:'كجم', minQty:1},
+      {name:'طحين', unit:'كجم', minQty:2},
+      {name:'مانجا', unit:'علبة', minQty:2},
+      {name:'جوافة', unit:'علبة', minQty:1},
+      {name:'فروزين', unit:'علبة', minQty:1}
+    ],
+    'البسكويت': [
+      {name:'سنكرز', unit:'حبة', minQty:5},
+      {name:'توكس', unit:'حبة', minQty:3},
+      {name:'فليك', unit:'حبة', minQty:3},
+      {name:'ماجستو', unit:'حبة', minQty:2},
+      {name:'كيندر', unit:'حبة', minQty:5},
+      {name:'كيت كات', unit:'حبة', minQty:5},
+      {name:'مارشميلو', unit:'حبة', minQty:5},
+      {name:'فيريرو', unit:'حبة', minQty:3},
+      {name:'أوريو', unit:'حبة', minQty:3},
+      {name:'باونتي', unit:'حبة', minQty:2},
+      {name:'مالتيزر', unit:'حبة', minQty:2}
+    ],
+    'البوظة': [
+      {name:'عربية', unit:'علبة', minQty:1},
+      {name:'سنكرز', unit:'علبة', minQty:1},
+      {name:'أوريو', unit:'علبة', minQty:1},
+      {name:'تشيز كيك', unit:'علبة', minQty:1},
+      {name:'فراولة', unit:'علبة', minQty:1},
+      {name:'ليمون', unit:'علبة', minQty:1},
+      {name:'علكة', unit:'علبة', minQty:1}
+    ]
+  };
+
+  var batch = db.batch();
+  var sort = 0;
+
+  Object.keys(sections).forEach(function(category) {
+    sections[category].forEach(function(item) {
+      batch.set(db.collection('items').doc(), {
+        name: item.name,
+        category: category,
+        unit: item.unit,
+        minQty: item.minQty,
+        active: true,
+        sort_order: sort++,
+        created_at: FS.serverTimestamp()
       });
-      return batch.commit();
-    }
+    });
+  });
+
+  return batch.commit();
+}
   }).then(function() {
     return db.collection('expenseTypes').limit(1).get();
   }).then(function(snap) {
