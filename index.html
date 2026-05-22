@@ -6457,6 +6457,19 @@ sales: res[6].docs.map(function(d){return Object.assign({id:d.id},d.data());})
     };
   });
 }
+
+function filterManagerReportCategory(cat) {
+  document.querySelectorAll('.mgr-cat-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+  });
+
+  var activeBtn = document.querySelector('.mgr-cat-btn[data-cat="' + cat + '"]');
+  if (activeBtn) activeBtn.classList.add('active');
+
+  document.querySelectorAll('.mgr-report-row').forEach(function(row) {
+    row.style.display = row.getAttribute('data-cat') === cat ? '' : 'none';
+  });
+}
 function renderReport(det,sessId) {
   var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
 var withdrawals = det.withdrawals || [];
@@ -6470,8 +6483,22 @@ var sessionData = det.session || {};
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
 
-var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>النهائي</th><th>المبيعات</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';  var hasAcc=false;
-  S.items.forEach(function(item){
+var cats = getItemCategories();
+var firstCat = cats[0] || 'العبوات';
+
+var itemsHtml =
+  '<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">';
+
+cats.forEach(function(cat) {
+  itemsHtml +=
+    '<button type="button" class="mgr-cat-btn ' + (cat === firstCat ? 'active' : '') + '" data-cat="' + cat + '" onclick="filterManagerReportCategory(\'' + cat + '\')" style="white-space:nowrap;border:1px solid ' + (cat === firstCat ? 'var(--gold)' : 'var(--border)') + ';background:' + (cat === firstCat ? 'rgba(212,175,55,.15)' : 'var(--bg3)') + ';color:' + (cat === firstCat ? 'var(--gold)' : 'var(--text)') + ';border-radius:999px;padding:8px 12px;font-family:Cairo;font-weight:900;font-size:12px;">' +
+      cat +
+    '</button>';
+});
+
+itemsHtml += '</div>';
+
+itemsHtml += '<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>النهائي</th><th>المبيعات</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';  S.items.forEach(function(item){
     var rawA = invMap[item.id] ? invMap[item.id].A : undefined;
 var rawB = invMap[item.id] ? invMap[item.id].B : undefined;
 
@@ -6488,8 +6515,7 @@ var diff=(acc!==undefined)?tot-acc:null;
     var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
     var dA=invMap[item.id]&&invMap[item.id].A!==''?invMap[item.id].A:'-';
     var dB=invMap[item.id]&&invMap[item.id].B!==''?invMap[item.id].B:'-';
-    itemsHtml+='<tr><td style="text-align:right;font-size:11px;">'+item.name+'</td><td>'+dA+'</td><td>'+dB+'</td><td><strong>'+tot+'</strong></td>'+
-  '<td><strong style="color:var(--gold);">'+saleQty+'</strong></td>'+
+itemsHtml+='<tr class="mgr-report-row" data-cat="'+(item.category || 'العبوات')+'" style="'+((item.category || 'العبوات') === firstCat ? '' : 'display:none;')+'"><td style="text-align:right;font-size:11px;">'+item.name+'</td><td>'+dA+'</td><td>'+dB+'</td><td><strong>'+tot+'</strong></td>'+  '<td><strong style="color:var(--gold);">'+saleQty+'</strong></td>'+
   '<td><input class="acc-inp" value="'+(acc!==undefined?acc:'')+'" placeholder="-" onchange="saveAccQty(\''+sessId+'\',\''+item.id+'\',this.value)"></td>'+
   '<td>'+dHtml+'</td></tr>';  });
   itemsHtml+='</tbody></table>';
