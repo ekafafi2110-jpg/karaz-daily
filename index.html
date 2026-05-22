@@ -1824,19 +1824,19 @@ function loadOrCreateSession() {
       }
 
       var now = new Date();
-      var hh = String(now.getHours()).padStart(2, '0');
-      var mm = String(now.getMinutes()).padStart(2, '0');
-      var ss = String(now.getSeconds()).padStart(2, '0');
+var hh = String(now.getHours()).padStart(2, '0');
+var mm = String(now.getMinutes()).padStart(2, '0');
 
-      S.sessionId = 'ALMAZLOUB-' + S.workDate + '-' + hh + mm + ss;
+var dateKey = S.workDate.replace(/-/g, '');
 
-      var data = {
-        branch_id: 'ALMAZLOUB',
-        work_date: S.workDate,
-        status: 'new',
-        archived: false,
-        tracking_id: makeTrackingId(S.workDate),
-        created_by: S.user.uid,
+S.sessionId = 'القويسمة-' + dateKey + '-' + hh + mm;
+
+var data = {
+  branch_id: 'القويسمة',
+  work_date: S.workDate,
+  status: 'new',
+  archived: false,
+  tracking_id: S.sessionId,        created_by: S.user.uid,
         created_at: FS.serverTimestamp(),
         updated_at: FS.serverTimestamp()
       };
@@ -4767,36 +4767,58 @@ function loadWarehouseSalesLog() {
 
       var html = '';
 
-      sessionSnap.docs.forEach(function(d) {
-        var s = d.data() || {};
-        var shift = s.shift || '-';
-        var total = parseFloat(s.sales_total_qty || 0);
+     var rows = sessionSnap.docs.map(function(d) {
+  var s = d.data() || {};
 
-        html += '<div class="balance-card">';
-        html += '<div class="balance-title">رقم الجرد: ' + d.id + '</div>';
-        html += '<div class="balance-row"><span>الشفت</span><strong>' + shift + '</strong></div>';
-        html += '<div class="balance-row total"><span>إجمالي المبيعات</span><strong>' + total + '</strong></div>';
-        html += '<button class="warehouse-action-btn" onclick="editWarehouseSalesSession(\'' + d.id + '\')">تعديل المبيعات</button>';
-        html += '</div>';
-      });
+  var t = 0;
+  if (s.sales_updated_at && s.sales_updated_at.toMillis) {
+    t = s.sales_updated_at.toMillis();
+  } else if (s.created_at && s.created_at.toMillis) {
+    t = s.created_at.toMillis();
+  }
 
+  return {
+    id: d.id,
+    data: s,
+    time: t
+  };
+});
+
+rows.sort(function(a, b) {
+  return b.time - a.time;
+});
+
+rows.forEach(function(row) {
+  var d = { id: row.id };
+  var s = row.data || {};
+  var shift = s.shift || '-';
+  var total = parseFloat(s.sales_total_qty || 0);
+
+  html += '<div class="balance-card">';
+  html += '<div class="balance-title">رقم الجرد: ' + (s.tracking_id || row.id) + '</div>';
+  html += '<div class="balance-row"><span>الشفت</span><strong>' + shift + '</strong></div>';
+  html += '<div class="balance-row total"><span>إجمالي المبيعات</span><strong>' + total + '</strong></div>';
+  html += '<button class="warehouse-action-btn" onclick="editWarehouseSalesSession(\'' + row.id + '\')">تعديل المبيعات</button>';
+  html += '</div>';
+});
       box.innerHTML = html;
     });
 }
 function editWarehouseSalesSession(sessionId) {
+  restoreWarehouseSections();
+
   setModal('تعديل مبيعات الجرد');
   openModal();
 
   document.getElementById('modalBody').innerHTML =
-  '<div class="exp-form" style="margin-bottom:12px;">' +
-    '<div class="sec-title">🧾 تعديل المبيعات</div>' +
-    '<div id="salesEditPopupBody">جاري تحميل المبيعات...</div>' +
-    '<button class="btn-add" style="margin-top:12px;" onclick="saveWarehouseSalesFromPopup()">حفظ التعديل</button>' +
-  '</div>';
+    '<div class="exp-form" style="margin-bottom:12px;">' +
+      '<div class="sec-title">تعديل المبيعات</div>' +
+      '<div id="salesEditPopupBody">جاري تحميل المبيعات...</div>' +
+      '<button class="warehouse-action-btn" style="margin-top:12px;width:100%;" onclick="saveWarehouseSalesFromPopup()">حفظ التعديل</button>' +
+    '</div>';
 
   loadWarehouseSalesEditPopup(sessionId);
 }
-
 function loadWarehouseSalesEditPopup(sessionId) {
   var box = document.getElementById('salesEditPopupBody');
   if (!box) return;
@@ -4805,7 +4827,7 @@ function loadWarehouseSalesEditPopup(sessionId) {
 
   Promise.all([
     db.collection('inventorySessions').doc(sessionId).get(),
-    db.collection('items').get(),
+    db.collection('items').orderBy('sort_order').get(),
     db.collection('warehouseSales')
       .where('inventory_session_id', '==', sessionId)
       .get()
@@ -4827,37 +4849,53 @@ function loadWarehouseSalesEditPopup(sessionId) {
       oldSales[x.item_name] = parseFloat(x.quantity || 0);
     });
 
-    var html =
-  '<div style="background:#181818;border:1px solid #333;border-radius:14px;padding:10px;margin-bottom:10px;text-align:center;color:var(--gold);font-weight:900;font-size:13px;">' +
-    'رقم الجرد: ' + sessionId +
-  '</div>';
+    warehouseSalesItems = [];
+    warehouseSalesDraft = {};
 
-html += '<div style="max-height:62vh;overflow-y:auto;border:1px solid #333;border-radius:16px;">';
-html += '<table class="mini-table" style="width:100%;border-collapse:collapse;">';    html += '<thead><tr><th>الصنف</th><th>المبيعات</th></tr></thead><tbody>';
+    var categories = [];
 
     itemsSnap.docs.forEach(function(d) {
       var x = d.data() || {};
-      var name = x.name || '';
+      var name = x.name || x.item_name || '';
+      var cat = x.category || 'العبوات';
+
       if (!name) return;
 
-      var oldQty = oldSales[name] || '';
+      if (categories.indexOf(cat) === -1) {
+        categories.push(cat);
+      }
 
-      html += '<tr>';
-      html += '<td>' + name + '</td>';
-      html += '<td style="padding:8px;text-align:center;"><input class="f-inp2" style="max-width:90px;text-align:center;font-weight:900;" type="number" min="0" inputmode="decimal" data-item="' + name + '" value="' + oldQty + '" placeholder="0"></td>';      html += '</tr>';
+      warehouseSalesDraft[name] = oldSales[name] || '';
+
+      warehouseSalesItems.push({
+        name: name,
+        category: cat,
+        unit: x.unit || ''
+      });
     });
 
-    html += '</tbody></table></div>';
-    box.innerHTML = html;
+    if (!warehouseSalesSelectedCategory || categories.indexOf(warehouseSalesSelectedCategory) === -1) {
+      warehouseSalesSelectedCategory = categories[0] || '';
+    }
+
+    box.innerHTML =
+      '<div style="background:#181818;border:1px solid #333;border-radius:14px;padding:10px;margin-bottom:10px;text-align:center;color:var(--gold);font-weight:900;font-size:13px;">' +
+        'رقم الجرد: ' + sessionId +
+      '</div>' +
+      '<div id="warehouseSalesCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
+      '<div id="warehouseSalesItemsBox"></div>';
+
+    renderWarehouseSalesCategoryTabs(categories);
+    renderWarehouseSalesTable();
   });
 }
-
 function saveWarehouseSalesFromPopup() {
   saveWarehouseSales();
+
   setTimeout(function() {
     closeModal();
     showWarehouseSalesLog();
-  }, 600);
+  }, 700);
 }
 function loadWarehouseSalesItems() {
   var box = document.getElementById('warehouseSalesTable');
@@ -5995,7 +6033,7 @@ function showAdminWithdrawals() {
       '<div class="sec-title">بحث في سجل سحوبات المستودع</div>' +
 
       '<label class="f-lbl">بحث بالصنف</label>' +
-      '<select id="adminWithdrawItemSearch" class="f-sel" onchange="loadAdminWithdrawalsLog()">' +
+      '<select id="adminWithdrawItemSearch" class="f-inp2" onchange="renderAdminWithdrawalsTable()">' +
         '<option value="">كل الأصناف</option>' +
       '</select>' +
 
@@ -6020,38 +6058,8 @@ function loadAdminWithdrawalItems() {
   var select = document.getElementById('adminWithdrawItemSearch');
   if (!select) return;
 
-  db.collection('items')
-    .orderBy('sort_order')
-    .get()
-    .then(function(snap) {
-      var html = '<option value="">كل الأصناف</option>';
-
-      var groups = {};
-
-snap.docs.forEach(function(d) {
-  var x = d.data();
-  var name = x.name || x.item_name || '';
-  var cat = x.category || 'العبوات';
-  if (!name) return;
-
-  if (!groups[cat]) groups[cat] = [];
-  groups[cat].push(name);
-});
-
-Object.keys(groups).forEach(function(cat) {
-  html += '<optgroup label="' + cat + '">';
-  groups[cat].forEach(function(name) {
-    html += '<option value="' + name + '">' + name + '</option>';
-  });
-  html += '</optgroup>';
-});
-      select.innerHTML = html;
-    })
-    .catch(function(e) {
-      console.error(e);
-    });
+  select.innerHTML = '<option value="">كل أصناف الفئة</option>';
 }
-
 function clearAdminWithdrawalsSearch() {
   var item = document.getElementById('adminWithdrawItemSearch');
   var date = document.getElementById('adminWithdrawDateSearch');
@@ -6082,13 +6090,12 @@ function getWithdrawDateKey(x) {
   return '';
 }
 
+var adminWithdrawalsRows = [];
+var adminWithdrawalsSelectedCategory = '';
+
 function loadAdminWithdrawalsLog() {
   var results = document.getElementById('adminWithdrawalsResults');
   if (!results) return;
-
-  var selectedItem = document.getElementById('adminWithdrawItemSearch')
-    ? document.getElementById('adminWithdrawItemSearch').value
-    : '';
 
   var selectedDate = document.getElementById('adminWithdrawDateSearch')
     ? document.getElementById('adminWithdrawDateSearch').value
@@ -6104,23 +6111,21 @@ function loadAdminWithdrawalsLog() {
         return;
       }
 
-      var rows = [];
+      adminWithdrawalsRows = [];
 
       snap.docs.forEach(function(d) {
         var x = Object.assign({ id: d.id }, d.data());
 
-        if (selectedItem && x.item_name !== selectedItem) {
-          return;
-        }
-
+        // التاريخ فلتر عام
         if (selectedDate && getWithdrawDateKey(x) !== selectedDate) {
           return;
         }
 
-        rows.push(x);
+        x.category = x.item_category || 'العبوات';
+        adminWithdrawalsRows.push(x);
       });
 
-      rows.sort(function(a, b) {
+      adminWithdrawalsRows.sort(function(a, b) {
         var ta = a.createdAt || a.created_at;
         var tb = b.createdAt || b.created_at;
 
@@ -6130,47 +6135,164 @@ function loadAdminWithdrawalsLog() {
         return vb - va;
       });
 
-      if (!rows.length) {
-        results.innerHTML = '<div class="empty">لا توجد نتائج حسب البحث</div>';
+      if (!adminWithdrawalsRows.length) {
+        results.innerHTML = '<div class="empty">لا توجد نتائج حسب التاريخ</div>';
         return;
       }
 
-      var html =
-        '<table class="rpt-table">' +
-          '<thead>' +
-            '<tr>' +
-              '<th>التاريخ</th>' +
-              '<th>الفئة</th>' +
-'<th>الصنف</th>' +
-'<th>الكمية</th>' +
-              '<th>الشفت</th>' +
-              '<th>رقم الجرد</th>' +
-              '<th>ملاحظة</th>' +
-            '</tr>' +
-          '</thead>' +
-          '<tbody>';
+      var categories = [];
 
-      rows.forEach(function(x) {
-        html +=
-          '<tr>' +
-            '<td style="font-size:10px;">' + formatWithdrawTime(x) + '</td>' +
-            '<td style="font-size:10px;color:var(--gold);">' + (x.item_category || '-') + '</td>' +
-'<td style="text-align:right;">' + (x.item_name || '-') + '</td>' +
-'<td><strong>' + (x.quantity || 0) + '</strong></td>' +            '<td>' + (x.shift || '-') + '</td>' +
-            '<td style="font-size:10px;">' + (x.inventory_session_id || '-') + '</td>' +
-            '<td style="font-size:10px;">' + (x.note || '') + '</td>' +
-          '</tr>';
-      });
+S.items.forEach(function(item) {
+  var cat = item.category || 'العبوات';
+  if (categories.indexOf(cat) === -1) {
+    categories.push(cat);
+  }
+});
 
-      html += '</tbody></table>';
+adminWithdrawalsRows.forEach(function(x) {
+  if (categories.indexOf(x.category) === -1) {
+    categories.push(x.category);
+  }
+});
 
-      results.innerHTML = html;
+if (!adminWithdrawalsSelectedCategory || categories.indexOf(adminWithdrawalsSelectedCategory) === -1) {
+  adminWithdrawalsSelectedCategory = categories[0] || '';
+}
+      results.innerHTML =
+        '<div id="adminWithdrawalsCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
+        '<div id="adminWithdrawalsTableBox"></div>';
+
+      renderAdminWithdrawalsCategoryTabs(categories);
+      refreshAdminWithdrawItemFilter();
+      renderAdminWithdrawalsTable();
     })
     .catch(function(error) {
       console.error(error);
       results.innerHTML =
         '<div class="empty">حدث خطأ أثناء تحميل السجل: ' + error.message + '</div>';
     });
+}
+
+function renderAdminWithdrawalsCategoryTabs(categories) {
+  var tabs = document.getElementById('adminWithdrawalsCategoryTabs');
+  if (!tabs) return;
+
+  var html = '';
+
+  categories.forEach(function(cat) {
+    var isActive = cat === adminWithdrawalsSelectedCategory;
+
+    var activeStyle = isActive
+      ? 'background:linear-gradient(135deg,var(--gold),#ffe08a);color:#111;border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,.25),0 8px 20px rgba(212,175,55,.18);'
+      : 'background:#181818;color:var(--text);border-color:#333;';
+
+    html +=
+      '<button type="button" onclick="selectAdminWithdrawalsCategory(\'' + cat + '\')" ' +
+      'style="white-space:nowrap;border:1px solid;border-radius:999px;padding:9px 14px;font-weight:900;transition:.15s;' + activeStyle + '">' +
+        cat +
+      '</button>';
+  });
+
+  tabs.innerHTML = html;
+}
+
+function selectAdminWithdrawalsCategory(category) {
+  adminWithdrawalsSelectedCategory = category;
+
+  var itemSelect = document.getElementById('adminWithdrawItemSearch');
+  if (itemSelect) itemSelect.value = '';
+
+  var categories = [];
+
+  adminWithdrawalsRows.forEach(function(x) {
+    if (categories.indexOf(x.category) === -1) {
+      categories.push(x.category);
+    }
+  });
+
+  renderAdminWithdrawalsCategoryTabs(categories);
+  refreshAdminWithdrawItemFilter();
+  renderAdminWithdrawalsTable();
+}
+
+function refreshAdminWithdrawItemFilter() {
+  var select = document.getElementById('adminWithdrawItemSearch');
+  if (!select) return;
+
+  var names = [];
+
+  adminWithdrawalsRows.forEach(function(x) {
+    if (x.category !== adminWithdrawalsSelectedCategory) return;
+
+    var name = x.item_name || '';
+    if (name && names.indexOf(name) === -1) {
+      names.push(name);
+    }
+  });
+
+  names.sort();
+
+  var html = '<option value="">كل أصناف الفئة</option>';
+
+  names.forEach(function(name) {
+    html += '<option value="' + name + '">' + name + '</option>';
+  });
+
+  select.innerHTML = html;
+}
+
+function renderAdminWithdrawalsTable() {
+  var box = document.getElementById('adminWithdrawalsTableBox');
+  if (!box) return;
+
+  var selectedItem = document.getElementById('adminWithdrawItemSearch')
+    ? document.getElementById('adminWithdrawItemSearch').value
+    : '';
+
+  var filtered = adminWithdrawalsRows.filter(function(x) {
+    if (x.category !== adminWithdrawalsSelectedCategory) return false;
+    if (selectedItem && x.item_name !== selectedItem) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    box.innerHTML = '<div class="empty">لا توجد سحوبات حسب الفئة/الصنف المختار</div>';
+    return;
+  }
+
+  var html =
+    '<div style="margin-top:10px;border:1px solid #333;border-radius:16px;overflow:hidden;background:#111;">' +
+      '<table class="mini-table" style="width:100%;border-collapse:collapse;text-align:center;">' +
+        '<thead>' +
+          '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">التاريخ</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الكمية</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الشفت</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">رقم الجرد</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">ملاحظة</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+  filtered.forEach(function(x) {
+    html +=
+      '<tr style="border-bottom:1px solid #2a2a2a;">' +
+        '<td style="padding:10px;font-size:10px;">' + formatWithdrawTime(x) + '</td>' +
+        '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + (x.item_name || '-') + '</td>' +
+        '<td style="padding:10px;font-weight:900;color:var(--gold);">' + (x.quantity || 0) + '</td>' +
+        '<td style="padding:10px;">' + (x.shift || '-') + '</td>' +
+        '<td style="padding:10px;font-size:10px;">' + (x.inventory_session_id || '-') + '</td>' +
+        '<td style="padding:10px;font-size:10px;">' + (x.note || '') + '</td>' +
+      '</tr>';
+  });
+
+  html +=
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+
+  box.innerHTML = html;
 }
 function addWithdrawal() {
   var itemId = document.getElementById('withdrawItem').value;
