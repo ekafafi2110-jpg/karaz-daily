@@ -2411,34 +2411,6 @@ function restoreWarehouseSections() {
   });
 }
 
-function restoreWarehouseSections() {
-  var home = document.querySelector('#warehouseAdminSection .warehouse-box');
-  if (!home) return;
-
-  [
-    'openingStockSection',
-    'warehouseBalanceSection',
-    'adminWithdrawalsSection',
-    'warehouseSalesSection',
-    'warehouseSalesLogSection'
-  ].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el && el.parentElement && el.parentElement.id === 'modalBody') {
-      el.style.display = 'none';
-      home.appendChild(el);
-    }
-  });
-}
-function hideWarehouseSections() {
-  document.getElementById('openingStockSection').style.display = 'none';
-  document.getElementById('warehouseBalanceSection').style.display = 'none';
-  document.getElementById('adminWithdrawalsSection').style.display = 'none';
-  document.getElementById('warehousePurchaseSection').style.display = 'none';
-  var salesLog = document.getElementById('warehouseSalesLogSection');
-if (salesLog) salesLog.style.display = 'none';
-  var sales = document.getElementById('warehouseSalesSection');
-if (sales) sales.style.display = 'none';
-}
 function toggleWarehouseSection(sectionId, loadFn) {
   var section = document.getElementById(sectionId);
   if (!section) return;
@@ -4757,6 +4729,7 @@ function showWarehouseSalesForm() {
 }
 function showWarehouseSalesLog() {
   restoreWarehouseSections();
+
   var section = document.getElementById('warehouseSalesLogSection');
   if (!section) return;
 
@@ -7066,6 +7039,7 @@ function deactivate(coll,id) {
 function setModal(title) { document.getElementById('modalTitleTxt').textContent=title; document.getElementById('modalBody').innerHTML=''; }
 function openModal()  { document.getElementById('modalOv').classList.add('active'); }
 function closeModal() { document.getElementById('modalOv').classList.remove('active'); }
+restoreWarehouseSections();
 function modalOvClick(e) { if(e.target===document.getElementById('modalOv')) closeModal(); }
 </script>
 </body>
