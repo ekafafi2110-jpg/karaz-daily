@@ -4637,22 +4637,34 @@ function setAdminTabActive(tab) {
   if (tab === 'cash' && cash) cash.classList.add('active');
 }
 function showOpeningStockForm() {
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
-
+  var grid = document.querySelector('.mgr-grid');
+  var admin = document.getElementById('warehouseAdminSection');
   var section = document.getElementById('openingStockSection');
-  var isOpen = section && section.style.display === 'block';
+
+  if (grid) grid.style.display = 'none';
+  if (admin) admin.style.display = 'block';
 
   hideWarehouseSections();
 
-  if (isOpen) return;
+  if (!section) {
+    toast('لم يتم العثور على قسم الرصيد الافتتاحي', 'error');
+    return;
+  }
 
-  if (section) {
-    section.style.display = 'block';
+  section.style.display = 'block';
+
+  var msg = document.getElementById('openingStockMsg');
+  if (msg) {
+    msg.innerHTML = '<div class="empty">تم فتح الرصيد الافتتاحي</div>';
   }
 
   loadOpeningItems();
+
+  setTimeout(function() {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
 }
+
 function showWarehouseAdmin() {
   closeModal();
   setAdminTabActive('warehouse');
@@ -4998,19 +5010,24 @@ function saveWarehouseSales() {
 }
 
 function showOpeningStockForm() {
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
-
   var section = document.getElementById('openingStockSection');
-  var isOpen = section && section.style.display === 'block';
+  if (!section) return;
 
   hideWarehouseSections();
 
-  if (isOpen) return;
+  section.style.display = 'block';
 
-  document.getElementById('openingStockSection').style.display = 'block';
+  document.getElementById('modalTitleTxt').textContent = 'الرصيد الافتتاحي';
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
+
+  document.getElementById('modalOv').classList.add('active');
+
   loadOpeningItems();
 }
+
 function saveDailyInventorySnapshot() {
     var confirmMsg = '';
 
