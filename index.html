@@ -4464,11 +4464,15 @@ function loadWarehouseSalesLog() {
     });
 }
 function editWarehouseSalesSession(sessionId) {
-  openModal(
-    'تعديل مبيعات الجرد',
+  setModal('تعديل مبيعات الجرد');
+  openModal();
+
+  document.getElementById('modalBody').innerHTML =
+  '<div class="exp-form" style="margin-bottom:12px;">' +
+    '<div class="sec-title">🧾 تعديل المبيعات</div>' +
     '<div id="salesEditPopupBody">جاري تحميل المبيعات...</div>' +
-    '<button class="warehouse-action-btn" onclick="saveWarehouseSalesFromPopup()">حفظ التعديل</button>'
-  );
+    '<button class="btn-add" style="margin-top:12px;" onclick="saveWarehouseSalesFromPopup()">حفظ التعديل</button>' +
+  '</div>';
 
   loadWarehouseSalesEditPopup(sessionId);
 }
@@ -4503,9 +4507,13 @@ function loadWarehouseSalesEditPopup(sessionId) {
       oldSales[x.item_name] = parseFloat(x.quantity || 0);
     });
 
-    var html = '<div class="empty">رقم الجرد: ' + sessionId + '</div>';
-    html += '<div class="table-wrap"><table class="mini-table">';
-    html += '<thead><tr><th>الصنف</th><th>المبيعات</th></tr></thead><tbody>';
+    var html =
+  '<div style="background:#181818;border:1px solid #333;border-radius:14px;padding:10px;margin-bottom:10px;text-align:center;color:var(--gold);font-weight:900;font-size:13px;">' +
+    'رقم الجرد: ' + sessionId +
+  '</div>';
+
+html += '<div style="max-height:62vh;overflow-y:auto;border:1px solid #333;border-radius:16px;">';
+html += '<table class="mini-table" style="width:100%;border-collapse:collapse;">';    html += '<thead><tr><th>الصنف</th><th>المبيعات</th></tr></thead><tbody>';
 
     itemsSnap.docs.forEach(function(d) {
       var x = d.data() || {};
@@ -4516,8 +4524,7 @@ function loadWarehouseSalesEditPopup(sessionId) {
 
       html += '<tr>';
       html += '<td>' + name + '</td>';
-      html += '<td><input class="warehouse-sale-input" type="number" min="0" inputmode="decimal" data-item="' + name + '" value="' + oldQty + '" placeholder="0"></td>';
-      html += '</tr>';
+      html += '<td style="padding:8px;text-align:center;"><input class="f-inp2" style="max-width:90px;text-align:center;font-weight:900;" type="number" min="0" inputmode="decimal" data-item="' + name + '" value="' + oldQty + '" placeholder="0"></td>';      html += '</tr>';
     });
 
     html += '</tbody></table></div>';
@@ -5746,10 +5753,14 @@ function mgrOpen(type) {
         var stCls={new:'sb-new',waiting_B:'sb-wait',complete:'sb-done',approved:'sb-appr'};
         document.getElementById('modalBody').innerHTML=snap.docs.map(function(d){
           var s=d.data(), st=s.status||'new';
+var salesTxt = s.sales_done === true
+  ? '<div style="margin-top:4px;color:var(--gold);font-size:12px;font-weight:900;">المبيعات: ' + Number(s.sales_total_qty || 0) + '</div>'
+  : '<div style="margin-top:4px;color:var(--text3);font-size:12px;">المبيعات: غير مدخلة</div>';
           return '<div class="sess-item" onclick="openSessDet(\''+d.id+'\')">'+
             '<div class="sess-date">'+fmtDate(s.work_date)+'</div>'+
-            '<div style="margin-top:4px;"><span class="sb '+(stCls[st]||'sb-new')+'">'+(stMap[st]||st)+'</span></div></div>';
-        }).join('');
+'<div style="margin-top:4px;"><span class="sb '+(stCls[st]||'sb-new')+'">'+(stMap[st]||st)+'</span></div>' +
+salesTxt +
+'</div>';        }).join('');
       }).catch(function(e){ hideLoad(); console.error(e); });
   }
   else if(type==='cash') {
@@ -6184,7 +6195,8 @@ function loadSessionDetails(sessId) {
     db.collection('cashEntries').where('inventory_session_id','==',sessId).get(),
     db.collection('accountingQuantities').where('inventory_session_id','==',sessId).get(),
     db.collection('stockWithdrawals').where('inventory_session_id','==',sessId).get(),
-    db.collection('inventorySessions').doc(sessId).get()
+    db.collection('inventorySessions').doc(sessId).get(),
+    db.collection('warehouseSales').where('inventory_session_id','==',sessId).get()
   ]).then(function(res){
     return {
       entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
@@ -6192,20 +6204,25 @@ function loadSessionDetails(sessId) {
       cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      session: res[5].exists ? res[5].data() : {}
+      session: res[5].exists ? res[5].data() : {},
+sales: res[6].docs.map(function(d){return Object.assign({id:d.id},d.data());})
     };
   });
 }
 function renderReport(det,sessId) {
   var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
 var withdrawals = det.withdrawals || [];
+var sales = det.sales || [];
+var salesMap = {};
+sales.forEach(function(s) {
+  salesMap[s.item_name] = Number(s.quantity || 0);
+});
 var sessionData = det.session || {};
   var accMap={}, invMap={};
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
 
-  var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>النهائي</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';
-  var hasAcc=false;
+var itemsHtml='<table class="rpt-table"><thead><tr><th>الصنف</th><th>A</th><th>B</th><th>النهائي</th><th>المبيعات</th><th>المحاسبي</th><th>الفرق</th></tr></thead><tbody>';  var hasAcc=false;
   S.items.forEach(function(item){
     var rawA = invMap[item.id] ? invMap[item.id].A : undefined;
 var rawB = invMap[item.id] ? invMap[item.id].B : undefined;
@@ -6217,15 +6234,16 @@ var tot = rawB !== undefined && rawB !== '' ? qB : qA;
 var acc = accMap[item.id];
 
 if(acc!==undefined) hasAcc=true;
+var saleQty = salesMap[item.name] || 0;
 
 var diff=(acc!==undefined)?tot-acc:null;
     var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
     var dA=invMap[item.id]&&invMap[item.id].A!==''?invMap[item.id].A:'-';
     var dB=invMap[item.id]&&invMap[item.id].B!==''?invMap[item.id].B:'-';
     itemsHtml+='<tr><td style="text-align:right;font-size:11px;">'+item.name+'</td><td>'+dA+'</td><td>'+dB+'</td><td><strong>'+tot+'</strong></td>'+
-      '<td><input class="acc-inp" value="'+(acc!==undefined?acc:'')+'" placeholder="-" onchange="saveAccQty(\''+sessId+'\',\''+item.id+'\',this.value)"></td>'+
-      '<td>'+dHtml+'</td></tr>';
-  });
+  '<td><strong style="color:var(--gold);">'+saleQty+'</strong></td>'+
+  '<td><input class="acc-inp" value="'+(acc!==undefined?acc:'')+'" placeholder="-" onchange="saveAccQty(\''+sessId+'\',\''+item.id+'\',this.value)"></td>'+
+  '<td>'+dHtml+'</td></tr>';  });
   itemsHtml+='</tbody></table>';
 
   var expMapAB={A:{},B:{}};
