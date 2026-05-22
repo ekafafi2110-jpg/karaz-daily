@@ -1220,6 +1220,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
 
     <div id="openingStockSection" style="display:none;">
       <h3>الرصيد الافتتاحي</h3>
+      <select id="openingStockType" class="input">
+  <option value="shop">رصيد افتتاحي للمحل</option>
+  <option value="warehouse">رصيد افتتاحي للمستودع</option>
+</select>
       <select id="openingItemName" class="input">
         <option value="">اختر الصنف</option>
       </select>
@@ -4604,6 +4608,51 @@ function sortCashExpensesByAmount() {
 
   filterCashExpensesTable();
 }
+
+function hideWarehouseSections() {
+  [
+    'openingStockSection',
+    'warehouseSalesSection',
+    'warehouseSalesLogSection',
+    'warehouseBalanceSection',
+    'adminWithdrawalsSection',
+    'warehousePurchaseSection'
+  ].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function setAdminTabActive(tab) {
+  var home = document.getElementById('adminTabHome');
+  var warehouse = document.getElementById('adminTabWarehouse');
+  var cash = document.getElementById('adminTabCash');
+
+  if (home) home.classList.remove('active');
+  if (warehouse) warehouse.classList.remove('active');
+  if (cash) cash.classList.remove('active');
+
+  if (tab === 'home' && home) home.classList.add('active');
+  if (tab === 'warehouse' && warehouse) warehouse.classList.add('active');
+  if (tab === 'cash' && cash) cash.classList.add('active');
+}
+function showOpeningStockForm() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+
+  var section = document.getElementById('openingStockSection');
+  var isOpen = section && section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) return;
+
+  if (section) {
+    section.style.display = 'block';
+  }
+
+  loadOpeningItems();
+}
 function showWarehouseAdmin() {
   closeModal();
   setAdminTabActive('warehouse');
@@ -5399,6 +5448,20 @@ html += '</tbody></table>';
     });
     
 }
+function showOpeningStockForm() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+
+  var section = document.getElementById('openingStockSection');
+  var isOpen = section && section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) return;
+
+  section.style.display = 'block';
+  loadOpeningItems();
+}
 function loadOpeningItems() {
   var select = document.getElementById('openingItemName');
   if (!select) return;
@@ -5442,7 +5505,12 @@ function saveOpeningStock() {
     return;
   }
 
-  db.collection('warehouseOpeningStock')
+  var openingType = document.getElementById('openingStockType').value;
+var openingCollection = openingType === 'shop'
+  ? 'shopOpeningStock'
+  : 'warehouseOpeningStock';
+
+db.collection(openingCollection)
     .doc(itemName)
     .set({
 
