@@ -5531,8 +5531,6 @@ var warehouseOpeningMap = {};
 var shopOpeningMap = {};
 var purchasesMap = {};
 var withdrawalsMap = {};
-var todayWithdrawalsMap = {};
-var todaySalesMap = {};
 var shopMap = {};
 db.collection('items').get()
   .then(function(itemsSnap) {
@@ -5602,7 +5600,7 @@ db.collection('items').get()
       return db.collection('stockWithdrawals').get();
     })
     .then(function(withdrawSnap) {
-      withdrawSnap.docs.forEach(function(d) {
+    withdrawSnap.docs.forEach(function(d) {
   var x = d.data() || {};
   var name = x.item_name || '';
   if (!name) return;
@@ -5610,32 +5608,10 @@ db.collection('items').get()
   var qty = Number(x.quantity || 0);
 
   withdrawalsMap[name] = (withdrawalsMap[name] || 0) + qty;
-
-  if (x.created_at && x.created_at.toDate) {
-    var dateKey = x.created_at.toDate().toISOString().split('T')[0];
-
-    if (dateKey === S.workDate) {
-      todayWithdrawalsMap[name] = (todayWithdrawalsMap[name] || 0) + qty;
-    }
-  }
-
   itemsMap[name] = true;
 });
-      return db.collection('warehouseSales')
-  .where('work_date', '==', S.workDate)
-  .get();
-    })
-    .then(function(salesSnap) {
-      salesSnap.docs.forEach(function(d) {
-        var x = d.data() || {};
-        var name = x.item_name || '';
-        if (!name) return;
 
-        todaySalesMap[name] = (todaySalesMap[name] || 0) + Number(x.quantity || 0);
-        itemsMap[name] = true;
-      });
-
-      return loadTodayShopInventory();
+return loadTodayShopInventory();
     })
     .then(function(shopResult) {
 
@@ -5653,29 +5629,20 @@ Object.keys(itemsMap).sort().forEach(function(name) {
 var shopOpening = shopOpeningMap[name] || 0;
 var purchases = purchasesMap[name] || 0;
 var withdrawals = withdrawalsMap[name] || 0;
-var todayWithdrawals = todayWithdrawalsMap[name] || 0;
-var todaySales = todaySalesMap[name] || 0;
-
-var actualShopBalance = shopMap[name] || 0;
 
 var warehouseBalance = warehouseOpening + purchases - withdrawals;
-var accountingBalance = shopOpening + todayWithdrawals - todaySales;
-var difference = actualShopBalance - accountingBalance;
+var shopBalance = shopOpening + (shopMap[name] || 0);
 
-var shopBalance = actualShopBalance;
-var totalBalance = warehouseBalance + shopBalance;
-  warehouseBalanceItems.push({
+var totalBalance = warehouseBalance + shopBalance; 
+
+warehouseBalanceItems.push({
     name: name,
     category: meta.category || 'العبوات',
     unit: meta.unit || '',
-    shopOpening: shopOpening,
-todayWithdrawals: todayWithdrawals,
-todaySales: todaySales,
-accountingBalance: accountingBalance,
-shopBalance: shopBalance,
-difference: difference,
+    shopBalance: shopBalance,
 warehouseBalance: warehouseBalance,
-totalBalance: totalBalance  });
+totalBalance: totalBalance
+});
 });
 
 if (!warehouseBalanceItems.length) {
@@ -5767,13 +5734,11 @@ function renderWarehouseBalanceTable() {
         '<thead>' +
           '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
            '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">افتتاحي المحل</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">سحوبات اليوم</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">مبيعات اليوم</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">المحاسبي</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">الفعلي</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">الفرق</th>' +
-'<th style="padding:10px;border-bottom:1px solid #333;">المستودع</th>' +          '</tr>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">الوحدة</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">المحل</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">المستودع</th>' +
+'<th style="padding:10px;border-bottom:1px solid #333;">الإجمالي</th>' +
+'</tr>' +
         '</thead>' +
         '<tbody>';
 
@@ -5781,13 +5746,11 @@ function renderWarehouseBalanceTable() {
     html +=
       '<tr style="border-bottom:1px solid #2a2a2a;">' +
         '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + item.name + '</td>' +
-'<td style="padding:10px;font-weight:800;">' + item.shopOpening + '</td>' +
-'<td style="padding:10px;font-weight:800;">' + item.todayWithdrawals + '</td>' +
-'<td style="padding:10px;font-weight:800;">' + item.todaySales + '</td>' +
-'<td style="padding:10px;font-weight:900;color:var(--gold);">' + item.accountingBalance + '</td>' +
-'<td style="padding:10px;font-weight:900;">' + item.shopBalance + '</td>' +
-'<td style="padding:10px;font-weight:900;color:' + (item.difference === 0 ? 'var(--ok)' : 'var(--red)') + ';">' + item.difference + '</td>' +
-'<td style="padding:10px;font-weight:800;">' + item.warehouseBalance + '</td>' +      '</tr>';
+'<td style="padding:10px;color:var(--text2);">' + (item.unit || '-') + '</td>' +
+'<td style="padding:10px;font-weight:800;">' + item.shopBalance + '</td>' +
+'<td style="padding:10px;font-weight:800;">' + item.warehouseBalance + '</td>' +
+'<td style="padding:10px;font-weight:900;color:var(--gold);">' + item.totalBalance + '</td>' +
+'</tr>';
   });
 
   html +=
@@ -6838,13 +6801,27 @@ html +=
 }
 
 function openSessDet(sessId) {
-  setModal('تفاصيل - '+fmtDate(sessId.replace('ALMAZLOUB-','')));
+  setModal('تفاصيل الجرد');
   showLoad('جاري التحميل...');
+
   loadSessionDetails(sessId)
-    .then(function(det){ document.getElementById('modalBody').innerHTML=renderReport(det,sessId); hideLoad(); })
-    .catch(function(e){ document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-txt">خطا في التحميل</div></div>'; hideLoad(); console.error(e); });
-}
-function openCashExpenseOnly(sessId) {
+    .then(function(det) {
+      hideLoad();
+
+      document.getElementById('modalBody').innerHTML =
+        renderReport(det, sessId) +
+        '<button class="wa-btn" style="margin-top:12px;" onclick="showInventoryDifferenceReport(\'' + sessId + '\')">' +
+          'تقرير الفروقات' +
+        '</button>';
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-txt">خطأ في التحميل</div></div>';
+    });
+}function openCashExpenseOnly(sessId) {
   setModal('الكاش والمصاريف فقط');
   showLoad('جاري تحميل الكاش والمصاريف...');
 
@@ -7026,17 +7003,45 @@ function openPendingSessDet(sessId) {
       hideLoad();
 
       document.getElementById('modalBody').innerHTML =
-        renderReport(det, sessId) +
-        '<button class="wa-btn" onclick="approveSessionToArchive(\'' + sessId + '\')">' +
-          'حفظ واعتماد الجرد في السجل' +
-        '</button>' +
-        '<div id="dailyArchiveMsg"></div>';
-    })
+  renderReport(det, sessId) +
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">' +
+    '<button class="wa-btn" onclick="showInventoryDifferenceReport(\'' + sessId + '\')">' +
+      'تقرير الفروقات' +
+    '</button>' +
+    '<button class="wa-btn" onclick="approveSessionToArchive(\'' + sessId + '\')">' +
+      'حفظ واعتماد الجرد في السجل' +
+    '</button>' +
+  '</div>' +
+  '<div id="dailyArchiveMsg"></div>';    })
     .catch(function(e) {
       hideLoad();
       console.error(e);
       document.getElementById('modalBody').innerHTML =
         '<div class="empty">حدث خطأ أثناء فتح تفاصيل الجرد</div>';
+    });
+}
+
+function showInventoryDifferenceReport(sessId) {
+  setModal('تقرير فروقات الجرد');
+  showLoad('جاري تحميل تقرير الفروقات...');
+
+  loadSessionDetails(sessId)
+    .then(function(det) {
+      hideLoad();
+
+      document.getElementById('modalBody').innerHTML =
+        '<div class="detail-sec">' +
+          '<div class="sec-title">تقرير فروقات الجرد</div>' +
+          '<div class="empty">سيتم هنا عرض: الافتتاحي + السحوبات - المبيعات = المحاسبي، ثم مقارنة الفعلي مع المحاسبي.</div>' +
+          '<button class="wa-btn" style="margin-top:12px;" onclick="openSessDet(\'' + sessId + '\')">رجوع لتفاصيل الجرد</button>' +
+        '</div>';
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+
+      document.getElementById('modalBody').innerHTML =
+        '<div class="empty">حدث خطأ أثناء تحميل تقرير الفروقات</div>';
     });
 }
 function approveSessionToArchive(sessId) {
