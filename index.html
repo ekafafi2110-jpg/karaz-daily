@@ -1139,9 +1139,9 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     </button>
 
     <button onclick="showWarehousePurchaseForm()" class="warehouse-card-btn">
-      <div class="warehouse-card-title">مشتريات المستودع</div>
-      <div class="warehouse-card-icon">🧾</div>
-    </button>
+  <div class="warehouse-card-title">المبيعات</div>
+  <div class="warehouse-card-icon">🧾</div>
+</button>
 
     <div id="openingStockSection" style="display:none;">
       <h3>الرصيد الافتتاحي</h3>
@@ -1154,6 +1154,17 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
       </button>
       <div id="openingStockMsg"></div>
     </div>
+
+    <div id="warehouseSalesSection" style="display:none;">
+  <h3>المبيعات</h3>
+  <div id="warehouseSalesTable"></div>
+
+  <button onclick="saveWarehouseSales()" class="warehouse-action-btn">
+    حفظ المبيعات
+  </button>
+
+  <div id="warehouseSalesMsg"></div>
+</div>
 
     <div id="warehouseBalanceSection" style="display:none;">
       <h3>رصيد الأصناف</h3>
@@ -2053,6 +2064,8 @@ function hideWarehouseSections() {
   document.getElementById('warehouseBalanceSection').style.display = 'none';
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
+  var sales = document.getElementById('warehouseSalesSection');
+if (sales) sales.style.display = 'none';
 }
 function toggleWarehouseSection(sectionId, loadFn) {
   var section = document.getElementById(sectionId);
@@ -4301,6 +4314,82 @@ function loadPurchaseItems() {
         select.innerHTML += '<option value="' + (x.name || '') + '">' + (x.name || '') + '</option>';
       });
     });
+}
+
+function showWarehouseSalesForm() {
+  document.querySelector('.mgr-grid').style.display = 'none';
+  document.getElementById('warehouseAdminSection').style.display = 'block';
+
+  var section = document.getElementById('warehouseSalesSection');
+  var isOpen = section && section.style.display === 'block';
+
+  hideWarehouseSections();
+
+  if (isOpen) return;
+
+  section.style.display = 'block';
+  loadWarehouseSalesItems();
+}
+
+function loadWarehouseSalesItems() {
+  var box = document.getElementById('warehouseSalesTable');
+  if (!box) return;
+
+  box.innerHTML = 'جاري تحميل الأصناف...';
+
+  db.collection('items')
+    .get()
+    .then(function(snap) {
+      var html = '<div class="table-wrap"><table class="mini-table">';
+      html += '<thead><tr><th>الصنف</th><th>مبيعات اليوم</th></tr></thead><tbody>';
+
+      snap.docs.forEach(function(d) {
+        var x = d.data();
+        var name = x.name || '';
+        if (!name) return;
+
+        html += '<tr>';
+        html += '<td>' + name + '</td>';
+        html += '<td><input class="input warehouse-sale-input" type="number" min="0" data-item="' + name + '" placeholder="0"></td>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      box.innerHTML = html;
+    });
+}
+
+function saveWarehouseSales() {
+  var inputs = document.querySelectorAll('.warehouse-sale-input');
+  var batch = db.batch();
+  var count = 0;
+
+  inputs.forEach(function(inp) {
+    var qty = parseFloat(inp.value || '0');
+    var item = inp.getAttribute('data-item') || '';
+
+    if (!item || qty <= 0) return;
+
+    var ref = db.collection('warehouseSales').doc(S.workDate + '_' + item);
+    batch.set(ref, {
+      work_date: S.workDate,
+      item_name: item,
+      quantity: qty,
+      created_by: S.user.uid,
+      updated_at: FS.serverTimestamp()
+    }, { merge: true });
+
+    count++;
+  });
+
+  if (count === 0) {
+    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="error">أدخل مبيعات صنف واحد على الأقل</div>';
+    return;
+  }
+
+  batch.commit().then(function() {
+    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="ok">تم حفظ المبيعات</div>';
+  });
 }
 function showOpeningStockForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
