@@ -2392,6 +2392,24 @@ function delWithdrawal(docId) {
     });
 }
 
+function restoreWarehouseSections() {
+  var home = document.querySelector('#warehouseAdminSection .warehouse-box');
+  if (!home) return;
+
+  [
+    'openingStockSection',
+    'warehouseBalanceSection',
+    'adminWithdrawalsSection',
+    'warehouseSalesSection',
+    'warehouseSalesLogSection'
+  ].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.parentElement && el.parentElement.id === 'modalBody') {
+      el.style.display = 'none';
+      home.appendChild(el);
+    }
+  });
+}
 function hideWarehouseSections() {
   document.getElementById('openingStockSection').style.display = 'none';
   document.getElementById('warehouseBalanceSection').style.display = 'none';
@@ -4637,7 +4655,9 @@ function setAdminTabActive(tab) {
   if (tab === 'cash' && cash) cash.classList.add('active');
 }
 function showOpeningStockForm() {
+  restoreWarehouseSections();
   var grid = document.querySelector('.mgr-grid');
+
   var admin = document.getElementById('warehouseAdminSection');
   var section = document.getElementById('openingStockSection');
 
@@ -4709,35 +4729,43 @@ function loadPurchaseItems() {
 }
 
 function showWarehouseSalesForm() {
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
-
+  restoreWarehouseSections();
   var section = document.getElementById('warehouseSalesSection');
-  var isOpen = section && section.style.display === 'block';
+  if (!section) return;
 
   hideWarehouseSections();
 
-  if (isOpen) return;
-
   section.style.display = 'block';
+
+  setModal('المبيعات');
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
+
+  openModal();
+
   loadWarehouseSalesItems();
 }
-
 function showWarehouseSalesLog() {
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
-
+  restoreWarehouseSections();
   var section = document.getElementById('warehouseSalesLogSection');
-  var isOpen = section && section.style.display === 'block';
+  if (!section) return;
 
   hideWarehouseSections();
 
-  if (isOpen) return;
-
   section.style.display = 'block';
+
+  setModal('سجل المبيعات');
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
+
+  openModal();
+
   loadWarehouseSalesLog();
 }
-
 function loadWarehouseSalesLog() {
   var box = document.getElementById('warehouseSalesLogList');
   if (!box) return;
@@ -5333,23 +5361,26 @@ function archiveDailyInventoryAndReset(snapshotId) {
 
 
 function showWarehouseBalance() {
+  restoreWarehouseSections();
     console.log('SHOW WAREHOUSE BALANCE START');
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
-  var section = document.getElementById('warehouseBalanceSection');
-  var isOpen = section && section.style.display === 'block';
 
-  hideWarehouseSections();
+var section = document.getElementById('warehouseBalanceSection');
+if (!section) return;
 
-  if (isOpen) return;
-  document.getElementById('adminWithdrawalsSection').style.display = 'none';
-  document.getElementById('warehousePurchaseSection').style.display = 'none';
-  document.getElementById('openingStockSection').style.display = 'none';
-  document.getElementById('warehouseBalanceSection').style.display = 'block';
+hideWarehouseSections();
 
-  var list = document.getElementById('warehouseBalanceList');
-  list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
+section.style.display = 'block';
 
+setModal('رصيد الأصناف');
+
+var modalBody = document.getElementById('modalBody');
+modalBody.innerHTML = '';
+modalBody.appendChild(section);
+
+openModal();
+
+var list = document.getElementById('warehouseBalanceList');
+list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
   var itemsMap = {};
   var openingMap = {};
   var purchasesMap = {};
@@ -5466,19 +5497,24 @@ html += '</tbody></table>';
     
 }
 function showOpeningStockForm() {
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
-
   var section = document.getElementById('openingStockSection');
-  var isOpen = section && section.style.display === 'block';
+  if (!section) return;
 
   hideWarehouseSections();
 
-  if (isOpen) return;
-
   section.style.display = 'block';
+
+  setModal('الرصيد الافتتاحي');
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
+
+  openModal();
+
   loadOpeningItems();
 }
+
 function loadOpeningItems() {
   var select = document.getElementById('openingItemName');
   if (!select) return;
@@ -5593,20 +5629,23 @@ function saveWarehousePurchase() {
 }
 
 function showAdminWithdrawals() {
-  document.querySelector('.mgr-grid').style.display = 'none';
-  document.getElementById('warehouseAdminSection').style.display = 'block';
+  restoreWarehouseSections();
   var section = document.getElementById('adminWithdrawalsSection');
-  var isOpen = section && section.style.display === 'block';
+  if (!section) return;
 
   hideWarehouseSections();
 
-  if (isOpen) return;
-  document.getElementById('adminWithdrawalsSection').style.display = 'block';
-  document.getElementById('warehousePurchaseSection').style.display = 'none';
-  document.getElementById('warehouseBalanceSection').style.display = 'none';
+  section.style.display = 'block';
+
+  setModal('سجل سحوبات المستودع');
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
+
+  openModal();
 
   var box = document.getElementById("adminWithdrawalsList");
-
   box.innerHTML =
     '<div class="exp-form">' +
       '<div class="sec-title">بحث في سجل سحوبات المستودع</div>' +
