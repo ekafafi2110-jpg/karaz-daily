@@ -882,6 +882,76 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   text-align: left !important;
 }
 
+#warehouseSalesSection {
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 20px;
+  padding: 18px;
+  margin: 18px 0 22px;
+}
+
+#warehouseSalesSection h3 {
+  color: #f0c400;
+  text-align: center;
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+
+#warehouseSalesSection .table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#warehouseSalesSection .mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #141414;
+  border: 1px solid #333;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+#warehouseSalesSection .mini-table th,
+#warehouseSalesSection .mini-table td {
+  padding: 10px 8px;
+  text-align: center;
+  border-bottom: 1px solid #252525;
+  color: #fff;
+  font-size: 14px;
+}
+
+#warehouseSalesSection .mini-table th {
+  color: #f0c400;
+  background: #181818;
+  font-weight: 900;
+}
+
+#warehouseSalesSection .mini-table td:first-child {
+  text-align: right;
+  font-weight: 800;
+}
+
+#warehouseSalesSection .warehouse-sale-input {
+  width: 86px;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #3a3a3a;
+  border-radius: 14px;
+  padding: 10px 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  outline: none;
+}
+
+#warehouseSalesSection .warehouse-sale-input:focus {
+  border-color: #f0c400;
+}
+
+#warehouseSalesSection .warehouse-action-btn {
+  margin-top: 14px;
+}
 </style>
 </style>
 </head>
@@ -1138,7 +1208,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
       <div class="warehouse-card-icon">📦</div>
     </button>
 
-    <button onclick="showWarehousePurchaseForm()" class="warehouse-card-btn">
+   <button onclick="showWarehouseSalesForm()" class="warehouse-card-btn">
   <div class="warehouse-card-title">المبيعات</div>
   <div class="warehouse-card-icon">🧾</div>
 </button>
@@ -1164,6 +1234,10 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   </button>
 
   <div id="warehouseSalesMsg"></div>
+</div>
+<div id="warehouseSalesLogSection" style="display:none;">
+  <h3>سجل المبيعات</h3>
+  <div id="warehouseSalesLogList"></div>
 </div>
 
     <div id="warehouseBalanceSection" style="display:none;">
@@ -1281,7 +1355,9 @@ var S = {
   invData:{}, expenses:[], cashData:{},
   invImgs:[], posImgs:[],
   curItemIdx:0,
-pendingSessionsForB:[]
+pendingSessionsForB:[],
+currentSalesSessionId:null,
+currentSalesSessionData:null
 };
 function makeTrackingId(workDate) {
   var now = new Date();
@@ -2064,6 +2140,8 @@ function hideWarehouseSections() {
   document.getElementById('warehouseBalanceSection').style.display = 'none';
   document.getElementById('adminWithdrawalsSection').style.display = 'none';
   document.getElementById('warehousePurchaseSection').style.display = 'none';
+  var salesLog = document.getElementById('warehouseSalesLogSection');
+if (salesLog) salesLog.style.display = 'none';
   var sales = document.getElementById('warehouseSalesSection');
 if (sales) sales.style.display = 'none';
 }
@@ -4335,22 +4413,42 @@ function loadWarehouseSalesItems() {
   var box = document.getElementById('warehouseSalesTable');
   if (!box) return;
 
-  box.innerHTML = 'جاري تحميل الأصناف...';
+  S.currentSalesSessionId = null;
+  S.currentSalesSessionData = null;
 
-  db.collection('items')
+  box.innerHTML = 'جاري تحميل الجردات التي تحتاج مبيعات...';
+
+  db.collection('inventorySessions')
+    .where('work_date', '==', S.workDate)
     .get()
-    .then(function(snap) {
+    .then(function(sessionSnap) {
+      var pending = [];
+
+      sessionSnap.docs.forEach(function(d) {
+        var s = d.data() || {};
+
+        if (s.sales_done === true) return;
+
+        pending.push({
+          id: d.id,
+          data: s
+        });
+      });
+
+      if (pending.length === 0) {
+        box.innerHTML = '<div class="empty">لا توجد جردات بحاجة إلى إدخال مبيعات</div>';
+        return;
+      }
+
       var html = '<div class="table-wrap"><table class="mini-table">';
-      html += '<thead><tr><th>الصنف</th><th>مبيعات اليوم</th></tr></thead><tbody>';
+      html += '<thead><tr><th>رقم الجرد</th><th>الشفت</th><th>إدخال</th></tr></thead><tbody>';
 
-      snap.docs.forEach(function(d) {
-        var x = d.data();
-        var name = x.name || '';
-        if (!name) return;
-
+      pending.forEach(function(row) {
+        var shift = row.data.shift || '-';
         html += '<tr>';
-        html += '<td>' + name + '</td>';
-        html += '<td><input class="input warehouse-sale-input" type="number" min="0" data-item="' + name + '" placeholder="0"></td>';
+        html += '<td>' + row.id + '</td>';
+        html += '<td>' + shift + '</td>';
+        html += '<td><button class="nav-btn primary" onclick="openWarehouseSalesSession(\'' + row.id + '\')">فتح</button></td>';
         html += '</tr>';
       });
 
@@ -4359,38 +4457,111 @@ function loadWarehouseSalesItems() {
     });
 }
 
+function openWarehouseSalesSession(sessionId) {
+  var box = document.getElementById('warehouseSalesTable');
+  if (!box) return;
+
+  box.innerHTML = 'جاري فتح مبيعات الجرد...';
+
+  Promise.all([
+    db.collection('inventorySessions').doc(sessionId).get(),
+    db.collection('items').get(),
+    db.collection('warehouseSales')
+      .where('inventory_session_id', '==', sessionId)
+      .get()
+  ]).then(function(res) {
+    var sessionDoc = res[0];
+    var itemsSnap = res[1];
+    var salesSnap = res[2];
+
+    if (!sessionDoc.exists) {
+      box.innerHTML = '<div class="error">لم يتم العثور على الجرد</div>';
+      return;
+    }
+
+    S.currentSalesSessionId = sessionId;
+    S.currentSalesSessionData = sessionDoc.data() || {};
+
+    var oldSales = {};
+    salesSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      oldSales[x.item_name] = parseFloat(x.quantity || 0);
+    });
+
+    var html = '<div class="empty">رقم الجرد: ' + sessionId + '</div>';
+    html += '<div class="table-wrap"><table class="mini-table">';
+    html += '<thead><tr><th>الصنف</th><th>مبيعات اليوم</th></tr></thead><tbody>';
+
+    itemsSnap.docs.forEach(function(d) {
+      var x = d.data() || {};
+      var name = x.name || '';
+      if (!name) return;
+
+      var oldQty = oldSales[name] || '';
+
+      html += '<tr>';
+      html += '<td>' + name + '</td>';
+      html += '<td><input class="warehouse-sale-input" type="number" min="0" inputmode="decimal" data-item="' + name + '" value="' + oldQty + '" placeholder="0"></td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    box.innerHTML = html;
+  });
+}
 function saveWarehouseSales() {
+  if (!S.currentSalesSessionId) {
+    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="error">افتح رقم جرد أولًا قبل الحفظ</div>';
+    return;
+  }
+
   var inputs = document.querySelectorAll('.warehouse-sale-input');
   var batch = db.batch();
   var count = 0;
+  var totalQty = 0;
 
   inputs.forEach(function(inp) {
     var qty = parseFloat(inp.value || '0');
     var item = inp.getAttribute('data-item') || '';
 
-    if (!item || qty <= 0) return;
+    if (!item) return;
+    if (isNaN(qty) || qty < 0) qty = 0;
 
-    var ref = db.collection('warehouseSales').doc(S.workDate + '_' + item);
+    var ref = db.collection('warehouseSales').doc(S.currentSalesSessionId + '_' + item);
+
     batch.set(ref, {
       work_date: S.workDate,
+      inventory_session_id: S.currentSalesSessionId,
+      shift: S.currentSalesSessionData && S.currentSalesSessionData.shift ? S.currentSalesSessionData.shift : '',
       item_name: item,
       quantity: qty,
       created_by: S.user.uid,
+      updated_by: S.user.uid,
       updated_at: FS.serverTimestamp()
     }, { merge: true });
 
-    count++;
+    if (qty > 0) {
+      count++;
+      totalQty += qty;
+    }
   });
 
-  if (count === 0) {
-    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="error">أدخل مبيعات صنف واحد على الأقل</div>';
-    return;
-  }
+  var sessionRef = db.collection('inventorySessions').doc(S.currentSalesSessionId);
+  batch.set(sessionRef, {
+    sales_done: true,
+    sales_total_qty: totalQty,
+    sales_updated_by: S.user.uid,
+    sales_updated_at: FS.serverTimestamp()
+  }, { merge: true });
 
   batch.commit().then(function() {
-    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="ok">تم حفظ المبيعات</div>';
+    document.getElementById('warehouseSalesMsg').innerHTML = '<div class="ok">تم حفظ مبيعات الجرد وترحيلها للسجل</div>';
+    S.currentSalesSessionId = null;
+    S.currentSalesSessionData = null;
+    loadWarehouseSalesItems();
   });
 }
+
 function showOpeningStockForm() {
   document.querySelector('.mgr-grid').style.display = 'none';
   document.getElementById('warehouseAdminSection').style.display = 'block';
