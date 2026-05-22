@@ -1360,6 +1360,8 @@ var S = {
   invData:{}, expenses:[], cashData:{},
   invImgs:[], posImgs:[],
   curItemIdx:0,
+activeCategory:'',
+  
 pendingSessionsForB:[],
 currentSalesSessionId:null,
 currentSalesSessionData:null
@@ -1637,55 +1639,100 @@ if (snap.empty) {
   });
 }
 function upgradeExistingItemsCategories() {
-  var itemMeta = {
-    'علب أسود': ['العبوات','حبة',10],
-    'علب فلين': ['العبوات','حبة',10],
-    'كاسات صغير': ['العبوات','حبة',10],
-    'كاسات وسط': ['العبوات','حبة',10],
-    'كاسات كبير': ['العبوات','حبة',10],
-    'لتر': ['العبوات','حبة',5],
-    'بسكويت بوظة': ['العبوات','حبة',10],
-    'علب بوظة صغير': ['العبوات','حبة',10],
-    'علب بوظة كبير': ['العبوات','حبة',10],
-    'علب صحن': ['العبوات','حبة',5],
-    'شاورما سوبر': ['العبوات','حبة',5],
-    'بيج / سموثي': ['العبوات','حبة',5],
-    'أسود مدور': ['العبوات','حبة',10],
-    'بلاستيك شفاف': ['العبوات','حبة',10],
-    'سفن': ['المشروبات','حبة',10],
-    'بي ام': ['المشروبات','حبة',10],
-    'بوب بوم': ['المشروبات','حبة',10],
-    'ريد بول': ['المشروبات','حبة',3],
-    'مكسرات': ['المواد الخام','كجم',0.5],
-    'عجين وافل': ['المواد الخام','كجم',1],
-    'عجين كريب': ['المواد الخام','كجم',1]
-  };
+  var requiredItems = [
+    ['علب أسود','العبوات','حبة',10], ['علب فلين','العبوات','حبة',10],
+    ['كاسات صغير','العبوات','حبة',10], ['كاسات وسط','العبوات','حبة',10],
+    ['كاسات كبير','العبوات','حبة',10], ['لتر','العبوات','حبة',5],
+    ['بسكويت بوظة','العبوات','حبة',10], ['علب بوظة صغير','العبوات','حبة',10],
+    ['علب بوظة كبير','العبوات','حبة',10], ['علب صحن','العبوات','حبة',5],
+    ['شاورما سوبر','العبوات','حبة',5], ['سوشي','العبوات','حبة',5],
+    ['أسود مدور','العبوات','حبة',10], ['بلاستيك شفاف','العبوات','حبة',10],
+    ['كاسات سخن','العبوات','حبة',10], ['شلمون','العبوات','حبة',2],
+    ['أكياس بسطة','العبوات','كجم',1], ['شوك+سكاكين','العبوات','ربطة',3],
+    ['حمالات ثنائية','العبوات','حبة',2], ['حمالات رباعية','العبوات','حبة',2],
+    ['معالق تذوق','العبوات','باكيت',1], ['كاسات أبيض بلاستيك','العبوات','حبة',5],
+    ['رول كاش','العبوات','حبة',2], ['ستيك خشب','العبوات','حبة',2],
+
+    ['سفن','المشروبات','حبة',10], ['بي ام','المشروبات','حبة',10],
+    ['XL','المشروبات','حبة',10], ['ريد بول','المشروبات','حبة',3],
+    ['بوب بوم','المشروبات','حبة',10],
+
+    ['نوتيلا 20كغ','المواد الخام','كجم',2],
+    ['شوكولاته بيضاء 5كغ','المواد الخام','كجم',1],
+    ['شوكولاته لوتس 5كغ','المواد الخام','كجم',1],
+    ['شوكولاته بستاشيو 5كغ','المواد الخام','كجم',1],
+    ['فارماسيل','المواد الخام','كجم',1],
+    ['كرنش','المواد الخام','كجم',0.5],
+    ['بسكويت لوتس حب','المواد الخام','باكيت',1],
+    ['بسكويت لوتس برش','المواد الخام','كجم',0.5],
+    ['سيرب كاراميل','المواد الخام','كجم',1],
+    ['سيرب فراولة','المواد الخام','كجم',1],
+    ['كاجو كسر','المواد الخام','كجم',0.5],
+    ['مكسرات','المواد الخام','كجم',0.5],
+    ['عجين وافل','المواد الخام','كجم',1],
+    ['عجين كريب','المواد الخام','كجم',1],
+    ['شعرية باكستانية','المواد الخام','باكيت',2],
+    ['حليب','المواد الخام','لتر',2],
+    ['زبدة قوالب','المواد الخام','قالب',1],
+    ['زبدة رش','المواد الخام','علبة',1],
+    ['فانيلا','المواد الخام','كجم',0.5],
+    ['باكنج باودر','المواد الخام','كجم',0.5],
+    ['نشا','المواد الخام','كجم',1],
+    ['طحين','المواد الخام','كجم',2],
+    ['مانجا','المواد الخام','علبة',2],
+    ['جوافة','المواد الخام','علبة',1],
+    ['فروزين','المواد الخام','علبة',1],
+
+    ['سنكرز','البسكويت','حبة',5], ['توكس','البسكويت','حبة',3],
+    ['فليك','البسكويت','حبة',3], ['ماجستو','البسكويت','حبة',2],
+    ['كيندر','البسكويت','حبة',5], ['كيت كات','البسكويت','حبة',5],
+    ['مارشميلو','البسكويت','حبة',5], ['فيريرو','البسكويت','حبة',3],
+    ['أوريو','البسكويت','حبة',3], ['باونتي','البسكويت','حبة',2],
+    ['مالتيزر','البسكويت','حبة',2],
+
+    ['عربية','البوظة','علبة',1], ['تشيز كيك','البوظة','علبة',1],
+    ['فراولة','البوظة','علبة',1], ['ليمون','البوظة','علبة',1],
+    ['علكة','البوظة','علبة',1]
+  ];
 
   return db.collection('items').get().then(function(snap) {
     var batch = db.batch();
-    var changed = 0;
+    var existing = {};
+    var sort = 0;
 
     snap.docs.forEach(function(d) {
       var x = d.data();
-      if (x.category) return;
-
-      var meta = itemMeta[x.name] || ['العبوات','حبة',5];
-
-      batch.update(d.ref, {
-        category: meta[0],
-        unit: meta[1],
-        minQty: meta[2],
-        updated_at: FS.serverTimestamp()
-      });
-
-      changed++;
+      existing[x.name] = d.ref;
     });
 
-    if (!changed) return null;
+    requiredItems.forEach(function(row) {
+      var name = row[0], category = row[1], unit = row[2], minQty = row[3];
+
+      if (existing[name]) {
+        batch.update(existing[name], {
+          category: category,
+          unit: unit,
+          minQty: minQty,
+          sort_order: sort++,
+          active: true,
+          updated_at: FS.serverTimestamp()
+        });
+      } else {
+        batch.set(db.collection('items').doc(), {
+          name: name,
+          category: category,
+          unit: unit,
+          minQty: minQty,
+          active: true,
+          sort_order: sort++,
+          created_at: FS.serverTimestamp()
+        });
+      }
+    });
+
     return batch.commit();
   });
 }
-
 function loadItems() {
   return db.collection('items').where('active','==',true).orderBy('sort_order').get()
     .then(function(snap){ S.items=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); });
@@ -1926,19 +1973,64 @@ function switchTab(tab) {
 }
 
 // ==================== INVENTORY ====================
+
+function getItemCategories() {
+  var cats = [];
+  S.items.forEach(function(item) {
+    var c = item.category || 'العبوات';
+    if (cats.indexOf(c) === -1) cats.push(c);
+  });
+  return cats;
+}
+
+function getVisibleItems() {
+  var cats = getItemCategories();
+  if (!S.activeCategory && cats.length) S.activeCategory = cats[0];
+
+  return S.items
+    .map(function(item, idx) {
+      return Object.assign({ _realIndex: idx }, item);
+    })
+    .filter(function(item) {
+      return (item.category || 'العبوات') === S.activeCategory;
+    });
+}
+
+function setInventoryCategory(cat) {
+  S.activeCategory = cat;
+  S.curItemIdx = 0;
+  renderInventory();
+}
 function renderInventory() {
-  var idx=S.curItemIdx;
-  document.getElementById('invTot').textContent=S.items.length;
-  document.getElementById('invCur').textContent=idx+1;
-  var start=Math.floor(idx/2)*2;
-  var html='';
-  for (var i=start; i<Math.min(start+2,S.items.length); i++) {
-    var item=S.items[i];
-    var kA=item.id+'_A', kB=item.id+'_B';
+  var visibleItems = getVisibleItems();
+var idx = S.curItemIdx;
+
+if (idx >= visibleItems.length) {
+  idx = 0;
+  S.curItemIdx = 0;
+}
+
+document.getElementById('invTot').textContent = visibleItems.length;
+document.getElementById('invCur').textContent = visibleItems.length ? idx + 1 : 0;
+
+var cats = getItemCategories();
+var catHtml = '<div style="display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;padding-bottom:4px;">';
+
+cats.forEach(function(cat) {
+  catHtml += '<button type="button" onclick="setInventoryCategory(\'' + cat + '\')" style="white-space:nowrap;border:1px solid ' + (S.activeCategory === cat ? 'var(--gold)' : 'var(--border)') + ';background:' + (S.activeCategory === cat ? 'rgba(212,175,55,.15)' : 'var(--bg3)') + ';color:' + (S.activeCategory === cat ? 'var(--gold)' : 'var(--text)') + ';border-radius:999px;padding:8px 12px;font-family:Cairo;font-weight:900;font-size:12px;">' + cat + '</button>';
+});
+
+catHtml += '</div>';
+
+var start = Math.floor(idx / 2) * 2;
+var html = catHtml;
+
+for (var i = start; i < Math.min(start + 2, visibleItems.length); i++) {
+  var item = visibleItems[i];    var kA=item.id+'_A', kB=item.id+'_B';
     var vA=S.invData[kA] ? S.invData[kA].quantity : '';
     var vB=S.invData[kB] ? S.invData[kB].quantity : '';
     var filled=S.shift==='A' ? vA!=='' : vB!=='';
-    var cur=(i===idx);
+    var cur = (i === idx);
     html+='<div class="item-card'+(filled?' filled':'')+(cur?' current':'')+'" id="ic_'+i+'">'+
       '<div class="item-name">'+item.name+'</div>'+
       '<div class="item-inputs">'+
@@ -1979,23 +2071,37 @@ function onItemInp(itemId,shift,val) {
 }
 
 function renderOvGrid() {
+  var visibleItems = getVisibleItems();
   var html='';
-  S.items.forEach(function(item,i) {
+
+  visibleItems.forEach(function(item,i) {
     var key=item.id+'_'+S.shift;
     var val=S.invData[key] ? S.invData[key].quantity : undefined;
     var ok=(val!==undefined&&val!=='');
+
     html+='<div class="ov-item '+(ok?'filled':'missing')+'" onclick="jumpTo('+i+')">'+
       '<span class="ov-name">'+item.name+'</span>'+
       '<span class="ov-val'+(ok?'':' empty')+'">'+(ok?val:'-')+'</span>'+
     '</div>';
   });
+
   document.getElementById('ovGrid').innerHTML=html;
 }
-
 function jumpTo(i) { S.curItemIdx=i; renderInventory(); document.getElementById('pane-inventory').scrollTop=0; }
-function nextItem() { if(S.curItemIdx<S.items.length-1){S.curItemIdx=Math.min(S.curItemIdx+2,S.items.length-1);renderInventory();} }
-function prevItem() { if(S.curItemIdx>0){S.curItemIdx=Math.max(S.curItemIdx-2,0);renderInventory();} }
+function nextItem() {
+  var visibleItems = getVisibleItems();
+  if (S.curItemIdx < visibleItems.length - 1) {
+    S.curItemIdx = Math.min(S.curItemIdx + 2, visibleItems.length - 1);
+    renderInventory();
+  }
+}
 
+function prevItem() {
+  if (S.curItemIdx > 0) {
+    S.curItemIdx = Math.max(S.curItemIdx - 2, 0);
+    renderInventory();
+  }
+}
 // ==================== EXPENSES ====================
 function renderExpenses() {
   var sel=document.getElementById('expType');
