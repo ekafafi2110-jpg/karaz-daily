@@ -5569,19 +5569,7 @@ db.collection('items').get()
         itemsMap[name] = true;
       });
 
-      return db.collection('warehouseStock').get();
-    })
-    .then(function(stockSnap) {
-      stockSnap.docs.forEach(function(d) {
-        var x = d.data();
-        var name = x.item_name || d.id;
-        if (!name) return;
-
-        purchasesMap[name] = (purchasesMap[name] || 0) + Number(x.qty || 0);
-        itemsMap[name] = true;
-      });
-
-      return db.collection('stockWithdrawals').get();
+            return db.collection('stockWithdrawals').get();
     })
     .then(function(withdrawSnap) {
     withdrawSnap.docs.forEach(function(d) {
@@ -7117,10 +7105,18 @@ function getSessionSortValue(sessionId, sessionData) {
 }
 
 function loadPreviousActualMap(sessId) {
-  var currentSort = getSessionSortValue(sessId, null);
+  var currentSort = 0;
 
-  return db.collection('dailyInventorySnapshots')
+  return db.collection('inventorySessions')
+    .doc(sessId)
     .get()
+    .then(function(currentDoc) {
+      var currentData = currentDoc.exists ? currentDoc.data() : {};
+
+      currentSort = getSessionSortValue(sessId, currentData);
+
+      return db.collection('dailyInventorySnapshots').get();
+    })
     .then(function(snap) {
       var previousDoc = null;
       var previousSort = 0;
@@ -7141,8 +7137,11 @@ function loadPreviousActualMap(sessId) {
       });
 
       if (!previousDoc || !previousDoc.items) {
+        console.log('NO PREVIOUS INVENTORY SNAPSHOT FOUND FOR:', sessId);
         return {};
       }
+
+      console.log('PREVIOUS INVENTORY SNAPSHOT FOUND FOR:', sessId, previousDoc);
 
       return previousDoc.items || {};
     })
@@ -7151,6 +7150,7 @@ function loadPreviousActualMap(sessId) {
       return {};
     });
 }
+
 function loadSessionDetails(sessId) {
   return Promise.all([
     db.collection('inventoryEntries').where('inventory_session_id','==',sessId).get(),
