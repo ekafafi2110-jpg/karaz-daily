@@ -1745,6 +1745,34 @@ function loadItems() {
   return db.collection('items').where('active','==',true).orderBy('sort_order').get()
     .then(function(snap){ S.items=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); });
 }
+function getOrderedItemNames() {
+  return (S.items || [])
+    .map(function(item) {
+      return item.name || '';
+    })
+    .filter(function(name) {
+      return name;
+    });
+}
+
+function sortNamesByItemsOrder(names) {
+  var ordered = getOrderedItemNames();
+  var result = [];
+
+  ordered.forEach(function(name) {
+    if (names.indexOf(name) !== -1 && result.indexOf(name) === -1) {
+      result.push(name);
+    }
+  });
+
+  names.forEach(function(name) {
+    if (result.indexOf(name) === -1) {
+      result.push(name);
+    }
+  });
+
+  return result;
+}
 function loadExpTypes() {
   return db.collection('expenseTypes').where('active','==',true).orderBy('sort_order').get()
     .then(function(snap){ S.expTypes=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());}); });
@@ -4905,7 +4933,9 @@ function loadPurchaseItems() {
   select.innerHTML = '<option value="">اختر الصنف</option>';
 
   db.collection('items')
+    .orderBy('sort_order')
     .get()
+    
     .then(function(snap) {
       snap.docs.forEach(function(d) {
         var x = d.data();
@@ -5799,8 +5829,7 @@ return loadTodayShopInventory();
       });
   warehouseBalanceItems = [];
 
-Object.keys(itemsMap).sort().forEach(function(name) {
-  var meta = itemMetaMap[name] || {};
+sortNamesByItemsOrder(Object.keys(itemsMap)).forEach(function(name) {  var meta = itemMetaMap[name] || {};
  var warehouseOpening = warehouseOpeningMap[name] || 0;
 var purchases = purchasesMap[name] || 0;
 var withdrawals = withdrawalsMap[name] || 0;
@@ -6427,8 +6456,7 @@ function refreshAdminWithdrawItemFilter() {
     }
   });
 
-  names.sort();
-
+names = sortNamesByItemsOrder(names);
   var html = '<option value="">كل أصناف الفئة</option>';
 
   names.forEach(function(name) {
@@ -7732,7 +7760,15 @@ withdrawals.forEach(function(w) {
 
 var withdrawalsHtml = '';
 
-var withdrawalNames = Object.keys(withdrawalsMap);
+var withdrawalNames = S.items
+  .map(function(item) { return item.name; })
+  .filter(function(name) { return withdrawalsMap[name]; });
+
+Object.keys(withdrawalsMap).forEach(function(name) {
+  if (withdrawalNames.indexOf(name) === -1) {
+    withdrawalNames.push(name);
+  }
+});
 
 if (withdrawalNames.length) {
   withdrawalsHtml =
