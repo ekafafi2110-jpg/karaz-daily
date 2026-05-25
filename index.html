@@ -7117,56 +7117,18 @@ function loadSessionDetails(sessId) {
     db.collection('warehouseSales').where('inventory_session_id','==',sessId).get(),
     db.collection('shopOpeningStock').get()
   ]).then(function(res) {
-    var sessionData = res[5].exists ? res[5].data() : {};
-    var sessionWorkDate = sessionData.work_date || '';
-
-    var salesBySession = res[6].docs.map(function(d) {
-      return Object.assign({ id: d.id }, d.data());
-    });
-
-    if (salesBySession.length || !sessionWorkDate) {
-      return {
-        entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-        expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-        cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-        accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-        withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-        session: sessionData,
-        sales: salesBySession,
-        shopOpening: res[7].docs.map(function(d){return Object.assign({id:d.id},d.data());})
-      };
-    }
-
-    return db.collection('warehouseSales')
-      .where('work_date', '==', sessionWorkDate)
-      .get()
-      .then(function(salesByDateSnap) {
-        var salesMapByDoc = {};
-
-        salesBySession.forEach(function(row) {
-          salesMapByDoc[row.id] = row;
-        });
-
-        salesByDateSnap.docs.forEach(function(d) {
-          salesMapByDoc[d.id] = Object.assign({ id: d.id }, d.data());
-        });
-
-        return {
-          entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-          expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-          cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-          accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-          withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-          session: sessionData,
-          sales: Object.keys(salesMapByDoc).map(function(id) {
-            return salesMapByDoc[id];
-          }),
-          shopOpening: res[7].docs.map(function(d){return Object.assign({id:d.id},d.data());})
-        };
-      });
+    return {
+      entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      session: res[5].exists ? res[5].data() : {},
+      sales: res[6].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+      shopOpening: res[7].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+    };
   });
-}
-function filterManagerReportCategory(cat) {
+}function filterManagerReportCategory(cat) {
   document.querySelectorAll('.mgr-cat-btn').forEach(function(btn) {
     btn.classList.remove('active');
   });
