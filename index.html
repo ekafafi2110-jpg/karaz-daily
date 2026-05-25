@@ -1313,8 +1313,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">
-      <button class="modal-x" onclick="if(document.getElementById('modalTitleTxt').textContent==='النقد'){showManagerCash(null)}else{closeModal()}">x</button>
-      <span id="modalTitleTxt"></span>
+<button class="modal-x" onclick="var t=document.getElementById('modalTitleTxt').textContent;if(t==='تفاصيل الفاتورة'){showManagerCash('balance')}else if(t==='النقد'){showManagerCash(null)}else{closeModal()}">x</button>      <span id="modalTitleTxt"></span>
     </div>
     <div id="modalBody"></div>
   </div>
@@ -2915,12 +2914,13 @@ var totalDebts = 0;
                   '<tr>' +
                     '<td>' + fmtDate(p.work_date || S.workDate) + '</td>' +
                '<td style="text-align:right;">' +
-                (p.title || 'مشتريات فاتورة') +
-                '<div style="font-size:10px;color:var(--text2);">' +
-                (p.supplier_name || '') +
-                 '</div>' +
-                '</td>' +
-                '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +                  '</tr>'
+  '<button type="button" onclick="openCashPurchaseInvoiceFromBalance(\'' + p.docId + '\')" style="background:none;border:0;padding:0;color:var(--gold);font-family:Cairo;font-weight:900;text-align:right;text-decoration:underline;cursor:pointer;">' +
+    (p.title || ('مشتريات فاتورة رقم ' + (p.invoice_no || ''))) +
+  '</button>' +
+  '<div style="font-size:10px;color:var(--text2);">' +
+    (p.supplier_name || '') +
+  '</div>' +
+'</td>' +                '<td><strong style="color:var(--red);">-' + amount.toFixed(2) + '</strong> دينار</td>' +                  '</tr>'
               });
             }
           }
@@ -4170,6 +4170,85 @@ function calcCashPurchaseAmount() {
     amountEl.value = amount > 0 ? amount.toFixed(2) : '';
   }
 }
+function openCashPurchaseInvoiceFromBalance(docId) {
+  if (!docId) {
+    toast('لم يتم تحديد الفاتورة', 'error');
+    return;
+  }
+
+  setModal('تفاصيل الفاتورة');
+  openModal();
+
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '<div class="empty">جاري تحميل الفاتورة...</div>';
+
+  db.collection('cashPurchases')
+    .doc(docId)
+    .get()
+    .then(function(doc) {
+      if (!doc.exists) {
+        modalBody.innerHTML = '<div class="empty">لم يتم العثور على الفاتورة</div>';
+        return;
+      }
+
+      var p = Object.assign({ docId: doc.id }, doc.data() || {});
+      var amount = Number(p.amount || 0);
+      var paymentMethod = p.payment_method || '-';
+      var items = Array.isArray(p.items) ? p.items : [];
+
+      var itemsHtml = '';
+
+      if (items.length) {
+        itemsHtml =
+          '<table class="rpt-table" style="margin-top:10px;">' +
+            '<thead>' +
+              '<tr>' +
+                '<th>الصنف</th>' +
+                '<th>العدد</th>' +
+                '<th>السعر</th>' +
+                '<th>المبلغ</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>';
+
+        items.forEach(function(it) {
+          itemsHtml +=
+            '<tr>' +
+              '<td style="text-align:right;">' + (it.item_name || '-') + '</td>' +
+              '<td>' + Number(it.qty || 0).toFixed(2) + '</td>' +
+              '<td>' + Number(it.price || 0).toFixed(2) + '</td>' +
+              '<td><strong>' + Number(it.amount || 0).toFixed(2) + '</strong></td>' +
+            '</tr>';
+        });
+
+        itemsHtml += '</tbody></table>';
+      } else {
+        itemsHtml = '<div class="empty">لا توجد تفاصيل أصناف لهذه الفاتورة</div>';
+      }
+
+      modalBody.innerHTML =
+        '<div class="detail-sec">' +
+          '<div class="sec-title">' + (p.title || ('فاتورة رقم ' + (p.invoice_no || '-'))) + '</div>' +
+
+          '<div class="mgr-card cherry" style="margin-bottom:10px;">' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">' +
+              '<div><div style="font-size:10px;color:var(--text2);">رقم الفاتورة</div><strong>' + (p.invoice_no || '-') + '</strong></div>' +
+              '<div><div style="font-size:10px;color:var(--text2);">المورد</div><strong>' + (p.supplier_name || '-') + '</strong></div>' +
+              '<div><div style="font-size:10px;color:var(--text2);">طريقة الدفع</div><strong>' + paymentMethod + '</strong></div>' +
+              '<div><div style="font-size:10px;color:var(--text2);">المجموع</div><strong style="color:var(--gold);">' + amount.toFixed(2) + ' دينار</strong></div>' +
+            '</div>' +
+          '</div>' +
+
+          itemsHtml +
+
+          '<button class="btn-add" style="margin-top:12px;" onclick="showManagerCash(\'balance\')">رجوع إلى سجل النقد</button>' +
+        '</div>';
+    })
+    .catch(function(e) {
+      console.error(e);
+      modalBody.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل الفاتورة</div>';
+    });
+}
 
 function saveCashPurchase() {
   var rows = document.querySelectorAll('.cash-purchase-row');
@@ -4935,7 +5014,7 @@ function loadPurchaseItems() {
   db.collection('items')
     .orderBy('sort_order')
     .get()
-    
+
     .then(function(snap) {
       snap.docs.forEach(function(d) {
         var x = d.data();
@@ -5289,7 +5368,7 @@ function openWarehouseSalesSession(sessionId) {
 
   Promise.all([
     db.collection('inventorySessions').doc(sessionId).get(),
-    db.collection('items').get(),
+db.collection('items').orderBy('sort_order').get(),
     db.collection('warehouseSales')
       .where('inventory_session_id', '==', sessionId)
       .get()
