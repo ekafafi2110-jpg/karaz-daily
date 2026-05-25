@@ -7114,17 +7114,20 @@ function loadSessionDetails(sessId) {
     db.collection('accountingQuantities').where('inventory_session_id','==',sessId).get(),
     db.collection('stockWithdrawals').where('inventory_session_id','==',sessId).get(),
     db.collection('inventorySessions').doc(sessId).get(),
-    db.collection('warehouseSales').where('inventory_session_id','==',sessId).get()
+    db.collection('warehouseSales').where('inventory_session_id','==',sessId).get(),
+    db.collection('shopOpeningStock').get()
   ]).then(function(res){
     return {
-      entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      session: res[5].exists ? res[5].data() : {},
-sales: res[6].docs.map(function(d){return Object.assign({id:d.id},d.data());})
-    };
+  entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+  expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+  cash: res[2].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+  accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+  withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+  session: res[5].exists ? res[5].data() : {},
+  sales: res[6].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
+  shopOpening: res[7].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+};
+
   });
 }
 
@@ -7144,12 +7147,32 @@ function renderReport(det,sessId) {
   var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
 var withdrawals = det.withdrawals || [];
 var sales = det.sales || [];
+var shopOpening = det.shopOpening || [];
+
 var salesMap = {};
 sales.forEach(function(s) {
   salesMap[s.item_name] = Number(s.quantity || 0);
 });
+
+var shopOpeningMap = {};
+shopOpening.forEach(function(x) {
+  var name = x.item_name || '';
+  if (!name) return;
+
+  shopOpeningMap[name] = Number(x.quantity || 0);
+});
+
+var sessionWithdrawalsMap = {};
+withdrawals.forEach(function(w) {
+  var name = w.item_name || '';
+  if (!name) return;
+
+  sessionWithdrawalsMap[name] = (sessionWithdrawalsMap[name] || 0) + Number(w.quantity || 0);
+});
+
 var sessionData = det.session || {};
   var accMap={}, invMap={};
+  
   accounting.forEach(function(a){ accMap[a.item_id]=a.accounting_quantity; });
   entries.forEach(function(e){ if(!invMap[e.item_id]) invMap[e.item_id]={A:'',B:''}; invMap[e.item_id][e.shift]=e.quantity; });
 
@@ -7179,18 +7202,20 @@ var qA = rawA !== undefined && rawA !== '' ? Number(rawA) : 0;
 var qB = rawB !== undefined && rawB !== '' ? Number(rawB) : 0;
 
 var tot = rawB !== undefined && rawB !== '' ? qB : qA;
-var acc = accMap[item.id];
 
-if(acc!==undefined) hasAcc=true;
+var openingQty = shopOpeningMap[item.name] || 0;
+var withdrawalQty = sessionWithdrawalsMap[item.name] || 0;
 var saleQty = salesMap[item.name] || 0;
 
-var diff=(acc!==undefined)?tot-acc:null;
-    var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
+var acc = openingQty + withdrawalQty - saleQty;
+
+hasAcc = true;
+
+var diff = tot - acc;    var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
     var dA=invMap[item.id]&&invMap[item.id].A!==''?invMap[item.id].A:'-';
     var dB=invMap[item.id]&&invMap[item.id].B!==''?invMap[item.id].B:'-';
 itemsHtml+='<tr class="mgr-report-row" data-cat="'+(item.category || 'العبوات')+'" style="'+((item.category || 'العبوات') === firstCat ? '' : 'display:none;')+'"><td style="text-align:right;font-size:11px;">'+item.name+'</td><td>'+dA+'</td><td>'+dB+'</td><td><strong>'+tot+'</strong></td>'+  '<td><strong style="color:var(--gold);">'+saleQty+'</strong></td>'+
-  '<td><input class="acc-inp" value="'+(acc!==undefined?acc:'')+'" placeholder="-" onchange="saveAccQty(\''+sessId+'\',\''+item.id+'\',this.value)"></td>'+
-  '<td>'+dHtml+'</td></tr>';  });
+'<td><input class="acc-inp" value="'+acc+'" readonly style="opacity:.9;"></td>'+  '<td>'+dHtml+'</td></tr>';  });
   itemsHtml+='</tbody></table>';
 
   var expMapAB={A:{},B:{}};
