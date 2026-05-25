@@ -1221,7 +1221,6 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     <div id="openingStockSection" style="display:none;">
       <h3>الرصيد الافتتاحي</h3>
       <select id="openingStockType" class="input">
-  <option value="shop">رصيد افتتاحي للمحل</option>
   <option value="warehouse">رصيد افتتاحي للمستودع</option>
 </select>
 
@@ -5528,7 +5527,6 @@ list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف
  var itemsMap = {};
 var itemMetaMap = {};
 var warehouseOpeningMap = {};
-var shopOpeningMap = {};
 var purchasesMap = {};
 var withdrawalsMap = {};
 var shopMap = {};
@@ -5547,7 +5545,7 @@ db.collection('items').get()
       }
     });
 
-    return db.collection('warehouseOpeningStock').get();
+       return db.collection('warehouseOpeningStock').get();
   })
   .then(function(openingSnap) {
     openingSnap.docs.forEach(function(d) {
@@ -5560,21 +5558,7 @@ db.collection('items').get()
       itemsMap[name] = true;
     });
 
-    return db.collection('shopOpeningStock').get();
-  })
-  .then(function(shopOpeningSnap) {
-    shopOpeningSnap.docs.forEach(function(d) {
-      var x = d.data() || {};
-      var name = x.item_name || '';
-
-      if (!name) return;
-
-      shopOpeningMap[name] = Number(x.quantity || 0);
-      itemsMap[name] = true;
-    });
-
-    return db.collection('stockPurchases').get();
-    })
+    return db.collection('stockPurchases').get();    })
     .then(function(purchaseSnap) {
       purchaseSnap.docs.forEach(function(d) {
         var x = d.data();
@@ -5626,13 +5610,13 @@ return loadTodayShopInventory();
 Object.keys(itemsMap).sort().forEach(function(name) {
   var meta = itemMetaMap[name] || {};
  var warehouseOpening = warehouseOpeningMap[name] || 0;
-var shopOpening = shopOpeningMap[name] || 0;
 var purchases = purchasesMap[name] || 0;
 var withdrawals = withdrawalsMap[name] || 0;
 
 var warehouseBalance = warehouseOpening + purchases - withdrawals;
-var shopBalance = shopOpening + (shopMap[name] || 0);
+var shopBalance = shopMap[name] || 0;
 
+var totalBalance = warehouseBalance + shopBalance; 
 var totalBalance = warehouseBalance + shopBalance; 
 
 warehouseBalanceItems.push({
@@ -5930,11 +5914,8 @@ function saveOpeningStockCategory() {
   var typeEl = document.getElementById('openingStockType');
   var msg = document.getElementById('openingStockMsg');
 
-  var stockType = typeEl ? typeEl.value : 'shop';
-  var collectionName = stockType === 'warehouse'
-    ? 'warehouseOpeningStock'
-    : 'shopOpeningStock';
-
+  var stockType = 'warehouse';
+var collectionName = 'warehouseOpeningStock';
   var filtered = openingStockItems.filter(function(item) {
     return item.category === openingSelectedCategory;
   });
@@ -7106,6 +7087,70 @@ var archiveData = {
     });
 }
 
+function getSessionSortValue(sessionId, sessionData) {
+  var txt = String(sessionId || '');
+
+  var m = txt.match(/(\d{8})-(\d{4})/);
+
+  if (m) {
+    return Number(m[1] + m[2]);
+  }
+
+  if (sessionData) {
+    var t =
+      sessionData.createdAt ||
+      sessionData.created_at ||
+      sessionData.archivedAt ||
+      sessionData.updated_at ||
+      null;
+
+    if (t && t.toDate) {
+      return t.toDate().getTime();
+    }
+
+    if (t && t.toMillis) {
+      return t.toMillis();
+    }
+  }
+
+  return 0;
+}
+
+function loadPreviousActualMap(sessId) {
+  var currentSort = getSessionSortValue(sessId, null);
+
+  return db.collection('dailyInventorySnapshots')
+    .get()
+    .then(function(snap) {
+      var previousDoc = null;
+      var previousSort = 0;
+
+      snap.docs.forEach(function(d) {
+        if (d.id === sessId) return;
+
+        var x = d.data() || {};
+        var candidateId = x.session_id || d.id;
+        var sortVal = getSessionSortValue(candidateId, x);
+
+        if (!sortVal || !currentSort) return;
+
+        if (sortVal < currentSort && sortVal > previousSort) {
+          previousSort = sortVal;
+          previousDoc = x;
+        }
+      });
+
+      if (!previousDoc || !previousDoc.items) {
+        return {};
+      }
+
+      return previousDoc.items || {};
+    })
+    .catch(function(e) {
+      console.error('loadPreviousActualMap error:', e);
+      return {};
+    });
+}
 function loadSessionDetails(sessId) {
   return Promise.all([
     db.collection('inventoryEntries').where('inventory_session_id','==',sessId).get(),
@@ -7115,8 +7160,19 @@ function loadSessionDetails(sessId) {
     db.collection('stockWithdrawals').where('inventory_session_id','==',sessId).get(),
     db.collection('inventorySessions').doc(sessId).get(),
     db.collection('warehouseSales').where('inventory_session_id','==',sessId).get(),
+    db.collection('warehouseSales').where('tracking_id','==',sessId).get(),
     db.collection('shopOpeningStock').get()
   ]).then(function(res) {
+    var salesMapByDoc = {};
+
+    res[6].docs.forEach(function(d) {
+      salesMapByDoc[d.id] = Object.assign({id:d.id}, d.data());
+    });
+
+    res[7].docs.forEach(function(d) {
+      salesMapByDoc[d.id] = Object.assign({id:d.id}, d.data());
+    });
+
     return {
       entries: res[0].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       expenses: res[1].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
@@ -7124,11 +7180,14 @@ function loadSessionDetails(sessId) {
       accounting: res[3].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       withdrawals: res[4].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
       session: res[5].exists ? res[5].data() : {},
-      sales: res[6].docs.map(function(d){return Object.assign({id:d.id},d.data());}),
-      shopOpening: res[7].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+      sales: Object.keys(salesMapByDoc).map(function(id) {
+        return salesMapByDoc[id];
+      }),
+      shopOpening: res[8].docs.map(function(d){return Object.assign({id:d.id},d.data());})
     };
   });
-}function filterManagerReportCategory(cat) {
+}
+function filterManagerReportCategory(cat) {
   document.querySelectorAll('.mgr-cat-btn').forEach(function(btn) {
     btn.classList.remove('active');
   });
@@ -7144,8 +7203,7 @@ function renderReport(det,sessId) {
   var entries=det.entries, expenses=det.expenses, cash=det.cash, accounting=det.accounting;
 var withdrawals = det.withdrawals || [];
 var sales = det.sales || [];
-var shopOpening = det.shopOpening || [];
-
+var previousActualMap = det.previousActualMap || {};
 var salesMap = {};
 sales.forEach(function(s) {
   var name = s.item_name || s.name || s.item || '';
@@ -7157,13 +7215,6 @@ sales.forEach(function(s) {
   salesMap[name] = (salesMap[name] || 0) + Number(s.quantity || 0);
 });
 
-var shopOpeningMap = {};
-shopOpening.forEach(function(x) {
-  var name = x.item_name || '';
-  if (!name) return;
-
-  shopOpeningMap[name] = Number(x.quantity || 0);
-});
 
 var sessionWithdrawalsMap = {};
 withdrawals.forEach(function(w) {
@@ -7206,20 +7257,29 @@ var qB = rawB !== undefined && rawB !== '' ? Number(rawB) : 0;
 
 var tot = rawB !== undefined && rawB !== '' ? qB : qA;
 
-var openingQty = shopOpeningMap[item.name] || 0;
 var withdrawalQty = sessionWithdrawalsMap[item.name] || 0;
 var itemNameKey = String(item.name || '').trim();
 var saleQty = salesMap[itemNameKey] || 0;
 
-var acc = openingQty + withdrawalQty - saleQty;
+var previousRaw = previousActualMap[item.name];
+var hasPreviousActual =
+  previousRaw !== undefined &&
+  previousRaw !== null &&
+  previousRaw !== '';
 
-hasAcc = true;
+var acc = hasPreviousActual
+  ? Number(previousRaw || 0) + withdrawalQty - saleQty
+  : null;
 
-var diff = tot - acc;    var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
+if (acc !== null) {
+  hasAcc = true;
+}
+
+var diff = acc !== null ? tot - acc : null; var dHtml=diff!==null?('<span class="'+(diff>0?'d-pos':diff<0?'d-neg':'d-zer')+'">'+(diff>0?'+':'')+diff+'</span>'):'<span style="color:var(--text3)">-</span>';
     var dA=invMap[item.id]&&invMap[item.id].A!==''?invMap[item.id].A:'-';
     var dB=invMap[item.id]&&invMap[item.id].B!==''?invMap[item.id].B:'-';
 itemsHtml+='<tr class="mgr-report-row" data-cat="'+(item.category || 'العبوات')+'" style="'+((item.category || 'العبوات') === firstCat ? '' : 'display:none;')+'"><td style="text-align:right;font-size:11px;">'+item.name+'</td><td>'+dA+'</td><td>'+dB+'</td><td><strong>'+tot+'</strong></td>'+  '<td><strong style="color:var(--gold);">'+saleQty+'</strong></td>'+
-'<td><input class="acc-inp" value="'+acc+'" readonly style="opacity:.9;"></td>'+  '<td>'+dHtml+'</td></tr>';  });
+'<td>' + (acc !== null ? '<input class="acc-inp" value="'+acc+'" readonly style="opacity:.9;">' : '<span style="color:var(--text3)">-</span>') + '</td>'+  '<td>'+dHtml+'</td></tr>';  });
   itemsHtml+='</tbody></table>';
 
   var expMapAB={A:{},B:{}};
