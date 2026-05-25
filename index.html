@@ -7161,7 +7161,7 @@ function loadSessionDetails(sessId) {
     db.collection('inventorySessions').doc(sessId).get(),
     db.collection('warehouseSales').where('inventory_session_id','==',sessId).get(),
     db.collection('warehouseSales').where('tracking_id','==',sessId).get(),
-    db.collection('shopOpeningStock').get()
+    loadPreviousActualMap(sessId)
   ]).then(function(res) {
     var salesMapByDoc = {};
 
@@ -7183,7 +7183,7 @@ function loadSessionDetails(sessId) {
       sales: Object.keys(salesMapByDoc).map(function(id) {
         return salesMapByDoc[id];
       }),
-      shopOpening: res[8].docs.map(function(d){return Object.assign({id:d.id},d.data());})
+      previousActualMap: res[8] || {}
     };
   });
 }
