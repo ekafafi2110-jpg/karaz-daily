@@ -2598,33 +2598,89 @@ function delWithdrawal(docId) {
 
   showLoad('جاري حذف السحب...');
 
-  db.collection('stockWithdrawals')
-    .doc(docId)
-    .get()
+  var withdrawalRef = db.collection('stockWithdrawals').doc(docId);
+  var withdrawalData = null;
+  var activeLogDocs = [];
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+
+  withdrawalRef.get()
     .then(function(docSnap) {
       if (!docSnap.exists) {
         throw new Error('السحب غير موجود');
       }
 
-      var data = docSnap.data();
+      withdrawalData = docSnap.data() || {};
 
-      if (data.shift !== S.shift) {
+      if (withdrawalData.shift !== S.shift) {
         throw new Error('لا يمكنك حذف سحوبات شفت آخر');
       }
 
-      return db.collection('stockWithdrawals').doc(docId).delete();
+      return db.collection('warehouseLog')
+        .where('source_doc_id', '==', docId)
+        .where('type', '==', 'withdrawal')
+        .get();
     })
-    .then(function() {
+    .then(function(logSnap) {
+      activeLogDocs = [];
+
+      if (logSnap && logSnap.docs) {
+        logSnap.docs.forEach(function(d) {
+          var x = d.data() || {};
+          if (x.deleted !== true) {
+            activeLogDocs.push(d);
+          }
+        });
+      }
+
+      var batch = db.batch();
+
+      batch.delete(withdrawalRef);
+
+      if (activeLogDocs.length) {
+        var itemName = withdrawalData.item_name || '';
+        var qty = Number(withdrawalData.quantity || 0);
+
+        if (itemName && qty > 0) {
+          var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(itemName));
+
+          batch.set(stockRef, {
+            item_name: itemName,
+            qty: firebase.firestore.FieldValue.increment(qty),
+            updated_at: now
+          }, { merge: true });
+        }
+
+        activeLogDocs.forEach(function(d) {
+          batch.update(d.ref, {
+            deleted: true,
+            deleted_at: now,
+            deleted_by: S.user ? S.user.uid : '',
+            deleted_by_email: S.user ? S.user.email : ''
+          });
+        });
+      }
+
+      return batch.commit().then(function() {
+        return activeLogDocs.length;
+      });
+    })
+    .then(function(restoredCount) {
       hideLoad();
-      toast('تم حذف السحب', 'info');
+
+      if (restoredCount) {
+        toast('تم حذف السحب وإرجاع الكمية للمستودع', 'info');
+      } else {
+        toast('تم حذف السحب القديم بدون تعديل رصيد المستودع', 'info');
+      }
+
       loadWithdrawals();
     })
     .catch(function(e) {
       hideLoad();
+      console.error(e);
       toast('خطأ: ' + e.message, 'error');
     });
 }
-
 function restoreWarehouseSections() {
   var home = document.querySelector('#warehouseAdminSection .warehouse-box');
   if (!home) return;
@@ -6306,8 +6362,7 @@ function showAdminWithdrawals() {
 
   section.style.display = 'block';
 
-  setModal('سجل سحوبات المستودع');
-
+setModal('سجل المستودع');
   var modalBody = document.getElementById('modalBody');
   modalBody.innerHTML = '';
   modalBody.appendChild(section);
@@ -6317,8 +6372,7 @@ function showAdminWithdrawals() {
   var box = document.getElementById("adminWithdrawalsList");
   box.innerHTML =
     '<div class="exp-form">' +
-      '<div class="sec-title">بحث في سجل سحوبات المستودع</div>' +
-
+'<div class="sec-title">بحث في سجل المستودع</div>' +
       '<label class="f-lbl">بحث بالصنف</label>' +
       '<select id="adminWithdrawItemSearch" class="f-inp2" onchange="renderAdminWithdrawalsTable()">' +
         '<option value="">كل الأصناف</option>' +
@@ -6388,33 +6442,34 @@ function loadAdminWithdrawalsLog() {
     ? document.getElementById('adminWithdrawDateSearch').value
     : '';
 
-  results.innerHTML = '<div class="empty">جاري تحميل السحوبات...</div>';
+  results.innerHTML = '<div class="empty">جاري تحميل سجل المستودع...</div>';
 
-  db.collection('stockWithdrawals')
+  db.collection('warehouseLog')
     .get()
     .then(function(snap) {
       if (snap.empty) {
-        results.innerHTML = '<div class="empty">لا توجد سحوبات</div>';
+        results.innerHTML = '<div class="empty">لا توجد حركات في سجل المستودع</div>';
         return;
       }
 
       adminWithdrawalsRows = [];
 
       snap.docs.forEach(function(d) {
-        var x = Object.assign({ id: d.id }, d.data());
+        var x = Object.assign({ id: d.id }, d.data() || {});
 
-        // التاريخ فلتر عام
+        if (x.deleted === true) return;
+
         if (selectedDate && getWithdrawDateKey(x) !== selectedDate) {
           return;
         }
 
-        x.category = x.item_category || 'العبوات';
+        x.category = x.item_category || getWithdrawalItemCategoryByName(x.item_name || '');
         adminWithdrawalsRows.push(x);
       });
 
       adminWithdrawalsRows.sort(function(a, b) {
-        var ta = a.createdAt || a.created_at;
-        var tb = b.createdAt || b.created_at;
+        var ta = a.created_at || a.createdAt;
+        var tb = b.created_at || b.createdAt;
 
         var va = ta && ta.toDate ? ta.toDate().getTime() : 0;
         var vb = tb && tb.toDate ? tb.toDate().getTime() : 0;
@@ -6429,22 +6484,23 @@ function loadAdminWithdrawalsLog() {
 
       var categories = [];
 
-S.items.forEach(function(item) {
-  var cat = item.category || 'العبوات';
-  if (categories.indexOf(cat) === -1) {
-    categories.push(cat);
-  }
-});
+      S.items.forEach(function(item) {
+        var cat = item.category || 'العبوات';
+        if (categories.indexOf(cat) === -1) {
+          categories.push(cat);
+        }
+      });
 
-adminWithdrawalsRows.forEach(function(x) {
-  if (categories.indexOf(x.category) === -1) {
-    categories.push(x.category);
-  }
-});
+      adminWithdrawalsRows.forEach(function(x) {
+        if (categories.indexOf(x.category) === -1) {
+          categories.push(x.category);
+        }
+      });
 
-if (!adminWithdrawalsSelectedCategory || categories.indexOf(adminWithdrawalsSelectedCategory) === -1) {
-  adminWithdrawalsSelectedCategory = categories[0] || '';
-}
+      if (!adminWithdrawalsSelectedCategory || categories.indexOf(adminWithdrawalsSelectedCategory) === -1) {
+        adminWithdrawalsSelectedCategory = categories[0] || '';
+      }
+
       results.innerHTML =
         '<div id="adminWithdrawalsCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
         '<div id="adminWithdrawalsTableBox"></div>';
@@ -6456,7 +6512,7 @@ if (!adminWithdrawalsSelectedCategory || categories.indexOf(adminWithdrawalsSele
     .catch(function(error) {
       console.error(error);
       results.innerHTML =
-        '<div class="empty">حدث خطأ أثناء تحميل السجل: ' + error.message + '</div>';
+        '<div class="empty">حدث خطأ أثناء تحميل سجل المستودع: ' + error.message + '</div>';
     });
 }
 
@@ -6542,9 +6598,11 @@ function renderAdminWithdrawalsTable() {
   });
 
   if (!filtered.length) {
-    box.innerHTML = '<div class="empty">لا توجد سحوبات حسب الفئة/الصنف المختار</div>';
+    box.innerHTML = '<div class="empty">لا توجد حركات حسب الفئة/الصنف المختار</div>';
     return;
   }
+
+  var totals = {};
 
   var html =
     '<div style="margin-top:10px;border:1px solid #333;border-radius:16px;overflow:hidden;background:#111;">' +
@@ -6552,24 +6610,54 @@ function renderAdminWithdrawalsTable() {
         '<thead>' +
           '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
             '<th style="padding:10px;border-bottom:1px solid #333;">التاريخ</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الحركة</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">الفاتورة</th>' +
             '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
             '<th style="padding:10px;border-bottom:1px solid #333;">الكمية</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">الشفت</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">رقم الجرد</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">ملاحظة</th>' +
+            '<th style="padding:10px;border-bottom:1px solid #333;">مورد/ملاحظة</th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>';
 
   filtered.forEach(function(x) {
+    var type = x.type || '';
+    var isPurchase = type === 'purchase';
+    var isWithdrawal = type === 'withdrawal';
+
+    var qty = Number(x.qty || x.quantity || 0);
+    var signedQty = isWithdrawal ? -qty : qty;
+
+    var itemName = x.item_name || '-';
+
+    if (!totals[itemName]) {
+      totals[itemName] = {
+        purchase: 0,
+        withdrawal: 0
+      };
+    }
+
+    if (isPurchase) {
+      totals[itemName].purchase += qty;
+    }
+
+    if (isWithdrawal) {
+      totals[itemName].withdrawal += qty;
+    }
+
+    var typeLabel = isPurchase ? 'مشتريات' : (isWithdrawal ? 'سحب' : type || '-');
+    var typeColor = isPurchase ? 'var(--green)' : (isWithdrawal ? 'var(--red)' : 'var(--gold)');
+    var qtyText = (isWithdrawal ? '-' : '+') + qty;
+    var invoiceText = isPurchase ? (x.invoice_no || '-') : '-';
+    var noteText = isPurchase ? (x.supplier_name || '') : (x.note || '');
+
     html +=
       '<tr style="border-bottom:1px solid #2a2a2a;">' +
         '<td style="padding:10px;font-size:10px;">' + formatWithdrawTime(x) + '</td>' +
-        '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + (x.item_name || '-') + '</td>' +
-        '<td style="padding:10px;font-weight:900;color:var(--gold);">' + (x.quantity || 0) + '</td>' +
-        '<td style="padding:10px;">' + (x.shift || '-') + '</td>' +
-        '<td style="padding:10px;font-size:10px;">' + (x.inventory_session_id || '-') + '</td>' +
-        '<td style="padding:10px;font-size:10px;">' + (x.note || '') + '</td>' +
+        '<td style="padding:10px;font-weight:900;color:' + typeColor + ';">' + typeLabel + '</td>' +
+        '<td style="padding:10px;font-size:11px;color:var(--gold);">' + invoiceText + '</td>' +
+        '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + itemName + '</td>' +
+        '<td style="padding:10px;font-weight:900;color:' + typeColor + ';">' + qtyText + '</td>' +
+        '<td style="padding:10px;font-size:10px;">' + noteText + '</td>' +
       '</tr>';
   });
 
@@ -6578,11 +6666,45 @@ function renderAdminWithdrawalsTable() {
       '</table>' +
     '</div>';
 
-  box.innerHTML = html;
+  var totalsHtml =
+    '<div class="detail-sec" style="margin-top:12px;">' +
+      '<div class="sec-title">ملخص الحركة حسب الصنف</div>' +
+      '<table class="rpt-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th>الصنف</th>' +
+            '<th>إضافات</th>' +
+            '<th>سحوبات</th>' +
+            '<th>الصافي</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+  sortNamesByItemsOrder(Object.keys(totals)).forEach(function(name) {
+    var p = Number(totals[name].purchase || 0);
+    var w = Number(totals[name].withdrawal || 0);
+    var net = p - w;
+
+    totalsHtml +=
+      '<tr>' +
+        '<td style="text-align:right;font-size:11px;">' + name + '</td>' +
+        '<td style="color:var(--green);font-weight:900;">+' + p + '</td>' +
+        '<td style="color:var(--red);font-weight:900;">-' + w + '</td>' +
+        '<td style="font-weight:900;color:var(--gold);">' + net + '</td>' +
+      '</tr>';
+  });
+
+  totalsHtml +=
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+
+  box.innerHTML = html + totalsHtml;
 }
+
 function addWithdrawal() {
   var itemId = document.getElementById('withdrawItem').value;
-  var qty = document.getElementById('withdrawQty').value;
+  var qty = Number(document.getElementById('withdrawQty').value || 0);
   var note = document.getElementById('withdrawNote').value.trim();
 
   if (!itemId) {
@@ -6590,7 +6712,7 @@ function addWithdrawal() {
     return;
   }
 
-  if (!qty || Number(qty) <= 0) {
+  if (!qty || qty <= 0) {
     toast('يرجى إدخال كمية صحيحة', 'error');
     return;
   }
@@ -6599,29 +6721,75 @@ function addWithdrawal() {
     return i.id === itemId;
   });
 
+  if (!item) {
+    toast('الصنف غير موجود', 'error');
+    return;
+  }
+
   showLoad('جاري حفظ السحب...');
 
-  db.collection('stockWithdrawals').add({
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+  var batch = db.batch();
+
+  var withdrawalRef = db.collection('stockWithdrawals').doc();
+  var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(item.name));
+  var logRef = db.collection('warehouseLog').doc();
+
+  batch.set(withdrawalRef, {
     inventory_session_id: S.sessionId,
     shift: S.shift,
     item_id: itemId,
-    item_name: item ? item.name : '',
-item_category: item ? (item.category || 'العبوات') : '',
-quantity: Number(qty),
+    item_name: item.name,
+    item_category: item.category || 'العبوات',
+    quantity: qty,
     note: note || '',
-    created_by: S.user.uid,
-    created_at: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(function() {
-    hideLoad();
-    document.getElementById('withdrawQty').value = '';
-    document.getElementById('withdrawNote').value = '';
-    toast('تم حفظ السحب من المستودع', 'success');
-    loadWithdrawals();
-  }).catch(function(e) {
-    hideLoad();
-    toast('خطأ: ' + e.message, 'error');
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: now
   });
+
+  batch.set(stockRef, {
+    item_name: item.name,
+    qty: firebase.firestore.FieldValue.increment(-qty),
+    category: item.category || 'العبوات',
+    unit: item.unit || '',
+    updated_at: now
+  }, { merge: true });
+
+  batch.set(logRef, {
+    work_date: S.workDate,
+    type: 'withdrawal',
+    source_doc_id: withdrawalRef.id,
+    inventory_session_id: S.sessionId,
+    shift: S.shift,
+    item_name: item.name,
+    item_category: item.category || 'العبوات',
+    qty: qty,
+    quantity: qty,
+    note: note || '',
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: now,
+    deleted: false
+  });
+
+  batch.commit()
+    .then(function() {
+      hideLoad();
+
+      document.getElementById('withdrawQty').value = '';
+      document.getElementById('withdrawNote').value = '';
+
+      toast('تم حفظ السحب وتحديث رصيد المستودع', 'success');
+      loadWithdrawals();
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('خطأ: ' + e.message, 'error');
+    });
 }
+
 function checkShiftBInventoryIncreaseWarning() {
   if (S.shift !== 'B') {
     return Promise.resolve(true);
