@@ -2816,6 +2816,7 @@ function showManagerCash(openPanel) {
   db.collection('manualDebts').where('work_date', '==', S.workDate).get(),
   db.collection('cashPayments').where('work_date', '==', S.workDate).get(),
   db.collection('cashExpenses').where('work_date', '==', S.workDate).get(),
+  db.collection('cashBalance').doc('main').get(),
   db.collection('suppliers').get(),
 db.collection('supplierBalances').get()
 ]);
@@ -2824,14 +2825,18 @@ db.collection('supplierBalances').get()
     .then(function(results) {
       hideLoad();
 
-      var rows = results[0] || [];
-      var additionsSnap = results[1];
-      var purchasesSnap = results[2];
-      var manualDebtsSnap = results[3];
-      var cashPaymentsSnap = results[4];
+     var rows = results[0] || [];
+
+var additionsSnap = results[1];
+var purchasesSnap = results[2];
+var manualDebtsSnap = results[3];
+var cashPaymentsSnap = results[4];
 var cashExpensesSnap = results[5];
-var suppliersSnap = results[6];
-var supplierBalancesSnap = results[7];
+
+var cashBalanceSnap = results[6];
+
+var suppliersSnap = results[7];
+var supplierBalancesSnap = results[8];
 var totalActualCash = 0;
 var balanceRows = [];
 var tableRows = '';
@@ -2857,6 +2862,13 @@ var totalDebts = 0;
   }
 
   return supplierDebtMap[supplierName];
+}
+var ledgerCashBalance = 0;
+
+if (cashBalanceSnap && cashBalanceSnap.exists) {
+  ledgerCashBalance = Number(
+    (cashBalanceSnap.data() || {}).balance || 0
+  );
 }
   var useSupplierLedgerView = supplierBalancesSnap && supplierBalancesSnap.docs && supplierBalancesSnap.docs.length > 0;
 
@@ -3328,12 +3340,13 @@ var supplierOptions =
       var html =
         '<div id="cashCardsGrid" style="display:' + cashCardsDisplay + ';grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">' +
           '<div class="mgr-card gold" onclick="showManagerCash(\'balance\')" style="cursor:pointer;">' +
-            '<div class="mgr-icon">💵</div><div class="mgr-lbl" style="font-size:15px;color:var(--gold);">رصيد النقد</div>' +
-            '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' + totalActualCash.toFixed(2) + '</div>' +
-            '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
-          '</div>' +
-          '<div class="mgr-card green" onclick="showManagerCash(\'add\')" style="cursor:pointer;">' +
-            
+  '<div class="mgr-icon">💵</div><div class="mgr-lbl" style="font-size:15px;color:var(--gold);">رصيد النقد</div>' +
+  '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' + totalActualCash.toFixed(2) + '</div>' +
+  '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
+  '<div style="margin-top:6px;font-size:10px;color:var(--text2);line-height:1.6;">' +
+    'cashBalance: <strong style="color:var(--gold);">' + ledgerCashBalance.toFixed(2) + '</strong> دينار' +
+  '</div>' +
+'</div>' +            
             '<div class="mgr-icon">➕</div><div class="mgr-lbl" style="font-size:15px;color:var(--green);">إضافة نقد</div>' +
             '<div style="font-size:11px;color:var(--text2);margin-top:6px;">إدخال مبلغ نقدي</div>' +
           '</div>' +
@@ -3759,9 +3772,9 @@ applyCashLedgerEntry(batch, {
   ledger_doc_id: 'cashPayments_' + paymentRef.id,
   supplier_name: supplierName,
   title: 'دفع مورد',
-  note: note || '',
-  work_date: S.workDate,
-  now: now
+note: paymentNote || '',
+work_date: S.workDate,
+
 });
 
 batch.commit()
