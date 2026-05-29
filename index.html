@@ -1373,6 +1373,10 @@ pendingSessionsForB:[],
 currentSalesSessionId:null,
 currentSalesSessionData:null
 };
+function getMonthStartDate(workDate) {
+  var parts = (workDate || getWorkDate()).split('-');
+  return parts[0] + '-' + parts[1] + '-01';
+}
 
 function sortNamesByItemsOrder(names) {
   var orderMap = {};
@@ -6477,12 +6481,27 @@ setModal('سجل المستودع');
 
       '<div style="height:10px"></div>' +
 
-      '<label class="f-lbl">بحث بالتاريخ</label>' +
-'<input id="adminWithdrawDateSearch" class="f-inp2" type="date" value="' + S.workDate + '" onchange="loadAdminWithdrawalsLog()">' +
-      '<div style="height:10px"></div>' +
+      '<label class="f-lbl">من تاريخ</label>' +
+'<input id="adminWithdrawFromDateSearch" class="f-inp2" type="date" value="' + getMonthStartDate(S.workDate) + '">' +
 
-      '<button class="btn-sec" onclick="clearAdminWithdrawalsSearch()">مسح البحث</button>' +
-    '</div>' +
+'<div style="height:10px"></div>' +
+
+'<label class="f-lbl">إلى تاريخ</label>' +
+'<input id="adminWithdrawToDateSearch" class="f-inp2" type="date" value="' + S.workDate + '">' +
+
+'<div style="height:10px"></div>' +
+
+'<label class="f-lbl">نوع الحركة</label>' +
+'<select id="adminWithdrawTypeSearch" class="f-inp2">' +
+  '<option value="">كل الحركات</option>' +
+  '<option value="purchase">المشتريات فقط</option>' +
+  '<option value="withdrawal">السحوبات فقط</option>' +
+'</select>' +
+
+'<div style="height:10px"></div>' +
+
+'<button class="btn-add" onclick="loadAdminWithdrawalsLog()">بحث</button>' +
+'<button class="btn-sec" style="margin-top:8px;" onclick="clearAdminWithdrawalsSearch()">مسح البحث</button>' +    '</div>' +
 
     '<div id="adminWithdrawalsResults">' +
       '<div class="empty">جاري تحميل السجل...</div>' +
@@ -6499,14 +6518,17 @@ function loadAdminWithdrawalItems() {
 }
 function clearAdminWithdrawalsSearch() {
   var item = document.getElementById('adminWithdrawItemSearch');
-  var date = document.getElementById('adminWithdrawDateSearch');
+  var from = document.getElementById('adminWithdrawFromDateSearch');
+  var to = document.getElementById('adminWithdrawToDateSearch');
+  var type = document.getElementById('adminWithdrawTypeSearch');
 
   if (item) item.value = '';
-  if (date) date.value = '';
+  if (from) from.value = getMonthStartDate(S.workDate);
+  if (to) to.value = S.workDate;
+  if (type) type.value = '';
 
   loadAdminWithdrawalsLog();
 }
-
 function formatWithdrawTime(x) {
   var t = x.createdAt || x.created_at;
 
@@ -6534,23 +6556,33 @@ function loadAdminWithdrawalsLog() {
   var results = document.getElementById('adminWithdrawalsResults');
   if (!results) return;
 
-  var dateEl = document.getElementById('adminWithdrawDateSearch');
-  var selectedDate = dateEl && dateEl.value ? dateEl.value : S.workDate;
+  var fromEl = document.getElementById('adminWithdrawFromDateSearch');
+  var toEl = document.getElementById('adminWithdrawToDateSearch');
+  var typeEl = document.getElementById('adminWithdrawTypeSearch');
 
-  if (dateEl && !dateEl.value) {
-    dateEl.value = selectedDate;
+  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
+  var selectedType = typeEl ? typeEl.value : '';
+
+  if (fromEl && !fromEl.value) fromEl.value = fromDate;
+  if (toEl && !toEl.value) toEl.value = toDate;
+
+  if (fromDate > toDate) {
+    results.innerHTML = '<div class="empty">تاريخ البداية يجب أن يكون قبل تاريخ النهاية</div>';
+    return;
   }
 
   results.innerHTML = '<div class="empty">جاري تحميل سجل المستودع...</div>';
 
   db.collection('warehouseLog')
-    .where('work_date', '==', selectedDate)
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
     .get()
     .then(function(snap) {
       adminWithdrawalsRows = [];
 
       if (snap.empty) {
-        results.innerHTML = '<div class="empty">لا توجد حركات في سجل المستودع لهذا التاريخ</div>';
+        results.innerHTML = '<div class="empty">لا توجد حركات في سجل المستودع ضمن هذه المدة</div>';
         return;
       }
 
@@ -6561,12 +6593,17 @@ function loadAdminWithdrawalsLog() {
 
         var type = x.type || '';
 
-        if (type !== 'purchase' && type !== 'purchase_edit' && type !== 'withdrawal') {
+        if (type === 'purchase_edit') {
+          type = 'purchase';
+          x.type = 'purchase';
+        }
+
+        if (type !== 'purchase' && type !== 'withdrawal') {
           return;
         }
 
-        if (type === 'purchase_edit') {
-          x.type = 'purchase';
+        if (selectedType && type !== selectedType) {
+          return;
         }
 
         x.category =
@@ -6578,6 +6615,13 @@ function loadAdminWithdrawalsLog() {
       });
 
       adminWithdrawalsRows.sort(function(a, b) {
+        var da = a.work_date || '';
+        var dbb = b.work_date || '';
+
+        if (da !== dbb) {
+          return dbb.localeCompare(da);
+        }
+
         var ta = a.created_at || a.createdAt || a.updated_at;
         var tb = b.created_at || b.createdAt || b.updated_at;
 
@@ -6588,7 +6632,7 @@ function loadAdminWithdrawalsLog() {
       });
 
       if (!adminWithdrawalsRows.length) {
-        results.innerHTML = '<div class="empty">لا توجد حركات صالحة في سجل المستودع لهذا التاريخ</div>';
+        results.innerHTML = '<div class="empty">لا توجد حركات مطابقة للفلاتر</div>';
         return;
       }
 
@@ -6627,6 +6671,9 @@ function loadAdminWithdrawalsLog() {
       }
 
       results.innerHTML =
+        '<div style="background:#181818;border:1px solid #333;border-radius:14px;padding:10px;margin:8px 0;text-align:center;font-size:12px;color:var(--text2);">' +
+          'الفترة المعروضة: <strong style="color:var(--gold);">' + fromDate + '</strong> إلى <strong style="color:var(--gold);">' + toDate + '</strong>' +
+        '</div>' +
         '<div id="adminWithdrawalsCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
         '<div id="adminWithdrawalsTableBox"></div>';
 
@@ -6728,6 +6775,87 @@ function renderAdminWithdrawalsTable() {
   }
 
   var totals = {};
+  var displayRows = [];
+  var withdrawalMap = {};
+
+  filtered.forEach(function(x) {
+    var type = x.type || '';
+    var isPurchase = type === 'purchase' || type === 'purchase_edit';
+    var isWithdrawal = type === 'withdrawal';
+
+    var itemName = x.item_name || '-';
+    var qty = Number(x.qty || x.quantity || 0);
+
+    if (!totals[itemName]) {
+      totals[itemName] = {
+        purchase: 0,
+        withdrawal: 0
+      };
+    }
+
+    if (isPurchase) {
+      totals[itemName].purchase += qty;
+      displayRows.push(x);
+      return;
+    }
+
+    if (isWithdrawal) {
+      totals[itemName].withdrawal += qty;
+
+      var key = (x.work_date || '') + '|' + itemName;
+
+      if (!withdrawalMap[key]) {
+        withdrawalMap[key] = {
+          type: 'withdrawal',
+          work_date: x.work_date || '',
+          item_name: itemName,
+          category: x.category || 'غير مصنف',
+          qty: 0,
+          quantity: 0,
+          shifts: {},
+          notes: [],
+          created_at: x.created_at || x.createdAt || null
+        };
+      }
+
+      withdrawalMap[key].qty += qty;
+      withdrawalMap[key].quantity += qty;
+
+      if (x.shift) {
+        withdrawalMap[key].shifts[x.shift] =
+          (withdrawalMap[key].shifts[x.shift] || 0) + qty;
+      }
+
+      if (x.note && withdrawalMap[key].notes.indexOf(x.note) === -1) {
+        withdrawalMap[key].notes.push(x.note);
+      }
+
+      var currentTime = withdrawalMap[key].created_at;
+      var newTime = x.created_at || x.createdAt || null;
+
+      if (
+        newTime &&
+        newTime.toDate &&
+        (!currentTime || !currentTime.toDate || newTime.toDate().getTime() > currentTime.toDate().getTime())
+      ) {
+        withdrawalMap[key].created_at = newTime;
+      }
+    }
+  });
+
+  Object.keys(withdrawalMap).forEach(function(key) {
+    displayRows.push(withdrawalMap[key]);
+  });
+
+  displayRows.sort(function(a, b) {
+    var ta = a.created_at || a.createdAt || a.updated_at;
+    var tb = b.created_at || b.createdAt || b.updated_at;
+
+    var va = ta && ta.toDate ? ta.toDate().getTime() : 0;
+    var vb = tb && tb.toDate ? tb.toDate().getTime() : 0;
+
+    return vb - va;
+  });
 
   var html =
     '<div style="margin-top:10px;border:1px solid #333;border-radius:16px;overflow:hidden;background:#111;">' +
@@ -6744,40 +6872,44 @@ function renderAdminWithdrawalsTable() {
         '</thead>' +
         '<tbody>';
 
-  filtered.forEach(function(x) {
+  displayRows.forEach(function(x) {
     var type = x.type || '';
-var isPurchase = type === 'purchase' || type === 'purchase_edit';
+    var isPurchase = type === 'purchase' || type === 'purchase_edit';
     var isWithdrawal = type === 'withdrawal';
 
     var qty = Number(x.qty || x.quantity || 0);
-    var signedQty = isWithdrawal ? -qty : qty;
-
     var itemName = x.item_name || '-';
-
-    if (!totals[itemName]) {
-      totals[itemName] = {
-        purchase: 0,
-        withdrawal: 0
-      };
-    }
-
-    if (isPurchase) {
-      totals[itemName].purchase += qty;
-    }
-
-    if (isWithdrawal) {
-      totals[itemName].withdrawal += qty;
-    }
 
     var typeLabel = isPurchase ? 'مشتريات' : (isWithdrawal ? 'سحب' : type || '-');
     var typeColor = isPurchase ? 'var(--green)' : (isWithdrawal ? 'var(--red)' : 'var(--gold)');
     var qtyText = (isWithdrawal ? '-' : '+') + qty;
     var invoiceText = isPurchase ? (x.invoice_no || '-') : '-';
-    var noteText = isPurchase ? (x.supplier_name || '') : (x.note || '');
+
+    var noteText = '';
+
+    if (isPurchase) {
+      noteText = x.supplier_name || '';
+    } else if (isWithdrawal) {
+      var shiftParts = [];
+
+      if (x.shifts) {
+        Object.keys(x.shifts).sort().forEach(function(shift) {
+          shiftParts.push('شفت ' + shift + ': ' + x.shifts[shift]);
+        });
+      }
+
+      noteText = shiftParts.join(' / ');
+
+      if (x.notes && x.notes.length) {
+        noteText += (noteText ? ' — ' : '') + x.notes.join('، ');
+      }
+    } else {
+      noteText = x.note || '';
+    }
 
     html +=
       '<tr style="border-bottom:1px solid #2a2a2a;">' +
-        '<td style="padding:10px;font-size:10px;">' + formatWithdrawTime(x) + '</td>' +
+        '<td style="padding:10px;font-size:10px;">' + (x.work_date || formatWithdrawTime(x)) + '</td>' +
         '<td style="padding:10px;font-weight:900;color:' + typeColor + ';">' + typeLabel + '</td>' +
         '<td style="padding:10px;font-size:11px;color:var(--gold);">' + invoiceText + '</td>' +
         '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + itemName + '</td>' +
