@@ -2863,18 +2863,17 @@ var totalDebts = 0;
       rows.forEach(function(row) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
         var cB = row.cash.find(function(c) { return c.shift === 'B'; }) || {};
-        var finalActualCash = null;
+        var finalSubmitCash = null;
 
-        if (cB.actual_cash !== undefined && cB.actual_cash !== null && cB.actual_cash !== '') {
-          finalActualCash = Number(cB.actual_cash);
-        } else if (cA.actual_cash !== undefined && cA.actual_cash !== null && cA.actual_cash !== '') {
-          finalActualCash = Number(cA.actual_cash);
-        }
+if (cB.cash_to_submit !== undefined && cB.cash_to_submit !== null && cB.cash_to_submit !== '') {
+  finalSubmitCash = Number(cB.cash_to_submit);
+} else if (cA.cash_to_submit !== undefined && cA.cash_to_submit !== null && cA.cash_to_submit !== '') {
+  finalSubmitCash = Number(cA.cash_to_submit);
+}
 
-        if (finalActualCash === null) return;
+if (finalSubmitCash === null) return;
 
-        totalActualCash += finalActualCash;
-
+totalActualCash += finalSubmitCash;
         var tracking = row.session.data.tracking_id || row.session.id;
         var dateTxt = row.session.data.work_date ? fmtDate(row.session.data.work_date) : fmtDate(S.workDate);
         var moveTime = row.session.data.updated_at && row.session.data.updated_at.toMillis ? row.session.data.updated_at.toMillis() : 0;
@@ -2885,8 +2884,7 @@ var totalDebts = 0;
             '<tr>' +
               '<td>' + dateTxt + '</td>' +
               '<td style="text-align:right;">محل<div style="font-size:10px;color:var(--gold);">' + tracking + '</div></td>' +
-              '<td><strong>' + finalActualCash.toFixed(2) + '</strong> دينار</td>' +
-            '</tr>'
+'<td><strong>' + finalSubmitCash.toFixed(2) + '</strong> دينار</td>' +            '</tr>'
         });
       });
 
@@ -5333,16 +5331,36 @@ function saveCashAddition() {
 
   showLoad('جاري حفظ النقد...');
 
-  db.collection('cashAdditions').add({
-    work_date: S.workDate,
-    source: finalSource,
-    original_source: source,
-    amount: amount,
-    note: otherNote || '',
-    created_by: S.user ? S.user.uid : '',
-    created_by_email: S.user ? S.user.email : '',
-    created_at: firebase.firestore.FieldValue.serverTimestamp()
-  })
+var now = firebase.firestore.FieldValue.serverTimestamp();
+var batch = db.batch();
+var cashAddRef = db.collection('cashAdditions').doc();
+
+batch.set(cashAddRef, {
+  work_date: S.workDate,
+  source: finalSource,
+  original_source: source,
+  amount: amount,
+  note: otherNote || '',
+  created_by: S.user ? S.user.uid : '',
+  created_by_email: S.user ? S.user.email : '',
+  created_at: now,
+  deleted: false
+});
+
+applyCashLedgerEntry(batch, {
+  amount: amount,
+  direction: 'in',
+  type: 'cash_addition',
+  source_collection: 'cashAdditions',
+  source_doc_id: cashAddRef.id,
+  ledger_doc_id: 'cashAdditions_' + cashAddRef.id,
+  title: finalSource || 'إضافة نقد',
+  note: otherNote || '',
+  work_date: S.workDate,
+  now: now
+});
+
+batch.commit()
   .then(function() {
     hideLoad();
 
@@ -5384,15 +5402,40 @@ function deleteCashAddition(docId, checkboxEl) {
 
   showLoad('جاري حذف النقد...');
 
-  db.collection('cashAdditions')
-    .doc(docId)
-    .update({
+  db.collection('cashAdditions').doc(docId).get()
+  .then(function(docSnap) {
+    if (!docSnap.exists) {
+      throw new Error('إضافة النقد غير موجودة');
+    }
+
+    var oldData = docSnap.data() || {};
+    var amount = Number(oldData.amount || 0);
+    var now = firebase.firestore.FieldValue.serverTimestamp();
+    var batch = db.batch();
+
+    batch.update(db.collection('cashAdditions').doc(docId), {
       deleted: true,
-      deleted_at: firebase.firestore.FieldValue.serverTimestamp(),
+      deleted_at: now,
       deleted_by: S.user ? S.user.uid : '',
       deleted_by_email: S.user ? S.user.email : ''
-    })
-    .then(function() {
+    });
+
+    applyCashLedgerEntry(batch, {
+      amount: amount,
+      direction: 'out',
+      type: 'cash_addition_delete',
+      source_collection: 'cashAdditions',
+      source_doc_id: docId,
+      ledger_doc_id: 'cashAdditions_delete_' + docId,
+      title: 'حذف إضافة نقد',
+      note: oldData.source || '',
+      work_date: S.workDate,
+      now: now
+    });
+
+    return batch.commit();
+  })
+      .then(function() {
       hideLoad();
       toast('تم حذف النقد من الرصيد', 'info');
       showManagerCash('add');
@@ -5442,16 +5485,35 @@ function saveCashExpense() {
 
   showLoad('جاري حفظ المصروف...');
 
-  db.collection('cashExpenses').add({
-    work_date: S.workDate,
-    type: type,
-    amount: amount,
-    note: note,
-    created_by: S.user ? S.user.uid : '',
-    created_by_email: S.user ? S.user.email : '',
-    created_at: firebase.firestore.FieldValue.serverTimestamp(),
-    deleted: false
-  })
+var now = firebase.firestore.FieldValue.serverTimestamp();
+var batch = db.batch();
+var expenseRef = db.collection('cashExpenses').doc();
+
+batch.set(expenseRef, {
+  work_date: S.workDate,
+  type: type,
+  amount: amount,
+  note: note,
+  created_by: S.user ? S.user.uid : '',
+  created_by_email: S.user ? S.user.email : '',
+  created_at: now,
+  deleted: false
+});
+
+applyCashLedgerEntry(batch, {
+  amount: amount,
+  direction: 'out',
+  type: 'cash_expense',
+  source_collection: 'cashExpenses',
+  source_doc_id: expenseRef.id,
+  ledger_doc_id: 'cashExpenses_' + expenseRef.id,
+  title: type || 'مصروف',
+  note: note || '',
+  work_date: S.workDate,
+  now: now
+});
+
+batch.commit()
   .then(function() {
     hideLoad();
     toast('تم حفظ المصروف', 'success');
@@ -5470,12 +5532,40 @@ function deleteCashExpense(docId, checkbox) {
     return;
   }
 
-  db.collection('cashExpenses').doc(docId).update({
-    deleted: true,
-    deleted_at: firebase.firestore.FieldValue.serverTimestamp(),
-    deleted_by: S.user ? S.user.uid : '',
-    deleted_by_email: S.user ? S.user.email : ''
+  db.collection('cashExpenses').doc(docId).get()
+  .then(function(docSnap) {
+    if (!docSnap.exists) {
+      throw new Error('المصروف غير موجود');
+    }
+
+    var oldData = docSnap.data() || {};
+    var amount = Number(oldData.amount || 0);
+    var now = firebase.firestore.FieldValue.serverTimestamp();
+    var batch = db.batch();
+
+    batch.update(db.collection('cashExpenses').doc(docId), {
+      deleted: true,
+      deleted_at: now,
+      deleted_by: S.user ? S.user.uid : '',
+      deleted_by_email: S.user ? S.user.email : ''
+    });
+
+    applyCashLedgerEntry(batch, {
+      amount: amount,
+      direction: 'in',
+      type: 'cash_expense_delete',
+      source_collection: 'cashExpenses',
+      source_doc_id: docId,
+      ledger_doc_id: 'cashExpenses_delete_' + docId,
+      title: 'حذف مصروف',
+      note: oldData.type || '',
+      work_date: S.workDate,
+      now: now
+    });
+
+    return batch.commit();
   })
+  
   .then(function() {
     toast('تم حذف المصروف', 'info');
     showManagerCash('expenses');
