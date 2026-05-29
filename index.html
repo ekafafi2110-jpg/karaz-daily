@@ -2861,6 +2861,7 @@ var totalDebts = 0;
       movements: []
     };
   }
+  var useSupplierLedgerView = supplierBalancesSnap && supplierBalancesSnap.docs && supplierBalancesSnap.docs.length > 0;
 
   return supplierDebtMap[supplierName];
 }
@@ -3082,7 +3083,7 @@ if (index < 5) {
   purchaseRows += invoiceCardHtml;
 }
 
-if (paymentMethod === 'ذمم' && !isDeleted) {
+if (!useSupplierLedgerView && paymentMethod === 'ذمم' && !isDeleted) {
   totalDebts += amount;
 
   var supplierRow = getSupplierDebtRow(p.supplier_name || 'غير محدد');
@@ -3091,15 +3092,14 @@ if (paymentMethod === 'ذمم' && !isDeleted) {
   supplierRow.balance += amount;
 
   supplierRow.movements.push({
-  time: p.created_at && p.created_at.toMillis ? p.created_at.toMillis() : 0,
-  type: 'invoice',
-  title: 'فاتورة رقم ' + (p.invoice_no || '-'),
-  amount: amount,
-  docId: p.docId,
-  detailsHtml: invoiceItemsHtml
-});
+    time: p.created_at && p.created_at.toMillis ? p.created_at.toMillis() : 0,
+    type: 'invoice',
+    title: 'فاتورة رقم ' + (p.invoice_no || '-'),
+    amount: amount,
+    docId: p.docId,
+    detailsHtml: invoiceItemsHtml
+  });
 }
-
 });
       }
       if (manualDebtsSnap && manualDebtsSnap.docs) {
@@ -3111,7 +3111,7 @@ if (paymentMethod === 'ذمم' && !isDeleted) {
     if (!amount || amount <= 0) return;
     if (isDeleted) return;
 
-    if (debt.paid !== true) {
+    if (!useSupplierLedgerView && debt.paid !== true) {
   totalDebts += amount;
 }
 
@@ -3119,30 +3119,32 @@ if (paymentMethod === 'ذمم' && !isDeleted) {
   ? '<span style="color:var(--green);font-size:12px;font-weight:900;">مسدد</span>'
   : '<button class="btn-add" style="max-width:90px;padding:8px 12px;background:var(--green);" onclick="event.stopPropagation(); payManualDebt(\'' + debt.docId + '\')">دفع</button>';
 
-var supplierRow = getSupplierDebtRow(debt.supplier_name || 'غير محدد');
+if (!useSupplierLedgerView) {
+  var supplierRow = getSupplierDebtRow(debt.supplier_name || 'غير محدد');
 
-if (debt.paid === true) {
-  supplierRow.payments += amount;
-  supplierRow.balance -= amount;
+  if (debt.paid === true) {
+    supplierRow.payments += amount;
+    supplierRow.balance -= amount;
 
-  supplierRow.movements.push({
-    time: debt.paid_at && debt.paid_at.toMillis ? debt.paid_at.toMillis() : 0,
-    type: 'payment',
-    title: 'دفعة التزام',
-    amount: amount,
-    docId: debt.docId
-  });
-} else {
-  supplierRow.debts += amount;
-  supplierRow.balance += amount;
+    supplierRow.movements.push({
+      time: debt.paid_at && debt.paid_at.toMillis ? debt.paid_at.toMillis() : 0,
+      type: 'payment',
+      title: 'دفعة التزام',
+      amount: amount,
+      docId: debt.docId
+    });
+  } else {
+    supplierRow.debts += amount;
+    supplierRow.balance += amount;
 
-  supplierRow.movements.push({
-    time: debt.created_at && debt.created_at.toMillis ? debt.created_at.toMillis() : 0,
-    type: 'manualDebt',
-    title: 'التزام يدوي رقم ' + (debt.invoice_no || '-'),
-    amount: amount,
-    docId: debt.docId
-  });
+    supplierRow.movements.push({
+      time: debt.created_at && debt.created_at.toMillis ? debt.created_at.toMillis() : 0,
+      type: 'manualDebt',
+      title: 'التزام يدوي رقم ' + (debt.invoice_no || '-'),
+      amount: amount,
+      docId: debt.docId
+    });
+  }
 }
   });
 }
@@ -3157,18 +3159,20 @@ if (cashPaymentsSnap && cashPaymentsSnap.docs) {
     if (isDeleted) return;
 
     totalActualCash -= amount;
-    var supplierRow = getSupplierDebtRow(pay.supplier_name || 'غير محدد');
+   if (!useSupplierLedgerView) {
+  var supplierRow = getSupplierDebtRow(pay.supplier_name || 'غير محدد');
 
-supplierRow.payments += amount;
-supplierRow.balance -= amount;
+  supplierRow.payments += amount;
+  supplierRow.balance -= amount;
 
-supplierRow.movements.push({
-  time: pay.created_at && pay.created_at.toMillis ? pay.created_at.toMillis() : 0,
-  type: 'payment',
-  title: pay.title || 'دفعة نقدية',
-  amount: amount,
-  docId: pay.docId
-});
+  supplierRow.movements.push({
+    time: pay.created_at && pay.created_at.toMillis ? pay.created_at.toMillis() : 0,
+    type: 'payment',
+    title: pay.title || 'دفعة نقدية',
+    amount: amount,
+    docId: pay.docId
+  });
+}
 
     var payTime = pay.created_at && pay.created_at.toMillis ? pay.created_at.toMillis() : 0;
 
@@ -3196,8 +3200,8 @@ supplierRow.movements.push({
 if (!purchaseRows) purchaseRows = '<div class="empty">لا توجد فواتير محفوظة بعد</div>';
 debtsRows = '';
 
-Object.keys(supplierDebtMap).forEach(function(name) {
-  var s = supplierDebtMap[name];
+if (!useSupplierLedgerView) Object.keys(supplierDebtMap).forEach(function(name) {
+    var s = supplierDebtMap[name];
 
   s.movements.sort(function(a, b) {
     return a.time - b.time;
