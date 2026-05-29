@@ -3912,28 +3912,38 @@ function loadSupplierDebtLedgerRange() {
   tbody.innerHTML = '<tr><td colspan="4"><div class="empty">جاري تحميل كشف المورد...</div></td></tr>';
 
   db.collection('supplierLedger')
-    .where('supplier_name', '==', supplierName)
-    .where('work_date', '>=', fromDate)
-    .where('work_date', '<=', toDate)
-    .get()
-    .then(function(snap) {
-      var rows = [];
+  .where('work_date', '>=', fromDate)
+  .where('work_date', '<=', toDate)
+  .get()
+  .then(function(snap) {
+    var rows = [];
 
-      if (snap && snap.docs) {
-        snap.docs.forEach(function(d) {
-          var x = Object.assign({ docId: d.id }, d.data() || {});
-          if (x.deleted === true) return;
-          rows.push(x);
-        });
-      }
+    if (snap && snap.docs) {
+      snap.docs.forEach(function(d) {
+        var x = Object.assign({ docId: d.id }, d.data() || {});
 
-      renderSupplierDebtLedgerRows(rows);
-    })
-    .catch(function(e) {
-      console.error(e);
-      tbody.innerHTML =
-        '<tr><td colspan="4"><div class="empty">حدث خطأ أثناء تحميل كشف المورد: ' + e.message + '</div></td></tr>';
-    });
+        if (x.deleted === true) return;
+
+        if ((x.supplier_name || '').trim() !== supplierName) {
+          return;
+        }
+
+        rows.push(x);
+      });
+    }
+
+    renderSupplierDebtLedgerRows(rows);
+  })
+  .catch(function(e) {
+    console.error(e);
+
+    var msg = e && e.message ? e.message : String(e || 'خطأ غير معروف');
+
+    tbody.innerHTML =
+      '<tr><td colspan="4"><div class="empty" style="direction:ltr;text-align:left;white-space:pre-wrap;">' +
+        msg +
+      '</div></td></tr>';
+  });
 }
 
 function resetSupplierDebtLedgerRange() {
