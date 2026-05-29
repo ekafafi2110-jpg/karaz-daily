@@ -6804,36 +6804,35 @@ function renderAdminWithdrawalsTable() {
 
   filtered.forEach(function(x) {
     var type = x.type || '';
-var isPurchase = type === 'purchase' || type === 'purchase_edit';
-var isWithdrawal = type === 'withdrawal';
-var isManualReset = type === 'manual_stock_reset';
+    var isPurchase = type === 'purchase' || type === 'purchase_edit';
+    var isWithdrawal = type === 'withdrawal';
+    var isManualReset = type === 'manual_stock_reset';
 
-var itemName = x.item_name || '-';
-var qty = Number(x.qty || x.quantity || 0);
+    var itemName = x.item_name || '-';
+    var qty = Number(x.qty || x.quantity || 0);
 
-if (!totals[itemName]) {
-  totals[itemName] = {
-    base: null,
-    purchase: 0,
-    withdrawal: 0
-  };
-}
+    if (!totals[itemName]) {
+      totals[itemName] = {
+        base: null,
+        purchase: 0,
+        withdrawal: 0
+      };
+    }
 
-if (isManualReset) {
-  totals[itemName].base = qty;
-  displayRows.push(x);
-  return;
-}
+    if (isManualReset) {
+      totals[itemName].base = qty;
+      displayRows.push(x);
+      return;
+    }
 
-if (isPurchase) {
-  totals[itemName].purchase += qty;
-  displayRows.push(x);
-  return;
-}
+    if (isPurchase) {
+      totals[itemName].purchase += qty;
+      displayRows.push(x);
+      return;
+    }
 
-if (isWithdrawal) {
-  
-  totals[itemName].withdrawal += qty;
+    if (isWithdrawal) {
+      totals[itemName].withdrawal += qty;
 
       var key = (x.work_date || '') + '|' + itemName;
 
@@ -6845,7 +6844,6 @@ if (isWithdrawal) {
           category: x.category || 'غير مصنف',
           qty: 0,
           quantity: 0,
-          shifts: {},
           notes: [],
           created_at: x.created_at || x.createdAt || null
         };
@@ -6853,11 +6851,6 @@ if (isWithdrawal) {
 
       withdrawalMap[key].qty += qty;
       withdrawalMap[key].quantity += qty;
-
-      if (x.shift) {
-        withdrawalMap[key].shifts[x.shift] =
-          (withdrawalMap[key].shifts[x.shift] || 0) + qty;
-      }
 
       if (x.note && withdrawalMap[key].notes.indexOf(x.note) === -1) {
         withdrawalMap[key].notes.push(x.note);
@@ -6881,6 +6874,13 @@ if (isWithdrawal) {
   });
 
   displayRows.sort(function(a, b) {
+    var da = a.work_date || '';
+    var dbb = b.work_date || '';
+
+    if (da !== dbb) {
+      return dbb.localeCompare(da);
+    }
+
     var ta = a.created_at || a.createdAt || a.updated_at;
     var tb = b.created_at || b.createdAt || b.updated_at;
 
@@ -6896,73 +6896,60 @@ if (isWithdrawal) {
         '<thead>' +
           '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
             '<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">التاريخ</th>' +
-'<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">الحركة</th>' +
-'<th style="padding:8px;border-bottom:1px solid #333;text-align:right;font-size:11px;">الصنف</th>' +
-'<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">الكمية</th>' +
-'<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">البيان</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
+            '<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">الحركة</th>' +
+            '<th style="padding:8px;border-bottom:1px solid #333;text-align:right;font-size:11px;">الصنف</th>' +
+            '<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">الكمية</th>' +
+            '<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">البيان</th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>';
 
   displayRows.forEach(function(x) {
     var type = x.type || '';
-var isPurchase = type === 'purchase' || type === 'purchase_edit';
-var isWithdrawal = type === 'withdrawal';
-var isManualReset = type === 'manual_stock_reset';
+    var isPurchase = type === 'purchase' || type === 'purchase_edit';
+    var isWithdrawal = type === 'withdrawal';
+    var isManualReset = type === 'manual_stock_reset';
 
-var qty = Number(x.qty || x.quantity || 0);
-var itemName = x.item_name || '-';
+    var qty = Number(x.qty || x.quantity || 0);
+    var itemName = x.item_name || '-';
 
-var typeLabel = isPurchase
-  ? '<span title="مشتريات">🛒</span>'
-  : (isWithdrawal
-      ? '<span title="سحب">📤</span>'
-      : (isManualReset
-          ? '<span title="ضبط يدوي">✍️</span>'
-          : '-'));
-var typeColor = isPurchase ? 'var(--green)' : (isWithdrawal ? 'var(--red)' : 'var(--gold)');
-var qtyText = isManualReset ? ('= ' + qty) : ((isWithdrawal ? '-' : '+') + qty);
-var invoiceText = '-';
+    var typeLabel = isPurchase
+      ? '<span title="مشتريات">🛒</span>'
+      : (isWithdrawal
+          ? '<span title="سحب">📤</span>'
+          : (isManualReset
+              ? '<span title="ضبط يدوي">✍️</span>'
+              : '-'));
 
-if (isPurchase) {
- var noteText = '-';
+    var typeColor = isPurchase
+      ? 'var(--green)'
+      : (isWithdrawal ? 'var(--red)' : 'var(--gold)');
 
-if (isPurchase) {
-  noteText =
-    '<div style="font-weight:900;color:var(--gold);font-size:11px;">فاتورة ' + (x.invoice_no || '-') + '</div>' +
-    '<div style="font-size:10px;color:var(--text2);">' + (x.supplier_name || '') + '</div>';
-} else if (isManualReset) {
-  noteText = '<span style="font-size:10px;color:var(--gold);">ضبط يدوي</span>';
-} else if (isWithdrawal) {
-  noteText = x.note || '-';
-}
-}
+    var qtyText = isManualReset
+      ? ('= ' + qty)
+      : ((isWithdrawal ? '-' : '+') + qty);
 
-    var noteText = '';
+    var noteText = '-';
 
     if (isPurchase) {
-  noteText = x.note || '';
-} else if (isManualReset) {
-  noteText = x.note || 'تم ضبط الرصيد يدويًا وأصبح هذا هو الرقم الأساسي الجديد';
-} else if (isWithdrawal) {
-  
-  noteText = x.note || '-';
-    } else {
-      noteText = x.note || '';
+      noteText =
+        '<div style="font-weight:900;color:var(--gold);font-size:11px;">فاتورة ' + (x.invoice_no || '-') + '</div>' +
+        '<div style="font-size:10px;color:var(--text2);">' + (x.supplier_name || '') + '</div>';
+    } else if (isManualReset) {
+      noteText = '<span style="font-size:10px;color:var(--gold);">ضبط يدوي</span>';
+    } else if (isWithdrawal) {
+      noteText = (x.notes && x.notes.length) ? x.notes.join('، ') : '-';
     }
 
     html +=
-      html +=
-  '<tr style="border-bottom:1px solid #2a2a2a;">' +
-    '<td style="padding:8px;font-size:10px;line-height:1.4;">' + (x.work_date || formatWithdrawTime(x)) + '</td>' +
-    '<td style="padding:8px;font-weight:900;color:' + typeColor + ';font-size:16px;">' + typeLabel + '</td>' +
-    '<td style="padding:8px;text-align:right;font-weight:900;color:var(--text);font-size:12px;line-height:1.5;">' + itemName + '</td>' +
-    '<td style="padding:8px;font-weight:900;color:' + typeColor + ';font-size:12px;">' + qtyText + '</td>' +
-    '<td style="padding:8px;font-size:10px;line-height:1.5;">' + noteText + '</td>' +
-  '</tr>';
-
-});
+      '<tr style="border-bottom:1px solid #2a2a2a;">' +
+        '<td style="padding:8px;font-size:10px;line-height:1.4;">' + (x.work_date || formatWithdrawTime(x)) + '</td>' +
+        '<td style="padding:8px;font-weight:900;color:' + typeColor + ';font-size:16px;">' + typeLabel + '</td>' +
+        '<td style="padding:8px;text-align:right;font-weight:900;color:var(--text);font-size:12px;line-height:1.5;">' + itemName + '</td>' +
+        '<td style="padding:8px;font-weight:900;color:' + typeColor + ';font-size:12px;">' + qtyText + '</td>' +
+        '<td style="padding:8px;font-size:10px;line-height:1.5;">' + noteText + '</td>' +
+      '</tr>';
+  });
 
   html +=
         '</tbody>' +
@@ -6972,13 +6959,15 @@ if (isPurchase) {
   var totalsHtml =
     '<div class="detail-sec" style="margin-top:12px;">' +
       '<div class="sec-title">ملخص الحركة حسب الصنف</div>' +
+      '<div class="empty" style="font-size:11px;margin-bottom:8px;">الملخص يعرض حركة الفترة فقط، ولا يعتبر رصيدًا نهائيًا بعد آخر ضبط يدوي.</div>' +
       '<table class="rpt-table">' +
         '<thead>' +
           '<tr>' +
             '<th>الصنف</th>' +
+            '<th>رصيد يدوي</th>' +
             '<th>إضافات</th>' +
             '<th>سحوبات</th>' +
-            '<th>الصافي</th>' +
+            '<th>صافي الحركة</th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>';
@@ -6986,11 +6975,13 @@ if (isPurchase) {
   sortNamesByItemsOrder(Object.keys(totals)).forEach(function(name) {
     var p = Number(totals[name].purchase || 0);
     var w = Number(totals[name].withdrawal || 0);
+    var base = totals[name].base;
     var net = p - w;
 
     totalsHtml +=
       '<tr>' +
         '<td style="text-align:right;font-size:11px;">' + name + '</td>' +
+        '<td style="color:var(--gold);font-weight:900;">' + (base !== null && base !== undefined ? ('= ' + base) : '-') + '</td>' +
         '<td style="color:var(--green);font-weight:900;">+' + p + '</td>' +
         '<td style="color:var(--red);font-weight:900;">-' + w + '</td>' +
         '<td style="font-weight:900;color:var(--gold);">' + net + '</td>' +
