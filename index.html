@@ -3826,63 +3826,202 @@ batch.commit()
 function openSupplierDebtPopup(nameEncoded, el) {
   var supplierName = decodeURIComponent(nameEncoded || '');
 
-  var card = el.closest('.mgr-card');
-  if (!card) return;
-
   var titleEl = document.getElementById('supplierDebtTitle');
   var bodyEl = document.getElementById('supplierDebtBody');
   var popup = document.getElementById('supplierDebtOv');
+
+  if (!supplierName || !bodyEl) return;
 
   if (titleEl) {
     titleEl.textContent = 'كشف المورد: ' + supplierName;
   }
 
-  var movementRows = decodeURIComponent(card.getAttribute('data-movements') || '');
+  bodyEl.setAttribute('data-supplier', supplierName);
 
-bodyEl.innerHTML =
-  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+  bodyEl.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
 
-    '<div>' +
-      '<label class="f-lbl">من تاريخ</label>' +
-      '<input type="date" class="f-inp2" id="supplierDebtFromDate" onchange="filterSupplierDebtByDate()">' +
+      '<div>' +
+        '<label class="f-lbl">من تاريخ</label>' +
+        '<input type="date" class="f-inp2" id="supplierDebtFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
+      '</div>' +
+
+      '<div>' +
+        '<label class="f-lbl">إلى تاريخ</label>' +
+        '<input type="date" class="f-inp2" id="supplierDebtToDate" value="' + S.workDate + '">' +
+      '</div>' +
+
     '</div>' +
 
-    '<div>' +
-      '<label class="f-lbl">إلى تاريخ</label>' +
-      '<input type="date" class="f-inp2" id="supplierDebtToDate" onchange="filterSupplierDebtByDate()">' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+      '<button class="btn-add" onclick="loadSupplierDebtLedgerRange()">بحث</button>' +
+      '<button class="btn-sec" onclick="resetSupplierDebtLedgerRange()">الشهر الحالي</button>' +
     '</div>' +
 
-  '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
+      '<button class="btn-sec" onclick="filterSupplierDebtRows(\'all\')">الكل</button>' +
+      '<button class="btn-sec" onclick="filterSupplierDebtRows(\'debt\')">الذمم</button>' +
+      '<button class="btn-sec" onclick="filterSupplierDebtRows(\'pay\')">الدفعات</button>' +
+    '</div>' +
 
-  '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
-  '<button class="btn-sec" onclick="filterSupplierDebtRows(\'all\')">الكل</button>' +
-  '<button class="btn-sec" onclick="filterSupplierDebtRows(\'debt\')">الذمم</button>' +
-  '<button class="btn-sec" onclick="filterSupplierDebtRows(\'pay\')">الدفعات</button>' +
-'</div>' +
-'<button class="btn-sec" style="margin-bottom:12px;" onclick="clearSupplierDebtDateFilter()">عرض الكل حسب التاريخ</button>' +
+    '<div style="margin-bottom:14px;font-size:13px;color:var(--text2);">كشف تفصيلي لحركة المورد حسب الفترة المحددة</div>' +
+    '<div id="supplierDebtNoRows" class="empty" style="display:none;margin-bottom:10px;">لا توجد حركات ضمن التاريخ المحدد</div>' +
 
-  '<div style="margin-bottom:14px;font-size:13px;color:var(--text2);">كشف تفصيلي لحركة المورد</div>' +
-  '<div id="supplierDebtNoRows" class="empty" style="display:none;margin-bottom:10px;">لا توجد حركات ضمن التاريخ المحدد</div>' +
-
-  '<table class="rpt-table">' +
-    '<thead>' +
-      '<tr>' +
-        '<th>التاريخ</th>' +
-        '<th>الذمم</th>' +
-        '<th>الدفعات</th>' +
-        '<th>الرصيد</th>' +
-      '</tr>' +
-    '</thead>' +
-    '<tbody>' +
-      (movementRows || '<tr><td colspan="4"><div class="empty">لا توجد حركات</div></td></tr>') +
-    '</tbody>' +
-  '</table>';
+    '<table class="rpt-table">' +
+      '<thead>' +
+        '<tr>' +
+          '<th>التاريخ</th>' +
+          '<th>الذمم</th>' +
+          '<th>الدفعات</th>' +
+          '<th>رصيد الفترة</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody id="supplierDebtLedgerTbody">' +
+        '<tr><td colspan="4"><div class="empty">جاري تحميل كشف المورد...</div></td></tr>' +
+      '</tbody>' +
+    '</table>';
 
   if (popup) {
     popup.style.display = 'block';
   }
+
+  loadSupplierDebtLedgerRange();
+}
+function loadSupplierDebtLedgerRange() {
+  var bodyEl = document.getElementById('supplierDebtBody');
+  var tbody = document.getElementById('supplierDebtLedgerTbody');
+  var fromEl = document.getElementById('supplierDebtFromDate');
+  var toEl = document.getElementById('supplierDebtToDate');
+
+  if (!bodyEl || !tbody) return;
+
+  var supplierName = bodyEl.getAttribute('data-supplier') || '';
+  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
+
+  if (!supplierName) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty">اسم المورد غير محدد</div></td></tr>';
+    return;
+  }
+
+  if (fromDate > toDate) {
+    toast('تاريخ البداية يجب أن يكون قبل تاريخ النهاية', 'error');
+    return;
+  }
+
+  tbody.innerHTML = '<tr><td colspan="4"><div class="empty">جاري تحميل كشف المورد...</div></td></tr>';
+
+  db.collection('supplierLedger')
+    .where('supplier_name', '==', supplierName)
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(snap) {
+      var rows = [];
+
+      if (snap && snap.docs) {
+        snap.docs.forEach(function(d) {
+          var x = Object.assign({ docId: d.id }, d.data() || {});
+          if (x.deleted === true) return;
+          rows.push(x);
+        });
+      }
+
+      renderSupplierDebtLedgerRows(rows);
+    })
+    .catch(function(e) {
+      console.error(e);
+      tbody.innerHTML =
+        '<tr><td colspan="4"><div class="empty">حدث خطأ أثناء تحميل كشف المورد: ' + e.message + '</div></td></tr>';
+    });
 }
 
+function resetSupplierDebtLedgerRange() {
+  var fromEl = document.getElementById('supplierDebtFromDate');
+  var toEl = document.getElementById('supplierDebtToDate');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+
+  loadSupplierDebtLedgerRange();
+}
+
+function renderSupplierDebtLedgerRows(rows) {
+  var tbody = document.getElementById('supplierDebtLedgerTbody');
+  var noRows = document.getElementById('supplierDebtNoRows');
+
+  if (!tbody) return;
+
+  rows = rows || [];
+
+  rows.sort(function(a, b) {
+    var da = a.work_date || '';
+    var dbb = b.work_date || '';
+
+    if (da !== dbb) {
+      return da.localeCompare(dbb);
+    }
+
+    var ta = a.created_at && a.created_at.toMillis ? a.created_at.toMillis() : 0;
+    var tb = b.created_at && b.created_at.toMillis ? b.created_at.toMillis() : 0;
+
+    return ta - tb;
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty">لا توجد حركات لهذا المورد ضمن الفترة المحددة</div></td></tr>';
+    if (noRows) noRows.style.display = 'none';
+    return;
+  }
+
+  var runningBalance = 0;
+  var html = '';
+
+  rows.forEach(function(m) {
+    var direction = m.direction || '';
+    var amount = Number(m.amount || 0);
+    var dateText = m.work_date || '';
+    var title = m.title || '';
+    var invoiceNo = m.invoice_no || '';
+
+    var debtCol = '-';
+    var payCol = '-';
+
+    if (direction === 'debt') {
+      runningBalance += amount;
+
+      debtCol =
+        '<div>' +
+          '<div style="color:var(--gold);font-weight:900;">' + (title || ('فاتورة رقم ' + invoiceNo)) + '</div>' +
+          '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
+        '</div>';
+    }
+
+    if (direction === 'payment') {
+      runningBalance -= amount;
+
+      payCol =
+        '<div>' +
+          '<div style="color:var(--green);font-weight:900;">' + (title || 'دفعة مورد') + '</div>' +
+          '<div style="font-size:13px;font-weight:900;color:var(--green);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
+        '</div>';
+    }
+
+    html +=
+      '<tr data-date="' + dateText + '">' +
+        '<td>' + (dateText ? fmtDate(dateText) : '-') + '</td>' +
+        '<td>' + debtCol + '</td>' +
+        '<td>' + payCol + '</td>' +
+        '<td><strong>' + runningBalance.toFixed(2) + '</strong></td>' +
+      '</tr>';
+  });
+
+  tbody.innerHTML = html;
+
+  if (noRows) {
+    noRows.style.display = 'none';
+  }
+}
 function closeSupplierDebtPopup() {
   var popup = document.getElementById('supplierDebtOv');
   if (popup) popup.style.display = 'none';
