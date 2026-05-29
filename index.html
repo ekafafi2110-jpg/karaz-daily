@@ -1373,6 +1373,29 @@ pendingSessionsForB:[],
 currentSalesSessionId:null,
 currentSalesSessionData:null
 };
+
+function sortNamesByItemsOrder(names) {
+  var orderMap = {};
+
+  (S.items || []).forEach(function(item, index) {
+    var name = item.name || item.item_name || '';
+    if (name) {
+      orderMap[name] = index;
+    }
+  });
+
+  return (names || []).slice().sort(function(a, b) {
+    var ia = orderMap[a];
+    var ib = orderMap[b];
+
+    if (ia === undefined) ia = 999999;
+    if (ib === undefined) ib = 999999;
+
+    if (ia !== ib) return ia - ib;
+
+    return String(a || '').localeCompare(String(b || ''), 'ar');
+  });
+}
 function makeTrackingId(workDate) {
   var now = new Date();
   var p = workDate.split('-');
@@ -4580,6 +4603,7 @@ function saveCashPurchaseEdit() {
   var purchaseRef = db.collection('cashPurchases').doc(docId);
 
   var qtyDeltaMap = {};
+  var newItemMap = {};
 
   oldItems.forEach(function(it) {
     var name = it.item_name || '';
@@ -4590,13 +4614,38 @@ function saveCashPurchaseEdit() {
   newItems.forEach(function(it) {
     var name = it.item_name || '';
     if (!name) return;
+
     qtyDeltaMap[name] = (qtyDeltaMap[name] || 0) + Number(it.qty || 0);
+    newItemMap[name] = it;
   });
 
-  db.collection('warehouseLog')
-    .where('invoice_id', '==', docId)
-    .get()
-    .then(function(logSnap) {
+  Promise.all([
+    db.collection('cashPurchases')
+      .where('supplier_name', '==', supplierName)
+      .where('invoice_no', '==', invoiceNo)
+      .get(),
+
+    db.collection('warehouseLog')
+      .where('invoice_id', '==', docId)
+      .get()
+  ])
+    .then(function(results) {
+      var duplicateSnap = results[0];
+      var logSnap = results[1];
+
+      var duplicateFound = false;
+
+      duplicateSnap.docs.forEach(function(d) {
+        var x = d.data() || {};
+        if (d.id !== docId && x.deleted !== true) {
+          duplicateFound = true;
+        }
+      });
+
+      if (duplicateFound) {
+        throw new Error('رقم الفاتورة مكرر لنفس المورد');
+      }
+
       var batch = db.batch();
 
       batch.update(purchaseRef, {
@@ -4616,6 +4665,7 @@ function saveCashPurchaseEdit() {
         if (!delta) return;
 
         var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(name));
+
         batch.set(stockRef, {
           item_name: name,
           qty: firebase.firestore.FieldValue.increment(delta),
@@ -4623,22 +4673,60 @@ function saveCashPurchaseEdit() {
         }, { merge: true });
       });
 
+      var activeLogByItem = {};
+      var duplicateLogs = [];
+
       if (logSnap && logSnap.docs) {
         logSnap.docs.forEach(function(l) {
-          batch.update(l.ref, {
-            deleted: true,
-            edited: true,
-            edited_at: now
-          });
+          var logData = l.data() || {};
+
+          if (logData.deleted === true) {
+            return;
+          }
+
+          var name = logData.item_name || '';
+
+          if (!name) {
+            batch.update(l.ref, {
+              deleted: true,
+              edited: true,
+              edited_at: now
+            });
+            return;
+          }
+
+          if (!activeLogByItem[name]) {
+            activeLogByItem[name] = l;
+          } else {
+            duplicateLogs.push(l);
+          }
         });
       }
 
-      newItems.forEach(function(it) {
-        var logRef = db.collection('warehouseLog').doc();
+      duplicateLogs.forEach(function(l) {
+        batch.update(l.ref, {
+          deleted: true,
+          edited: true,
+          edited_at: now
+        });
+      });
 
-        batch.set(logRef, {
-          work_date: S.workDate,
-          type: 'purchase_edit',
+      Object.keys(activeLogByItem).forEach(function(name) {
+        if (newItemMap[name]) return;
+
+        batch.update(activeLogByItem[name].ref, {
+          deleted: true,
+          edited: true,
+          edited_at: now
+        });
+      });
+
+      newItems.forEach(function(it) {
+        var existingLog = activeLogByItem[it.item_name];
+
+        var logData = {
+          work_date: oldData.work_date || S.workDate,
+          type: 'purchase',
           invoice_id: docId,
           invoice_no: invoiceNo,
           supplier_name: supplierName,
@@ -4647,12 +4735,22 @@ function saveCashPurchaseEdit() {
           price: it.price,
           amount: it.amount,
           payment_method: paymentMethod,
-          note: 'تعديل فاتورة رقم ' + invoiceNo,
-          created_by: user.uid || '',
-          created_by_email: user.email || '',
-          created_at: now,
+          note: 'مشتريات فاتورة رقم ' + invoiceNo,
+          updated_by: user.uid || '',
+          updated_by_email: user.email || '',
+          updated_at: now,
           deleted: false
-        });
+        };
+
+        if (existingLog) {
+          batch.set(existingLog.ref, logData, { merge: true });
+        } else {
+          var logRef = db.collection('warehouseLog').doc();
+          logData.created_by = user.uid || '';
+          logData.created_by_email = user.email || '';
+          logData.created_at = now;
+          batch.set(logRef, logData);
+        }
       });
 
       return batch.commit();
@@ -4663,16 +4761,15 @@ function saveCashPurchaseEdit() {
       window.editCashPurchaseDocId = null;
       window.editCashPurchaseOldData = null;
 
-      toast('تم حفظ تعديل الفاتورة وتحديث الرصيد', 'success');
+      toast('تم حفظ تعديل الفاتورة وتحديث العدد بدون تكرار', 'success');
       showManagerCash('purchases');
     })
     .catch(function(e) {
       hideLoad();
       console.error(e);
-      toast('حدث خطأ أثناء حفظ تعديل الفاتورة', 'error');
+      toast('خطأ: ' + e.message, 'error');
     });
 }
-
 function openCashBalanceDetails() {
   var box = document.getElementById('cashBalanceDetails');
   var addBox = document.getElementById('addCashBox');
@@ -6381,8 +6478,7 @@ setModal('سجل المستودع');
       '<div style="height:10px"></div>' +
 
       '<label class="f-lbl">بحث بالتاريخ</label>' +
-      '<input id="adminWithdrawDateSearch" class="f-inp2" type="date" onchange="loadAdminWithdrawalsLog()">' +
-
+'<input id="adminWithdrawDateSearch" class="f-inp2" type="date" value="' + S.workDate + '" onchange="loadAdminWithdrawalsLog()">' +
       '<div style="height:10px"></div>' +
 
       '<button class="btn-sec" onclick="clearAdminWithdrawalsSearch()">مسح البحث</button>' +
@@ -6438,38 +6534,52 @@ function loadAdminWithdrawalsLog() {
   var results = document.getElementById('adminWithdrawalsResults');
   if (!results) return;
 
-  var selectedDate = document.getElementById('adminWithdrawDateSearch')
-    ? document.getElementById('adminWithdrawDateSearch').value
-    : '';
+  var dateEl = document.getElementById('adminWithdrawDateSearch');
+  var selectedDate = dateEl && dateEl.value ? dateEl.value : S.workDate;
+
+  if (dateEl && !dateEl.value) {
+    dateEl.value = selectedDate;
+  }
 
   results.innerHTML = '<div class="empty">جاري تحميل سجل المستودع...</div>';
 
   db.collection('warehouseLog')
+    .where('work_date', '==', selectedDate)
     .get()
     .then(function(snap) {
+      adminWithdrawalsRows = [];
+
       if (snap.empty) {
-        results.innerHTML = '<div class="empty">لا توجد حركات في سجل المستودع</div>';
+        results.innerHTML = '<div class="empty">لا توجد حركات في سجل المستودع لهذا التاريخ</div>';
         return;
       }
-
-      adminWithdrawalsRows = [];
 
       snap.docs.forEach(function(d) {
         var x = Object.assign({ id: d.id }, d.data() || {});
 
         if (x.deleted === true) return;
 
-        if (selectedDate && getWithdrawDateKey(x) !== selectedDate) {
+        var type = x.type || '';
+
+        if (type !== 'purchase' && type !== 'purchase_edit' && type !== 'withdrawal') {
           return;
         }
 
-        x.category = x.item_category || getWithdrawalItemCategoryByName(x.item_name || '');
+        if (type === 'purchase_edit') {
+          x.type = 'purchase';
+        }
+
+        x.category =
+          x.item_category ||
+          getWithdrawalItemCategoryByName(x.item_name || '') ||
+          'غير مصنف';
+
         adminWithdrawalsRows.push(x);
       });
 
       adminWithdrawalsRows.sort(function(a, b) {
-        var ta = a.created_at || a.createdAt;
-        var tb = b.created_at || b.createdAt;
+        var ta = a.created_at || a.createdAt || a.updated_at;
+        var tb = b.created_at || b.createdAt || b.updated_at;
 
         var va = ta && ta.toDate ? ta.toDate().getTime() : 0;
         var vb = tb && tb.toDate ? tb.toDate().getTime() : 0;
@@ -6478,23 +6588,38 @@ function loadAdminWithdrawalsLog() {
       });
 
       if (!adminWithdrawalsRows.length) {
-        results.innerHTML = '<div class="empty">لا توجد نتائج حسب التاريخ</div>';
+        results.innerHTML = '<div class="empty">لا توجد حركات صالحة في سجل المستودع لهذا التاريخ</div>';
         return;
       }
 
       var categories = [];
 
-      S.items.forEach(function(item) {
-        var cat = item.category || 'العبوات';
+      adminWithdrawalsRows.forEach(function(x) {
+        var cat = x.category || 'غير مصنف';
         if (categories.indexOf(cat) === -1) {
           categories.push(cat);
         }
       });
 
-      adminWithdrawalsRows.forEach(function(x) {
-        if (categories.indexOf(x.category) === -1) {
-          categories.push(x.category);
+      var categoryOrder = {};
+
+      (S.items || []).forEach(function(item, index) {
+        var cat = item.category || 'العبوات';
+        if (categoryOrder[cat] === undefined) {
+          categoryOrder[cat] = index;
         }
+      });
+
+      categories.sort(function(a, b) {
+        var ia = categoryOrder[a];
+        var ib = categoryOrder[b];
+
+        if (ia === undefined) ia = 999999;
+        if (ib === undefined) ib = 999999;
+
+        if (ia !== ib) return ia - ib;
+
+        return String(a || '').localeCompare(String(b || ''), 'ar');
       });
 
       if (!adminWithdrawalsSelectedCategory || categories.indexOf(adminWithdrawalsSelectedCategory) === -1) {
@@ -6621,7 +6746,7 @@ function renderAdminWithdrawalsTable() {
 
   filtered.forEach(function(x) {
     var type = x.type || '';
-    var isPurchase = type === 'purchase';
+var isPurchase = type === 'purchase' || type === 'purchase_edit';
     var isWithdrawal = type === 'withdrawal';
 
     var qty = Number(x.qty || x.quantity || 0);
