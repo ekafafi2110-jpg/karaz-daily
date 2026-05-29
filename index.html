@@ -2817,11 +2817,7 @@ function showManagerCash(openPanel) {
   db.collection('cashPayments').where('work_date', '==', S.workDate).get(),
   db.collection('cashExpenses').where('work_date', '==', S.workDate).get(),
   db.collection('suppliers').get(),
-  db.collection('supplierBalances').get(),
-  db.collection('supplierLedger')
-    .where('work_date', '>=', getMonthStartDate(S.workDate))
-    .where('work_date', '<=', S.workDate)
-    .get()
+db.collection('supplierBalances').get()
 ]);
 
     })
@@ -2836,8 +2832,6 @@ function showManagerCash(openPanel) {
 var cashExpensesSnap = results[5];
 var suppliersSnap = results[6];
 var supplierBalancesSnap = results[7];
-var supplierLedgerSnap = results[8];
-
 var totalActualCash = 0;
 var balanceRows = [];
 var tableRows = '';
@@ -3263,26 +3257,6 @@ if (!useSupplierLedgerView) Object.keys(supplierDebtMap).forEach(function(name) 
 '</div>' +
 '</div>';
 });
-var supplierLedgerMap = {};
-
-if (supplierLedgerSnap && supplierLedgerSnap.docs) {
-  supplierLedgerSnap.docs.forEach(function(d) {
-    var x = Object.assign({ docId: d.id }, d.data() || {});
-
-    if (x.deleted === true) return;
-
-    var supplierName = (x.supplier_name || 'غير محدد').trim();
-    var amount = Number(x.amount || 0);
-
-    if (!supplierName || !amount || amount <= 0) return;
-
-    if (!supplierLedgerMap[supplierName]) {
-      supplierLedgerMap[supplierName] = [];
-    }
-
-    supplierLedgerMap[supplierName].push(x);
-  });
-}
 
 var newDebtsRows = '';
 var newTotalDebts = 0;
@@ -3301,66 +3275,7 @@ if (supplierBalancesSnap && supplierBalancesSnap.docs) {
 
     newTotalDebts += balance;
 
-    var movements = supplierLedgerMap[supplierName] || [];
-
-    movements.sort(function(a, b) {
-      var ta = a.created_at && a.created_at.toMillis ? a.created_at.toMillis() : 0;
-      var tb = b.created_at && b.created_at.toMillis ? b.created_at.toMillis() : 0;
-
-      if (ta !== tb) return ta - tb;
-
-      return String(a.work_date || '').localeCompare(String(b.work_date || ''));
-    });
-
-    var runningBalance = 0;
-    var movementRows = '';
-
-    movements.forEach(function(m) {
-      var direction = m.direction || '';
-      var amount = Number(m.amount || 0);
-      var dateText = m.work_date || '';
-      var title = m.title || '';
-      var invoiceNo = m.invoice_no || '';
-
-      var debtCol = '-';
-      var payCol = '-';
-
-      if (direction === 'debt') {
-        runningBalance += amount;
-
-        debtCol =
-          '<div>' +
-            '<div style="color:var(--gold);font-weight:900;">' + (title || ('فاتورة رقم ' + invoiceNo)) + '</div>' +
-            '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
-          '</div>';
-      }
-
-      if (direction === 'payment') {
-        runningBalance -= amount;
-
-        payCol =
-          '<div>' +
-            '<div style="color:var(--green);font-weight:900;">' + (title || 'دفعة مورد') + '</div>' +
-            '<div style="font-size:13px;font-weight:900;color:var(--green);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
-          '</div>';
-      }
-
-      movementRows +=
-        '<tr data-date="' + dateText + '">' +
-          '<td>' + (dateText ? fmtDate(dateText) : '-') + '</td>' +
-          '<td>' + debtCol + '</td>' +
-          '<td>' + payCol + '</td>' +
-          '<td><strong>' + runningBalance.toFixed(2) + '</strong></td>' +
-        '</tr>';
-    });
-
-    if (!movementRows) {
-      movementRows =
-        '<tr>' +
-          '<td colspan="4"><div class="empty">لا توجد حركات لهذا المورد خلال الشهر الحالي</div></td>' +
-        '</tr>';
-    }
-
+    
     newDebtsRows +=
   '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="openSupplierDebtPopup(\'' + encodeURIComponent(supplierName) + '\', this)">' +        '<div style="width:100%;text-align:right;">' +
           '<div style="font-weight:900;color:var(--gold);font-size:16px;">المورد: ' + supplierName + '</div>' +
@@ -3780,27 +3695,37 @@ function paySupplierDebt(supplierName, currentBalance) {
   }
 
   if (amount > currentBalance) {
-    toast('المبلغ أكبر من رصيد المورد', 'error');
-    return;
-  }
+  toast('المبلغ أكبر من رصيد المورد', 'error');
+  return;
+}
 
-  var now = firebase.firestore.FieldValue.serverTimestamp();
+var paymentNote = prompt(
+  'أدخل ملاحظة الدفع للمورد: ' + supplierName + '\nمثال: كاش في المحل، تحويل بنكي، دفع من الحساب'
+);
+
+if (paymentNote === null) return;
+
+paymentNote = (paymentNote || '').trim();
+
+if (!paymentNote) {
+  paymentNote = 'دفعة من بطاقة المورد';
+}
+
+var now = firebase.firestore.FieldValue.serverTimestamp();
 var batch = db.batch();
 var paymentRef = db.collection('cashPayments').doc();
-
 batch.set(paymentRef, {
   work_date: S.workDate,
   type: 'supplier_payment',
   title: 'دفعة مورد',
   supplier_name: supplierName,
   amount: amount,
-  note: 'دفعة من بطاقة المورد',
+  note: paymentNote,
   created_by: S.user ? S.user.uid : '',
   created_by_email: S.user ? S.user.email : '',
   created_at: now,
   deleted: false
 });
-
 applySupplierLedgerEntry(batch, {
   supplier_name: supplierName,
   amount: amount,
@@ -3810,7 +3735,7 @@ applySupplierLedgerEntry(batch, {
   source_doc_id: paymentRef.id,
   ledger_doc_id: 'cashPayments_' + paymentRef.id,
   title: 'دفعة مورد',
-  note: 'دفعة من بطاقة المورد',
+  note: paymentNote,
   work_date: S.workDate,
   now: now
 });
@@ -4011,14 +3936,19 @@ function renderSupplierDebtLedgerRows(rows) {
     }
 
     if (direction === 'payment') {
-      runningBalance -= amount;
+  runningBalance -= amount;
 
-      payCol =
-        '<div>' +
-          '<div style="color:var(--green);font-weight:900;">' + (title || 'دفعة مورد') + '</div>' +
-          '<div style="font-size:13px;font-weight:900;color:var(--green);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
-        '</div>';
-    }
+  var payNote = (m.note || '').trim();
+
+  debtCol = payNote
+  ? '<div style="font-size:12px;color:var(--gold);font-weight:800;line-height:1.6;">' + payNote + '</div>'
+  : '-';
+  payCol =
+    '<div>' +
+      '<div style="color:var(--green);font-weight:900;">' + (title || 'دفعة مورد') + '</div>' +
+      '<div style="font-size:13px;font-weight:900;color:var(--green);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
+    '</div>';
+}
 
     html +=
       '<tr data-date="' + dateText + '">' +
