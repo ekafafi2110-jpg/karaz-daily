@@ -3600,6 +3600,20 @@ function payManualDebt(docId) {
         created_at: now,
         deleted: false
       });
+      applySupplierLedgerEntry(batch, {
+  supplier_name: debt.supplier_name || '',
+  amount: amount,
+  direction: 'payment',
+  type: 'manual_debt_payment',
+  source_collection: 'cashPayments',
+  source_doc_id: paymentRef.id,
+  ledger_doc_id: 'cashPayments_' + paymentRef.id,
+  invoice_no: debt.invoice_no || '',
+  title: 'سداد التزام يدوي',
+  note: debt.note || '',
+  work_date: S.workDate,
+  now: now
+});
 
       return batch.commit();
     })
@@ -3641,18 +3655,38 @@ function paySupplierDebt(supplierName, currentBalance) {
     return;
   }
 
-  db.collection('cashPayments').add({
-    work_date: S.workDate,
-    type: 'supplier_payment',
-    title: 'دفعة مورد',
-    supplier_name: supplierName,
-    amount: amount,
-    note: 'دفعة من بطاقة المورد',
-    created_by: S.user ? S.user.uid : '',
-    created_by_email: S.user ? S.user.email : '',
-    created_at: firebase.firestore.FieldValue.serverTimestamp(),
-    deleted: false
-  })
+  var now = firebase.firestore.FieldValue.serverTimestamp();
+var batch = db.batch();
+var paymentRef = db.collection('cashPayments').doc();
+
+batch.set(paymentRef, {
+  work_date: S.workDate,
+  type: 'supplier_payment',
+  title: 'دفعة مورد',
+  supplier_name: supplierName,
+  amount: amount,
+  note: 'دفعة من بطاقة المورد',
+  created_by: S.user ? S.user.uid : '',
+  created_by_email: S.user ? S.user.email : '',
+  created_at: now,
+  deleted: false
+});
+
+applySupplierLedgerEntry(batch, {
+  supplier_name: supplierName,
+  amount: amount,
+  direction: 'payment',
+  type: 'supplier_payment',
+  source_collection: 'cashPayments',
+  source_doc_id: paymentRef.id,
+  ledger_doc_id: 'cashPayments_' + paymentRef.id,
+  title: 'دفعة مورد',
+  note: 'دفعة من بطاقة المورد',
+  work_date: S.workDate,
+  now: now
+});
+
+batch.commit()
   .then(function() {
     toast('تم تسجيل دفعة المورد', 'success');
     showManagerCash('debts');
@@ -3786,17 +3820,39 @@ var note = noteEl ? noteEl.value.trim() : '';
         noteEl.value = finalInvoiceNo;
       }
 
-      return db.collection('manualDebts').add({
-        work_date: S.workDate,
-        supplier_name: supplierName,
-        invoice_no: finalInvoiceNo,
-        amount: amount,
-        note: note,
-        created_by: S.user ? S.user.uid : '',
-        created_by_email: S.user ? S.user.email : '',
-        created_at: firebase.firestore.FieldValue.serverTimestamp(),
-        deleted: false
-      });
+      var now = firebase.firestore.FieldValue.serverTimestamp();
+var batch = db.batch();
+var debtRef = db.collection('manualDebts').doc();
+
+batch.set(debtRef, {
+  work_date: S.workDate,
+  supplier_name: supplierName,
+  invoice_no: finalInvoiceNo,
+  amount: amount,
+  note: note,
+  created_by: S.user ? S.user.uid : '',
+  created_by_email: S.user ? S.user.email : '',
+  created_at: now,
+  deleted: false
+});
+
+applySupplierLedgerEntry(batch, {
+  supplier_name: supplierName,
+  amount: amount,
+  direction: 'debt',
+  type: 'manual_debt',
+  source_collection: 'manualDebts',
+  source_doc_id: debtRef.id,
+  ledger_doc_id: 'manualDebts_' + debtRef.id,
+  invoice_no: finalInvoiceNo,
+  title: 'التزام يدوي رقم ' + finalInvoiceNo,
+  note: note,
+  work_date: S.workDate,
+  now: now
+});
+
+return batch.commit();
+
     })
     .then(function() {
       toast('تم حفظ الالتزام', 'success');
@@ -4336,6 +4392,55 @@ function openCashPurchaseInvoiceFromBalance(docId) {
     });
 }
 
+function applySupplierLedgerEntry(batch, data) {
+  data = data || {};
+
+  var supplierName = (data.supplier_name || '').trim();
+  var amount = Number(data.amount || 0);
+
+  if (!supplierName || !amount || amount <= 0) {
+    return;
+  }
+
+  var direction = data.direction || 'debt';
+  var delta = direction === 'payment' ? -amount : amount;
+
+  var now = data.now || firebase.firestore.FieldValue.serverTimestamp();
+  var sourceCollection = data.source_collection || '';
+  var sourceDocId = data.source_doc_id || '';
+  var ledgerDocId = data.ledger_doc_id || (sourceCollection + '_' + sourceDocId);
+
+  var balanceRef = db.collection('supplierBalances').doc(encodeURIComponent(supplierName));
+  var ledgerRef = db.collection('supplierLedger').doc(ledgerDocId);
+
+  batch.set(balanceRef, {
+    supplier_name: supplierName,
+    balance: firebase.firestore.FieldValue.increment(delta),
+    updated_at: now,
+    updated_by: S.user ? S.user.uid : '',
+    updated_by_email: S.user ? S.user.email : '',
+    deleted: false
+  }, { merge: true });
+
+  batch.set(ledgerRef, {
+    work_date: data.work_date || S.workDate,
+    supplier_name: supplierName,
+    type: data.type || direction,
+    direction: direction,
+    amount: amount,
+    balance_delta: delta,
+    source_collection: sourceCollection,
+    source_doc_id: sourceDocId,
+    invoice_no: data.invoice_no || '',
+    title: data.title || '',
+    note: data.note || '',
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: now,
+    updated_at: now,
+    deleted: false
+  }, { merge: true });
+}
 function saveCashPurchase() {
   var rows = document.querySelectorAll('.cash-purchase-row');
 var paymentEl = document.getElementById('cashPurchasePayment');
@@ -4452,6 +4557,22 @@ if (!invoiceTotal || invoiceTotal <= 0) {
       var purchaseRef = db.collection('cashPurchases').doc();
 
       batch.set(purchaseRef, purchaseData);
+      if (paymentMethod === 'ذمم') {
+  applySupplierLedgerEntry(batch, {
+    supplier_name: supplierName,
+    amount: invoiceTotal,
+    direction: 'debt',
+    type: 'purchase_invoice',
+    source_collection: 'cashPurchases',
+    source_doc_id: purchaseRef.id,
+    ledger_doc_id: 'cashPurchases_' + purchaseRef.id,
+    invoice_no: finalInvoiceNo,
+    title: 'فاتورة مشتريات ذمم رقم ' + finalInvoiceNo,
+    note: invoiceTitle,
+    work_date: S.workDate,
+    now: now
+  });
+}
 
 if (supplierEl && supplierEl.value === 'فاتورة أخرى') {
   if (supplierEl && supplierEl.value === 'فاتورة أخرى') {
