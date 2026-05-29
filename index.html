@@ -5818,148 +5818,116 @@ var warehouseBalanceSelectedCategory = '';
 
 function showWarehouseBalance() {
   restoreWarehouseSections();
-    console.log('SHOW WAREHOUSE BALANCE START');
+  console.log('SHOW WAREHOUSE BALANCE START');
 
-var section = document.getElementById('warehouseBalanceSection');
-if (!section) return;
+  var section = document.getElementById('warehouseBalanceSection');
+  if (!section) return;
 
-hideWarehouseSections();
+  hideWarehouseSections();
 
-section.style.display = 'block';
+  section.style.display = 'block';
 
-setModal('رصيد الأصناف');
+  setModal('رصيد الأصناف');
 
-var modalBody = document.getElementById('modalBody');
-modalBody.innerHTML = '';
-modalBody.appendChild(section);
+  var modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = '';
+  modalBody.appendChild(section);
 
-openModal();
+  openModal();
 
-var list = document.getElementById('warehouseBalanceList');
-list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
- var itemsMap = {};
-var itemMetaMap = {};
-var warehouseOpeningMap = {};
-var purchasesMap = {};
-var withdrawalsMap = {};
-var shopMap = {};
-db.collection('items').get()
-  .then(function(itemsSnap) {
-    itemsSnap.docs.forEach(function(d) {
-      var x = d.data() || {};
-      var name = x.name || x.item_name || x.itemName || '';
+  var list = document.getElementById('warehouseBalanceList');
+  list.innerHTML = '<div class="empty">جاري تحميل رصيد الأصناف...</div>';
 
-      if (name) {
+  var itemsMap = {};
+  var itemMetaMap = {};
+  var warehouseStockMap = {};
+  var shopMap = {};
+
+  Promise.all([
+    db.collection('items').orderBy('sort_order').get(),
+    db.collection('warehouseStock').get(),
+    loadTodayShopInventory()
+  ])
+    .then(function(results) {
+      var itemsSnap = results[0];
+      var stockSnap = results[1];
+      shopMap = results[2] || {};
+
+      itemsSnap.docs.forEach(function(d) {
+        var x = d.data() || {};
+        var name = x.name || x.item_name || x.itemName || '';
+
+        if (!name) return;
+
         itemsMap[name] = true;
         itemMetaMap[name] = {
           category: x.category || 'العبوات',
           unit: x.unit || ''
         };
-      }
-    });
+      });
 
-       return db.collection('warehouseOpeningStock').get();
-  })
-  .then(function(openingSnap) {
-    openingSnap.docs.forEach(function(d) {
-      var x = d.data() || {};
-      var name = x.item_name || '';
+      stockSnap.docs.forEach(function(d) {
+        var x = d.data() || {};
+        var name = x.item_name || decodeURIComponent(d.id || '');
 
-      if (!name) return;
-
-      warehouseOpeningMap[name] = Number(x.quantity || 0);
-      itemsMap[name] = true;
-    });
-
-    return db.collection('stockPurchases').get();    })
-    .then(function(purchaseSnap) {
-      purchaseSnap.docs.forEach(function(d) {
-        var x = d.data();
-        var name = x.item_name || '';
         if (!name) return;
 
-        purchasesMap[name] = (purchasesMap[name] || 0) + Number(x.quantity || 0);
+        warehouseStockMap[name] = Number(x.qty || 0);
         itemsMap[name] = true;
       });
 
-            return db.collection('stockWithdrawals').get();
-    })
-    .then(function(withdrawSnap) {
-    withdrawSnap.docs.forEach(function(d) {
-  var x = d.data() || {};
-  var name = x.item_name || '';
-  if (!name) return;
-
-  var qty = Number(x.quantity || 0);
-
-  withdrawalsMap[name] = (withdrawalsMap[name] || 0) + qty;
-  itemsMap[name] = true;
-});
-
-return loadTodayShopInventory();
-    })
-    .then(function(shopResult) {
-
-  shopMap = shopResult;
-
-  Object.keys(shopMap).forEach(function(name) {
-    itemsMap[name] = true;
- 
+      Object.keys(shopMap).forEach(function(name) {
+        itemsMap[name] = true;
       });
-  warehouseBalanceItems = [];
 
-sortNamesByItemsOrder(Object.keys(itemsMap)).forEach(function(name) {  var meta = itemMetaMap[name] || {};
- var warehouseOpening = warehouseOpeningMap[name] || 0;
-var purchases = purchasesMap[name] || 0;
-var withdrawals = withdrawalsMap[name] || 0;
+      warehouseBalanceItems = [];
 
-var warehouseBalance = warehouseOpening + purchases - withdrawals;
-var shopBalance = shopMap[name] || 0;
+      sortNamesByItemsOrder(Object.keys(itemsMap)).forEach(function(name) {
+        var meta = itemMetaMap[name] || {};
 
-var totalBalance = warehouseBalance + shopBalance; 
+        var warehouseBalance = Number(warehouseStockMap[name] || 0);
+        var shopBalance = Number(shopMap[name] || 0);
+        var totalBalance = warehouseBalance + shopBalance;
 
-warehouseBalanceItems.push({
-    name: name,
-    category: meta.category || 'العبوات',
-    unit: meta.unit || '',
-    shopBalance: shopBalance,
-warehouseBalance: warehouseBalance,
-totalBalance: totalBalance
-});
-});
+        warehouseBalanceItems.push({
+          name: name,
+          category: meta.category || 'العبوات',
+          unit: meta.unit || '',
+          shopBalance: shopBalance,
+          warehouseBalance: warehouseBalance,
+          totalBalance: totalBalance
+        });
+      });
 
-if (!warehouseBalanceItems.length) {
-  list.innerHTML = '<div class="empty">لا توجد أصناف لعرضها</div>';
-  return;
-}
+      if (!warehouseBalanceItems.length) {
+        list.innerHTML = '<div class="empty">لا توجد أصناف لعرضها</div>';
+        return;
+      }
 
-var categories = [];
+      var categories = [];
 
-warehouseBalanceItems.forEach(function(item) {
-  if (categories.indexOf(item.category) === -1) {
-    categories.push(item.category);
-  }
-});
+      warehouseBalanceItems.forEach(function(item) {
+        if (categories.indexOf(item.category) === -1) {
+          categories.push(item.category);
+        }
+      });
 
-if (!warehouseBalanceSelectedCategory || categories.indexOf(warehouseBalanceSelectedCategory) === -1) {
-  warehouseBalanceSelectedCategory = categories[0] || '';
-}
+      if (!warehouseBalanceSelectedCategory || categories.indexOf(warehouseBalanceSelectedCategory) === -1) {
+        warehouseBalanceSelectedCategory = categories[0] || '';
+      }
 
-list.innerHTML =
-  '<div id="warehouseBalanceCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
-  '<div id="warehouseBalanceTableBox"></div>';
+      list.innerHTML =
+        '<div id="warehouseBalanceCategoryTabs" style="display:flex;gap:8px;overflow-x:auto;padding:8px 0;margin:8px 0;"></div>' +
+        '<div id="warehouseBalanceTableBox"></div>';
 
-renderWarehouseBalanceCategoryTabs(categories);
-renderWarehouseBalanceTable();
-
+      renderWarehouseBalanceCategoryTabs(categories);
+      renderWarehouseBalanceTable();
     })
     .catch(function(error) {
       console.error(error);
       list.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل رصيد الأصناف</div>';
     });
-    
 }
-
 function renderWarehouseBalanceCategoryTabs(categories) {
   var tabs = document.getElementById('warehouseBalanceCategoryTabs');
   if (!tabs) return;
@@ -6249,18 +6217,32 @@ var collectionName = 'warehouseOpeningStock';
     var ref = db.collection(collectionName).doc(docId);
 
     batch.set(ref, {
-      work_date: S.workDate,
-      item_name: item.name,
-      category: item.category,
-      unit: item.unit || '',
-      quantity: qty,
-      stock_type: stockType,
-      updated_by: S.user ? S.user.uid : '',
-      updated_by_email: S.user ? S.user.email : '',
-      updated_at: FS.serverTimestamp()
-    }, { merge: true });
+  work_date: S.workDate,
+  item_name: item.name,
+  category: item.category,
+  unit: item.unit || '',
+  quantity: qty,
+  stock_type: stockType,
+  updated_by: S.user ? S.user.uid : '',
+  updated_by_email: S.user ? S.user.email : '',
+  updated_at: FS.serverTimestamp()
+}, { merge: true });
 
-    savedCount++;
+var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(item.name));
+
+batch.set(stockRef, {
+  item_name: item.name,
+  qty: qty,
+  category: item.category,
+  unit: item.unit || '',
+  source: 'opening_stock',
+  updated_by: S.user ? S.user.uid : '',
+  updated_by_email: S.user ? S.user.email : '',
+  updated_at: FS.serverTimestamp()
+}, { merge: true });
+
+savedCount++;
+
   });
 
   if (savedCount === 0) {
