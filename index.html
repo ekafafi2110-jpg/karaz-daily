@@ -3656,6 +3656,19 @@ function payManualDebt(docId) {
   work_date: S.workDate,
   now: now
 });
+applyCashLedgerEntry(batch, {
+  amount: amount,
+  direction: 'out',
+  type: 'manual_debt_payment',
+  source_collection: 'cashPayments',
+  source_doc_id: paymentRef.id,
+  ledger_doc_id: 'cashPayments_' + paymentRef.id,
+  supplier_name: debt.supplier_name || '',
+  title: 'سداد التزام يدوي',
+  note: debt.note || '',
+  work_date: S.workDate,
+  now: now
+});
 
       return batch.commit();
     })
@@ -3734,6 +3747,19 @@ applySupplierLedgerEntry(batch, {
   ledger_doc_id: 'cashPayments_' + paymentRef.id,
   title: 'دفعة مورد',
   note: paymentNote,
+  work_date: S.workDate,
+  now: now
+});
+applyCashLedgerEntry(batch, {
+  amount: amount,
+  direction: 'out',
+  type: 'supplier_payment',
+  source_collection: 'cashPayments',
+  source_doc_id: paymentRef.id,
+  ledger_doc_id: 'cashPayments_' + paymentRef.id,
+  supplier_name: supplierName,
+  title: 'دفع مورد',
+  note: note || '',
   work_date: S.workDate,
   now: now
 });
@@ -4290,6 +4316,22 @@ function deleteCashPurchaseByInvoice() {
       updated_at: now
     }, { merge: true });
   }
+}if ((data.payment_method || 'كاش') === 'كاش') {
+  applyCashLedgerEntry(batch, {
+    amount: Number(data.amount || 0),
+    direction: 'in',
+    type: 'cash_purchase_delete',
+    source_collection: 'cashPurchases',
+    source_doc_id: doc.id,
+    ledger_doc_id: 'cashPurchases_delete_' + doc.id,
+    invoice_no: data.invoice_no || '',
+    supplier_name: data.supplier_name || '',
+    payment_method: 'كاش',
+    title: 'حذف فاتورة مشتريات كاش رقم ' + (data.invoice_no || ''),
+    note: data.title || '',
+    work_date: data.work_date || S.workDate,
+    now: now
+  });
 }
 
       items.forEach(function(it) {
@@ -4844,6 +4886,24 @@ if (!invoiceTotal || invoiceTotal <= 0) {
       var purchaseRef = db.collection('cashPurchases').doc();
 
       batch.set(purchaseRef, purchaseData);
+
+if (paymentMethod === 'كاش') {
+  applyCashLedgerEntry(batch, {
+    amount: invoiceTotal,
+    direction: 'out',
+    type: 'cash_purchase',
+    source_collection: 'cashPurchases',
+    source_doc_id: purchaseRef.id,
+    ledger_doc_id: 'cashPurchases_' + purchaseRef.id,
+    invoice_no: finalInvoiceNo,
+    supplier_name: supplierName,
+    payment_method: paymentMethod,
+    title: 'فاتورة مشتريات كاش رقم ' + finalInvoiceNo,
+    note: invoiceTitle,
+    work_date: S.workDate,
+    now: now
+  });
+}
       if (paymentMethod === 'ذمم') {
   applySupplierLedgerEntry(batch, {
     supplier_name: supplierName,
@@ -5078,6 +5138,27 @@ function saveCashPurchaseEdit() {
       var oldSupplierName = (oldData.supplier_name || '').trim();
 var oldPaymentMethod = oldData.payment_method || 'كاش';
 var oldInvoiceAmount = Number(oldData.amount || 0);
+var oldCashAmount = oldPaymentMethod === 'كاش' ? oldInvoiceAmount : 0;
+var newCashAmount = paymentMethod === 'كاش' ? invoiceTotal : 0;
+var cashDiff = oldCashAmount - newCashAmount;
+
+if (cashDiff !== 0) {
+  applyCashLedgerEntry(batch, {
+    amount: Math.abs(cashDiff),
+    direction: cashDiff > 0 ? 'in' : 'out',
+    type: 'cash_purchase_edit',
+    source_collection: 'cashPurchases',
+    source_doc_id: purchaseRef.id,
+    ledger_doc_id: 'cashPurchases_edit_' + purchaseRef.id + '_' + Date.now(),
+    invoice_no: invoiceNo || '',
+    supplier_name: supplierName || '',
+    payment_method: paymentMethod || '',
+    title: 'تعديل فاتورة مشتريات رقم ' + (invoiceNo || ''),
+    note: 'فرق نقد من تعديل الفاتورة',
+    work_date: S.workDate,
+    now: now
+  });
+}
 
 var oldDebtAmount = oldPaymentMethod === 'ذمم' ? oldInvoiceAmount : 0;
 var newDebtAmount = paymentMethod === 'ذمم' ? invoiceTotal : 0;
@@ -7803,19 +7884,64 @@ shiftNote = shiftNote.trim();
     }
   });
 
-  // Cash
-  var sysV=parseFloat(sys), actV=parseFloat(act);
-  var diff=actV-sysV, submit=actV-20
-  var cashData={inventory_session_id:S.sessionId,shift:S.shift,
-    system_cash:sysV,actual_cash:actV,difference:diff,cash_to_submit:submit,
-    created_by:S.user.uid,updated_at:FS.serverTimestamp()};
-  if (S.cashData&&S.cashData.docId) {
-    promises.push(db.collection('cashEntries').doc(S.cashData.docId).update(cashData));
-  } else {
-    cashData.created_at=FS.serverTimestamp();
-    promises.push(db.collection('cashEntries').add(cashData).then(function(ref){ S.cashData.docId=ref.id; }));
-  }
+ // Cash
+var sysV = parseFloat(sys);
+var actV = parseFloat(act);
+var diff = actV - sysV;
+var submit = actV - 20;
 
+var cashData = {
+  inventory_session_id: S.sessionId,
+  shift: S.shift,
+  system_cash: sysV,
+  actual_cash: actV,
+  difference: diff,
+  cash_to_submit: submit,
+  created_by: S.user.uid,
+  updated_at: FS.serverTimestamp()
+};
+
+var cashBatch = db.batch();
+var cashRef;
+var isNewCashEntry = !(S.cashData && S.cashData.docId);
+var oldCashToSubmit = S.cashData && S.cashData.cash_to_submit !== undefined
+  ? Number(S.cashData.cash_to_submit || 0)
+  : 0;
+
+if (isNewCashEntry) {
+  cashRef = db.collection('cashEntries').doc();
+  cashData.created_at = FS.serverTimestamp();
+
+  cashBatch.set(cashRef, cashData);
+
+  S.cashData.docId = cashRef.id;
+} else {
+  cashRef = db.collection('cashEntries').doc(S.cashData.docId);
+  cashBatch.update(cashRef, cashData);
+}
+
+if (S.shift === 'B') {
+  var cashDelta = isNewCashEntry ? submit : (submit - oldCashToSubmit);
+
+  if (cashDelta !== 0) {
+    applyCashLedgerEntry(cashBatch, {
+      amount: Math.abs(cashDelta),
+      direction: cashDelta > 0 ? 'in' : 'out',
+      type: isNewCashEntry ? 'shift_b_cash_submit' : 'shift_b_cash_submit_adjust',
+      source_collection: 'cashEntries',
+      source_doc_id: cashRef.id,
+      ledger_doc_id: isNewCashEntry
+        ? ('cashEntries_' + cashRef.id)
+        : ('cashEntries_adjust_' + cashRef.id + '_' + Date.now()),
+      title: isNewCashEntry ? 'كاش شفت B المراد تسليمه' : 'تعديل كاش شفت B المراد تسليمه',
+      note: S.sessionId || '',
+      work_date: S.workDate,
+      now: FS.serverTimestamp()
+    });
+  }
+}
+
+promises.push(cashBatch.commit());
   Promise.all(promises).then(function(){
     // Upload images
     var imgPromises=[];
