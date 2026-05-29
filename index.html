@@ -1207,7 +1207,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     </button>
 
     <button onclick="showAdminWithdrawals()" class="warehouse-card-btn">
-      <div class="warehouse-card-title">سجل سحوبات المستودع</div>
+<div class="warehouse-card-title">سجل المستودع</div>
       <div class="warehouse-card-icon">📦</div>
     </button>
 
@@ -1260,7 +1260,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
     </div>
 
     <div id="adminWithdrawalsSection" style="display:none;">
-      <h3>سجل سحوبات المستودع</h3>
+<h3>سجل سحوبات المستودع</h3>
       <div id="adminWithdrawalsList"></div>
     </div>
   </div>
@@ -2764,20 +2764,23 @@ function setAdminTabActive(tab) {
 }
 
 function showManagerHome() {
+  restoreWarehouseSections();
   closeModal();
   setAdminTabActive('home');
   document.querySelector('.mgr-grid').style.display = 'grid';
   document.getElementById('warehouseAdminSection').style.display = 'none';
   hideWarehouseSections();
 }
+
 function showManagerCash(openPanel) {
+  restoreWarehouseSections();
   setAdminTabActive('cash');
   document.querySelector('.mgr-grid').style.display = 'grid';
   document.getElementById('warehouseAdminSection').style.display = 'none';
   hideWarehouseSections();
 
   openModal();
-  setModal('النقد');
+    setModal('النقد');
   showLoad('جاري تحميل رصيد النقد...');
 
   db.collection('inventorySessions')
@@ -6392,10 +6395,31 @@ batch.set(stockRef, {
   qty: qty,
   category: item.category,
   unit: item.unit || '',
-  source: 'opening_stock',
+  source: 'manual_stock_reset',
   updated_by: S.user ? S.user.uid : '',
   updated_by_email: S.user ? S.user.email : '',
   updated_at: FS.serverTimestamp()
+}, { merge: true });
+
+var logRef = db.collection('warehouseLog').doc('manual_reset_' + docId);
+
+batch.set(logRef, {
+  work_date: S.workDate,
+  type: 'manual_stock_reset',
+  source_doc_id: docId,
+  item_name: item.name,
+  item_category: item.category,
+  qty: qty,
+  quantity: qty,
+  unit: item.unit || '',
+  note: 'ضبط يدوي لرصيد المستودع - أصبح الرصيد الأساسي ' + qty,
+  created_by: S.user ? S.user.uid : '',
+  created_by_email: S.user ? S.user.email : '',
+  created_at: FS.serverTimestamp(),
+  updated_by: S.user ? S.user.uid : '',
+  updated_by_email: S.user ? S.user.email : '',
+  updated_at: FS.serverTimestamp(),
+  deleted: false
 }, { merge: true });
 
 savedCount++;
@@ -6598,9 +6622,9 @@ function loadAdminWithdrawalsLog() {
           x.type = 'purchase';
         }
 
-        if (type !== 'purchase' && type !== 'withdrawal') {
-          return;
-        }
+        if (type !== 'purchase' && type !== 'withdrawal' && type !== 'manual_stock_reset') {
+  return;
+}
 
         if (selectedType && type !== selectedType) {
           return;
@@ -6780,27 +6804,36 @@ function renderAdminWithdrawalsTable() {
 
   filtered.forEach(function(x) {
     var type = x.type || '';
-    var isPurchase = type === 'purchase' || type === 'purchase_edit';
-    var isWithdrawal = type === 'withdrawal';
+var isPurchase = type === 'purchase' || type === 'purchase_edit';
+var isWithdrawal = type === 'withdrawal';
+var isManualReset = type === 'manual_stock_reset';
 
-    var itemName = x.item_name || '-';
-    var qty = Number(x.qty || x.quantity || 0);
+var itemName = x.item_name || '-';
+var qty = Number(x.qty || x.quantity || 0);
 
-    if (!totals[itemName]) {
-      totals[itemName] = {
-        purchase: 0,
-        withdrawal: 0
-      };
-    }
+if (!totals[itemName]) {
+  totals[itemName] = {
+    base: null,
+    purchase: 0,
+    withdrawal: 0
+  };
+}
 
-    if (isPurchase) {
-      totals[itemName].purchase += qty;
-      displayRows.push(x);
-      return;
-    }
+if (isManualReset) {
+  totals[itemName].base = qty;
+  displayRows.push(x);
+  return;
+}
 
-    if (isWithdrawal) {
-      totals[itemName].withdrawal += qty;
+if (isPurchase) {
+  totals[itemName].purchase += qty;
+  displayRows.push(x);
+  return;
+}
+
+if (isWithdrawal) {
+  
+  totals[itemName].withdrawal += qty;
 
       var key = (x.work_date || '') + '|' + itemName;
 
@@ -6862,61 +6895,74 @@ function renderAdminWithdrawalsTable() {
       '<table class="mini-table" style="width:100%;border-collapse:collapse;text-align:center;">' +
         '<thead>' +
           '<tr style="background:#181818;color:var(--gold);font-weight:900;">' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">التاريخ</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">الحركة</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">الفاتورة</th>' +
+            '<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">التاريخ</th>' +
+'<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">الحركة</th>' +
+'<th style="padding:8px;border-bottom:1px solid #333;text-align:right;font-size:11px;">الصنف</th>' +
+'<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">الكمية</th>' +
+'<th style="padding:8px;border-bottom:1px solid #333;font-size:11px;">البيان</th>' +
             '<th style="padding:10px;border-bottom:1px solid #333;text-align:right;">الصنف</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">الكمية</th>' +
-            '<th style="padding:10px;border-bottom:1px solid #333;">مورد/ملاحظة</th>' +
           '</tr>' +
         '</thead>' +
         '<tbody>';
 
   displayRows.forEach(function(x) {
     var type = x.type || '';
-    var isPurchase = type === 'purchase' || type === 'purchase_edit';
-    var isWithdrawal = type === 'withdrawal';
+var isPurchase = type === 'purchase' || type === 'purchase_edit';
+var isWithdrawal = type === 'withdrawal';
+var isManualReset = type === 'manual_stock_reset';
 
-    var qty = Number(x.qty || x.quantity || 0);
-    var itemName = x.item_name || '-';
+var qty = Number(x.qty || x.quantity || 0);
+var itemName = x.item_name || '-';
 
-    var typeLabel = isPurchase ? 'مشتريات' : (isWithdrawal ? 'سحب' : type || '-');
-    var typeColor = isPurchase ? 'var(--green)' : (isWithdrawal ? 'var(--red)' : 'var(--gold)');
-    var qtyText = (isWithdrawal ? '-' : '+') + qty;
-    var invoiceText = isPurchase ? (x.invoice_no || '-') : '-';
+var typeLabel = isPurchase
+  ? '<span title="مشتريات">🛒</span>'
+  : (isWithdrawal
+      ? '<span title="سحب">📤</span>'
+      : (isManualReset
+          ? '<span title="ضبط يدوي">✍️</span>'
+          : '-'));
+var typeColor = isPurchase ? 'var(--green)' : (isWithdrawal ? 'var(--red)' : 'var(--gold)');
+var qtyText = isManualReset ? ('= ' + qty) : ((isWithdrawal ? '-' : '+') + qty);
+var invoiceText = '-';
+
+if (isPurchase) {
+ var noteText = '-';
+
+if (isPurchase) {
+  noteText =
+    '<div style="font-weight:900;color:var(--gold);font-size:11px;">فاتورة ' + (x.invoice_no || '-') + '</div>' +
+    '<div style="font-size:10px;color:var(--text2);">' + (x.supplier_name || '') + '</div>';
+} else if (isManualReset) {
+  noteText = '<span style="font-size:10px;color:var(--gold);">ضبط يدوي</span>';
+} else if (isWithdrawal) {
+  noteText = x.note || '-';
+}
+}
 
     var noteText = '';
 
     if (isPurchase) {
-      noteText = x.supplier_name || '';
-    } else if (isWithdrawal) {
-      var shiftParts = [];
-
-      if (x.shifts) {
-        Object.keys(x.shifts).sort().forEach(function(shift) {
-          shiftParts.push('شفت ' + shift + ': ' + x.shifts[shift]);
-        });
-      }
-
-      noteText = shiftParts.join(' / ');
-
-      if (x.notes && x.notes.length) {
-        noteText += (noteText ? ' — ' : '') + x.notes.join('، ');
-      }
+  noteText = x.note || '';
+} else if (isManualReset) {
+  noteText = x.note || 'تم ضبط الرصيد يدويًا وأصبح هذا هو الرقم الأساسي الجديد';
+} else if (isWithdrawal) {
+  
+  noteText = x.note || '-';
     } else {
       noteText = x.note || '';
     }
 
     html +=
-      '<tr style="border-bottom:1px solid #2a2a2a;">' +
-        '<td style="padding:10px;font-size:10px;">' + (x.work_date || formatWithdrawTime(x)) + '</td>' +
-        '<td style="padding:10px;font-weight:900;color:' + typeColor + ';">' + typeLabel + '</td>' +
-        '<td style="padding:10px;font-size:11px;color:var(--gold);">' + invoiceText + '</td>' +
-        '<td style="padding:10px;text-align:right;font-weight:900;color:var(--text);">' + itemName + '</td>' +
-        '<td style="padding:10px;font-weight:900;color:' + typeColor + ';">' + qtyText + '</td>' +
-        '<td style="padding:10px;font-size:10px;">' + noteText + '</td>' +
-      '</tr>';
-  });
+      html +=
+  '<tr style="border-bottom:1px solid #2a2a2a;">' +
+    '<td style="padding:8px;font-size:10px;line-height:1.4;">' + (x.work_date || formatWithdrawTime(x)) + '</td>' +
+    '<td style="padding:8px;font-weight:900;color:' + typeColor + ';font-size:16px;">' + typeLabel + '</td>' +
+    '<td style="padding:8px;text-align:right;font-weight:900;color:var(--text);font-size:12px;line-height:1.5;">' + itemName + '</td>' +
+    '<td style="padding:8px;font-weight:900;color:' + typeColor + ';font-size:12px;">' + qtyText + '</td>' +
+    '<td style="padding:8px;font-size:10px;line-height:1.5;">' + noteText + '</td>' +
+  '</tr>';
+
+});
 
   html +=
         '</tbody>' +
