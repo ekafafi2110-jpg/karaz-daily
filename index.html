@@ -2861,10 +2861,10 @@ var totalDebts = 0;
       movements: []
     };
   }
-  var useSupplierLedgerView = supplierBalancesSnap && supplierBalancesSnap.docs && supplierBalancesSnap.docs.length > 0;
 
   return supplierDebtMap[supplierName];
 }
+  var useSupplierLedgerView = supplierBalancesSnap && supplierBalancesSnap.docs && supplierBalancesSnap.docs.length > 0;
 
       rows.forEach(function(row) {
         var cA = row.cash.find(function(c) { return c.shift === 'A'; }) || {};
@@ -3362,8 +3362,7 @@ if (supplierBalancesSnap && supplierBalancesSnap.docs) {
     }
 
     newDebtsRows +=
-      '<div class="mgr-card gold" data-movements="' + encodeURIComponent(movementRows) + '" style="margin-bottom:10px;cursor:pointer;" onclick="openSupplierDebtPopup(\'' + encodeURIComponent(supplierName) + '\', this)">' +
-        '<div style="width:100%;text-align:right;">' +
+  '<div class="mgr-card gold" style="margin-bottom:10px;cursor:pointer;" onclick="openSupplierDebtPopup(\'' + encodeURIComponent(supplierName) + '\', this)">' +        '<div style="width:100%;text-align:right;">' +
           '<div style="font-weight:900;color:var(--gold);font-size:16px;">المورد: ' + supplierName + '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">' +
             '<div><div style="font-size:10px;color:var(--text2);">الرصيد الكامل</div><strong style="color:var(--gold);">' + balance.toFixed(2) + '</strong></div>' +
