@@ -4677,6 +4677,59 @@ function applySupplierLedgerEntry(batch, data) {
     deleted: false
   }, { merge: true });
 }
+
+function applyCashLedgerEntry(batch, data) {
+  data = data || {};
+
+  var amount = Number(data.amount || 0);
+
+  if (!amount || amount <= 0) {
+    return;
+  }
+
+  var direction = data.direction || 'in';
+  var delta = direction === 'out' ? -amount : amount;
+
+  var now = data.now || firebase.firestore.FieldValue.serverTimestamp();
+  var sourceCollection = data.source_collection || '';
+  var sourceDocId = data.source_doc_id || '';
+  var ledgerDocId = data.ledger_doc_id || (sourceCollection + '_' + sourceDocId);
+
+  if (!ledgerDocId || ledgerDocId === '_') {
+    ledgerDocId = 'cash_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  }
+
+  var balanceRef = db.collection('cashBalance').doc('main');
+  var ledgerRef = db.collection('cashLedger').doc(ledgerDocId);
+
+  batch.set(balanceRef, {
+    balance: firebase.firestore.FieldValue.increment(delta),
+    updated_at: now,
+    updated_by: S.user ? S.user.uid : '',
+    updated_by_email: S.user ? S.user.email : '',
+    deleted: false
+  }, { merge: true });
+
+  batch.set(ledgerRef, {
+    work_date: data.work_date || S.workDate,
+    type: data.type || '',
+    direction: direction,
+    amount: amount,
+    balance_delta: delta,
+    title: data.title || '',
+    note: data.note || '',
+    source_collection: sourceCollection,
+    source_doc_id: sourceDocId,
+    invoice_no: data.invoice_no || '',
+    supplier_name: data.supplier_name || '',
+    payment_method: data.payment_method || '',
+    created_by: S.user ? S.user.uid : '',
+    created_by_email: S.user ? S.user.email : '',
+    created_at: now,
+    updated_at: now,
+    deleted: false
+  }, { merge: true });
+}
 function saveCashPurchase() {
   var rows = document.querySelectorAll('.cash-purchase-row');
 var paymentEl = document.getElementById('cashPurchasePayment');
