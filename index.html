@@ -4057,6 +4057,34 @@ function deleteCashPurchaseByInvoice() {
         deleted_by: S.user ? (S.user.uid || '') : '',
         deleted_by_email: S.user ? (S.user.email || '') : ''
       });
+      if ((data.payment_method || '') === 'ذمم') {
+  var supplierNameForDebt = (data.supplier_name || '').trim();
+  var invoiceAmountForDebt = Number(data.amount || 0);
+
+  if (supplierNameForDebt && invoiceAmountForDebt > 0) {
+    var supplierBalanceRef = db.collection('supplierBalances').doc(encodeURIComponent(supplierNameForDebt));
+
+    batch.set(supplierBalanceRef, {
+      supplier_name: supplierNameForDebt,
+      balance: firebase.firestore.FieldValue.increment(-invoiceAmountForDebt),
+      updated_at: now,
+      updated_by: S.user ? S.user.uid : '',
+      updated_by_email: S.user ? S.user.email : '',
+      deleted: false
+    }, { merge: true });
+
+    var supplierLedgerRef = db.collection('supplierLedger').doc('cashPurchases_' + doc.id);
+
+    batch.set(supplierLedgerRef, {
+      deleted: true,
+      deleted_at: now,
+      deleted_by: S.user ? S.user.uid : '',
+      deleted_by_email: S.user ? S.user.email : '',
+      note: 'تم حذف فاتورة الذمم رقم ' + (data.invoice_no || ''),
+      updated_at: now
+    }, { merge: true });
+  }
+}
 
       items.forEach(function(it) {
         var name = it && it.item_name ? String(it.item_name) : '';
@@ -4787,6 +4815,79 @@ function saveCashPurchaseEdit() {
         updated_by: user.uid || '',
         updated_by_email: user.email || ''
       });
+
+      var oldSupplierName = (oldData.supplier_name || '').trim();
+var oldPaymentMethod = oldData.payment_method || 'كاش';
+var oldInvoiceAmount = Number(oldData.amount || 0);
+
+var oldDebtAmount = oldPaymentMethod === 'ذمم' ? oldInvoiceAmount : 0;
+var newDebtAmount = paymentMethod === 'ذمم' ? invoiceTotal : 0;
+
+var supplierDeltaMap = {};
+
+function addSupplierDelta(name, delta) {
+  name = (name || '').trim();
+  delta = Number(delta || 0);
+
+  if (!name || !delta) return;
+
+  supplierDeltaMap[name] = (supplierDeltaMap[name] || 0) + delta;
+}
+
+if (oldDebtAmount > 0) {
+  addSupplierDelta(oldSupplierName, -oldDebtAmount);
+}
+
+if (newDebtAmount > 0) {
+  addSupplierDelta(supplierName, newDebtAmount);
+}
+
+Object.keys(supplierDeltaMap).forEach(function(name) {
+  var delta = Number(supplierDeltaMap[name] || 0);
+  if (!delta) return;
+
+  var balanceRef = db.collection('supplierBalances').doc(encodeURIComponent(name));
+
+  batch.set(balanceRef, {
+    supplier_name: name,
+    balance: firebase.firestore.FieldValue.increment(delta),
+    updated_at: now,
+    updated_by: S.user ? S.user.uid : '',
+    updated_by_email: S.user ? S.user.email : '',
+    deleted: false
+  }, { merge: true });
+});
+
+var supplierLedgerRef = db.collection('supplierLedger').doc('cashPurchases_' + docId);
+
+if (newDebtAmount > 0) {
+  batch.set(supplierLedgerRef, {
+    work_date: oldData.work_date || S.workDate,
+    supplier_name: supplierName,
+    type: 'purchase_invoice',
+    direction: 'debt',
+    amount: newDebtAmount,
+    balance_delta: newDebtAmount,
+    source_collection: 'cashPurchases',
+    source_doc_id: docId,
+    invoice_no: invoiceNo,
+    title: 'فاتورة مشتريات ذمم رقم ' + invoiceNo,
+    note: 'تعديل فاتورة مشتريات ذمم رقم ' + invoiceNo,
+    updated_by: S.user ? S.user.uid : '',
+    updated_by_email: S.user ? S.user.email : '',
+    updated_at: now,
+    deleted: false
+  }, { merge: true });
+} else if (oldDebtAmount > 0) {
+  batch.set(supplierLedgerRef, {
+    deleted: true,
+    deleted_at: now,
+    deleted_by: S.user ? S.user.uid : '',
+    deleted_by_email: S.user ? S.user.email : '',
+    note: 'تم إلغاء أثر الذمم بسبب تحويل الفاتورة إلى كاش أو إلغاء الذمم',
+    updated_at: now
+  }, { merge: true });
+}
 
       Object.keys(qtyDeltaMap).forEach(function(name) {
         var delta = Number(qtyDeltaMap[name] || 0);
