@@ -2873,13 +2873,6 @@ if (cashBalanceSnap && cashBalanceSnap.exists) {
 }
 
 var cashLedgerDebugRows = '';
-var cashEntrySessionMap = {};
-
-rows.forEach(function(row) {
-  (row.cash || []).forEach(function(c) {
-    cashEntrySessionMap[c.id] = row.id;
-  });
-});
 
 if (cashLedgerSnap && cashLedgerSnap.docs && cashLedgerSnap.docs.length) {
   cashLedgerSnap.docs.forEach(function(d) {
@@ -2891,9 +2884,7 @@ if (cashLedgerSnap && cashLedgerSnap.docs && cashLedgerSnap.docs.length) {
 
     var source = x.source_collection || '';
     var docId = x.source_doc_id || '';
-    if ((x.source_collection || '') === 'cashEntries' && cashEntrySessionMap[docId]) {
-  title = cashEntrySessionMap[docId];
-}
+    
 
     var workDate = x.work_date || '-';
     var sign = delta >= 0 ? '+' : '';
