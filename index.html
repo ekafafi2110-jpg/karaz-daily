@@ -5780,13 +5780,13 @@ function setCashLedgerActiveButton(activeBtnId) {
   }
 }
 
-function loadCashLedgerRange() {
+function loadCashLedgerRange(activeBtnId) {
   var fromEl = document.getElementById('cashLedgerFromDate');
   var toEl = document.getElementById('cashLedgerToDate');
   var box = document.getElementById('cashLedgerRangeBox');
 
   if (!fromEl || !toEl || !box) return;
-  setCashLedgerActiveButton('cashLedgerSearchBtn');
+  setCashLedgerActiveButton(activeBtnId || 'cashLedgerSearchBtn');
 
   var from = fromEl.value || getMonthStartDate(S.workDate);
   var to = toEl.value || S.workDate;
@@ -5843,9 +5843,9 @@ function resetCashLedgerRange() {
 
   if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
   if (toEl) toEl.value = S.workDate;
-  setCashLedgerActiveButton('cashLedgerMonthBtn');
+  
 
-  loadCashLedgerRange();
+  loadCashLedgerRange('cashLedgerMonthBtn');
 }
 
 function filterCashExpensesTable() {
