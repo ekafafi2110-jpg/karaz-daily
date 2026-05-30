@@ -2892,8 +2892,7 @@ if (cashLedgerSnap && cashLedgerSnap.docs && cashLedgerSnap.docs.length) {
         '<td style="font-size:10px;">' + workDate + '</td>' +
         '<td style="text-align:right;font-size:10px;line-height:1.5;">' +
           '<strong>' + title + '</strong>' +
-          '<div style="color:var(--text3);">' + type + '</div>' +
-          '<div style="color:var(--text3);">' + source + ' / ' + docId + '</div>' +
+          
         '</td>' +
         '<td style="font-size:10px;">' + amount.toFixed(2) + '</td>' +
         '<td style="font-size:10px;color:' + color + ';font-weight:900;">' + sign + delta.toFixed(2) + '</td>' +
@@ -3553,8 +3552,7 @@ var supplierOptions =
           '<div class="detail-sec"><div class="sec-title">إضافة فاتورة</div>' +
 
           '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
-  '<button id="purchaseAddModeBtn" class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseAddModeBtn\');if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة</button>' +
-'<button id="purchaseDeleteModeBtn" class="btn-sec" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseDeleteModeBtn\');deleteCashPurchaseByInvoice()">حذف</button>' +
+'<button id="purchaseAddModeBtn" class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseAddModeBtn\');document.getElementById(\'cashPurchaseSupplier\').disabled=false;document.getElementById(\'cashPurchaseInvoiceNo\').readOnly=false;if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة</button>' +'<button id="purchaseDeleteModeBtn" class="btn-sec" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseDeleteModeBtn\');deleteCashPurchaseByInvoice()">حذف</button>' +
 '<button id="purchaseEditModeBtn" class="btn-sec" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseEditModeBtn\');loadCashPurchaseForEdit()">تعديل</button>' +'</div>' +
           '</div>' +
 
@@ -4243,14 +4241,23 @@ function renderSupplierDebtLedgerRows(rows) {
     var payCol = '-';
 
     if (direction === 'debt') {
-      runningBalance += amount;
+  runningBalance += amount;
 
-      debtCol =
-        '<div>' +
-          '<div style="color:var(--gold);font-weight:900;">' + (title || ('فاتورة رقم ' + invoiceNo)) + '</div>' +
-          '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
-        '</div>';
-    }
+  var canOpenInvoice =
+    (m.source_collection || '') === 'cashPurchases' &&
+    (m.source_doc_id || '');
+
+  debtCol =
+    '<div ' +
+      (canOpenInvoice ? 'onclick="closeSupplierDebtPopup();openCashPurchaseInvoiceFromBalance(\'' + m.source_doc_id + '\',\'debts\')" style="cursor:pointer;"' : '') +
+    '>' +
+      '<div style="color:var(--gold);font-weight:900;text-decoration:' + (canOpenInvoice ? 'underline' : 'none') + ';">' +
+        (title || ('فاتورة رقم ' + invoiceNo)) +
+      '</div>' +
+      '<div style="font-size:13px;font-weight:900;color:var(--text);margin-top:4px;">' + amount.toFixed(2) + ' دينار</div>' +
+      (canOpenInvoice ? '<div style="font-size:10px;color:var(--text3);margin-top:3px;">اضغط لفتح تفاصيل الفاتورة</div>' : '') +
+    '</div>';
+}
 
     if (direction === 'payment') {
   runningBalance -= amount;
@@ -4722,6 +4729,13 @@ function loadCashPurchaseForEdit() {
       window.editCashPurchaseOldData = data;
 
       onCashPurchaseSupplierChange();
+      if (supplierEl) {
+  supplierEl.disabled = true;
+}
+
+if (invoiceNoEl) {
+  invoiceNoEl.readOnly = true;
+}
 
       var items = Array.isArray(data.items) ? data.items : [];
       var countEl = document.getElementById('cashPurchaseItemsCount');
@@ -4882,8 +4896,9 @@ function calcCashPurchaseAmount() {
     amountEl.value = amount > 0 ? amount.toFixed(2) : '';
   }
 }
-function openCashPurchaseInvoiceFromBalance(docId) {
-  if (!docId) {
+function openCashPurchaseInvoiceFromBalance(docId, returnPanel) {
+  returnPanel = returnPanel || 'balance';
+    if (!docId) {
     toast('لم يتم تحديد الفاتورة', 'error');
     return;
   }
@@ -4953,8 +4968,7 @@ function openCashPurchaseInvoiceFromBalance(docId) {
 
           itemsHtml +
 
-          '<button class="btn-add" style="margin-top:12px;" onclick="showManagerCash(\'balance\')">رجوع إلى سجل النقد</button>' +
-        '</div>';
+'<button class="btn-add" style="margin-top:12px;" onclick="showManagerCash(\'' + returnPanel + '\')">رجوع</button>' +        '</div>';
     })
     .catch(function(e) {
       console.error(e);
@@ -6063,8 +6077,6 @@ var title = x.title || x.type || '-';
           '<td style="text-align:right;font-size:11px;line-height:1.5;">' +
   '<strong>' + title + '</strong>' +
 '</td>' +
-          '<td style="font-size:10px;">' + amount.toFixed(2) + '</td>' +
-          '<td style="font-size:10px;color:' + color + ';font-weight:900;">' + sign + delta.toFixed(2) + '</td>' +
         '</tr>';
     });
   } else {
