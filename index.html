@@ -3553,9 +3553,9 @@ var supplierOptions =
           '<div class="detail-sec"><div class="sec-title">إضافة فاتورة</div>' +
 
           '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">' +
-  '<button class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;" onclick="if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة</button>' +
-  '<button class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;background:rgba(231,76,60,.15);border:1px solid var(--cherry);color:var(--cherry2);" onclick="deleteCashPurchaseByInvoice()">حذف</button>' +
-'<button class="btn-add" style="background:rgba(212,175,55,.15);border:1px solid var(--gold);color:var(--gold);" onclick="loadCashPurchaseForEdit()">تعديل</button>' +'</div>' +
+  '<button id="purchaseAddModeBtn" class="btn-add" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseAddModeBtn\');if(!document.getElementById(&quot;cashPurchaseSupplier&quot;).value){toast(&quot;اختر المورد&quot;,&quot;error&quot;);}else{onCashPurchaseSupplierChange();}">إضافة</button>' +
+'<button id="purchaseDeleteModeBtn" class="btn-sec" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseDeleteModeBtn\');deleteCashPurchaseByInvoice()">حذف</button>' +
+'<button id="purchaseEditModeBtn" class="btn-sec" style="margin:0;padding:12px 6px;font-size:13px;" onclick="setPurchaseActionActiveButton(\'purchaseEditModeBtn\');loadCashPurchaseForEdit()">تعديل</button>' +'</div>' +
           '</div>' +
 
   '<div class="f-row">' +
@@ -3574,8 +3574,7 @@ var supplierOptions =
 
 '<div id="cashPurchaseOtherSupplierBox" style="display:none;margin-bottom:10px;">' +
   '<label class="f-lbl">اسم المورد</label>' +
-  '<input type="text" class="f-inp2" id="cashPurchaseOtherSupplier" placeholder="اكتب اسم المورد..." style="width:100%;">' +
-'</div>' +
+'<input type="text" class="f-inp2" id="cashPurchaseOtherSupplier" placeholder="اكتب اسم المورد..." style="width:100%;" oninput="refreshCashPurchaseItemOptions()">' +'</div>' +
 
 '<div id="cashPurchaseItemsBox" style="display:none;">' +
 
@@ -3604,8 +3603,48 @@ var supplierOptions =
   '<button class="btn-add" id="cashPurchaseSaveBtn" onclick="saveCashPurchase()">+ حفظ الفاتورة</button><div id="cashPurchaseMsg"></div>' +
 '</div>' +
 
-'<div class="divider"></div><div class="sec-title">كشف مشتريات اليوم</div>' +
-'<div id="purchaseInvoicesList">' + purchaseRows + '</div>' +'<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
+'<div class="divider"></div><div class="sec-title">سجل المشتريات</div>' +
+
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+  '<div>' +
+    '<label class="f-lbl">من تاريخ</label>' +
+    '<input type="date" class="f-inp2" id="purchaseFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
+  '</div>' +
+  '<div>' +
+    '<label class="f-lbl">إلى تاريخ</label>' +
+    '<input type="date" class="f-inp2" id="purchaseToDate" value="' + S.workDate + '">' +
+  '</div>' +
+'</div>' +
+
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+  '<div>' +
+    '<label class="f-lbl">المورد</label>' +
+    '<select class="f-sel" id="purchaseSupplierFilter">' +
+      '<option value="">كل الموردين</option>' +
+      supplierNames.map(function(name) {
+        return '<option value="' + name + '">' + name + '</option>';
+      }).join('') +
+    '</select>' +
+  '</div>' +
+  '<div>' +
+    '<label class="f-lbl">طريقة الدفع</label>' +
+    '<select class="f-sel" id="purchasePaymentFilter">' +
+      '<option value="">الكل</option>' +
+      '<option value="كاش">كاش</option>' +
+      '<option value="ذمم">ذمم</option>' +
+    '</select>' +
+  '</div>' +
+'</div>' +
+
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+  '<button id="purchaseSearchBtn" class="btn-add" onclick="loadPurchaseLedgerRange()">بحث</button>' +
+  '<button id="purchaseMonthBtn" class="btn-sec" onclick="resetPurchaseLedgerRange()">الشهر الحالي</button>' +
+'</div>' +
+
+'<div id="purchaseLedgerBox">' +
+  '<div id="purchaseInvoicesList">' + purchaseRows + '</div>' +
+  '<div class="total-bar" style="margin-top:10px;"><div class="total-lbl">مجموع المشتريات</div><div class="total-amt">' + totalPurchases.toFixed(2) + ' دينار</div></div>' +
+'</div>' +
 '</div>' +
 '</div>' +
 
@@ -3667,6 +3706,187 @@ document.getElementById('modalBody').innerHTML = html;
       '<div style="font-size:12px;color:var(--text2);direction:ltr;text-align:left;white-space:pre-wrap;">' + msg + '</div>' +
     '</div>';
 });
+}
+function setPurchaseActionActiveButton(activeBtnId) {
+  var addBtn = document.getElementById('purchaseAddModeBtn');
+  var deleteBtn = document.getElementById('purchaseDeleteModeBtn');
+  var editBtn = document.getElementById('purchaseEditModeBtn');
+
+  if (addBtn) {
+    addBtn.className = activeBtnId === 'purchaseAddModeBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (deleteBtn) {
+    deleteBtn.className = activeBtnId === 'purchaseDeleteModeBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (editBtn) {
+    editBtn.className = activeBtnId === 'purchaseEditModeBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+function setPurchaseLedgerActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('purchaseSearchBtn');
+  var monthBtn = document.getElementById('purchaseMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'purchaseSearchBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'purchaseMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+
+function renderPurchaseInvoiceCardsFromDocs(docs) {
+  var html = '';
+  var total = 0;
+
+  docs.forEach(function(d) {
+    var p = Object.assign({ docId: d.id }, d.data() || {});
+    var amount = Number(p.amount || 0);
+    var isDeleted = p.deleted === true;
+    var paymentMethod = p.payment_method || 'كاش';
+
+    if (!isDeleted) {
+      total += amount;
+    }
+
+    html +=
+      '<div class="mgr-card cherry" style="' + (isDeleted ? 'opacity:.55;text-decoration:line-through;' : '') + 'margin-bottom:10px;cursor:pointer;" onclick="togglePurchaseInvoiceDetails(\'' + p.docId + '\')">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">' +
+          '<div style="text-align:right;">' +
+            '<div style="font-weight:900;color:var(--cherry2);">' +
+              (p.title || ('مشتريات فاتورة ' + (p.invoice_no || ''))) +
+            '</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">المورد: ' + (p.supplier_name || '-') + '</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">الدفع: ' + paymentMethod + '</div>' +
+            '<div style="font-size:11px;color:var(--text2);margin-top:4px;">التاريخ: ' + (p.work_date || '-') + '</div>' +
+          '</div>' +
+          '<div style="font-size:18px;font-weight:900;color:var(--gold);white-space:nowrap;">' + amount.toFixed(2) + '</div>' +
+        '</div>' +
+        '<div id="purchaseInvoiceDetails_' + p.docId + '" style="display:none;margin-top:10px;">' +
+          renderPurchaseInvoiceItemsTable(p.items || []) +
+        '</div>' +
+      '</div>';
+  });
+
+  if (!html) {
+    html = '<div class="empty">لا توجد فواتير مشتريات ضمن الفترة المحددة</div>';
+  }
+
+  html +=
+    '<div class="total-bar" style="margin-top:10px;">' +
+      '<div class="total-lbl">مجموع المشتريات</div>' +
+      '<div class="total-amt">' + total.toFixed(2) + ' دينار</div>' +
+    '</div>';
+
+  return html;
+}
+
+function renderPurchaseInvoiceItemsTable(items) {
+  if (!items || !items.length) {
+    return '<div class="empty">لا توجد تفاصيل أصناف لهذه الفاتورة</div>';
+  }
+
+  var html =
+    '<table class="rpt-table" style="margin-top:10px;">' +
+      '<thead>' +
+        '<tr><th>الصنف</th><th>العدد</th><th>السعر</th><th>المبلغ</th></tr>' +
+      '</thead>' +
+      '<tbody>';
+
+  items.forEach(function(it) {
+    html +=
+      '<tr>' +
+        '<td style="text-align:right;">' + (it.item_name || '-') + '</td>' +
+        '<td>' + Number(it.qty || 0).toFixed(2) + '</td>' +
+        '<td>' + Number(it.price || 0).toFixed(2) + '</td>' +
+        '<td><strong>' + Number(it.amount || 0).toFixed(2) + '</strong></td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+
+  return html;
+}
+
+function loadPurchaseLedgerRange(activeBtnId) {
+  var fromEl = document.getElementById('purchaseFromDate');
+  var toEl = document.getElementById('purchaseToDate');
+  var supplierEl = document.getElementById('purchaseSupplierFilter');
+  var paymentEl = document.getElementById('purchasePaymentFilter');
+  var box = document.getElementById('purchaseLedgerBox');
+
+  if (!fromEl || !toEl || !box) return;
+
+  setPurchaseLedgerActiveButton(activeBtnId || 'purchaseSearchBtn');
+
+  var from = fromEl.value || getMonthStartDate(S.workDate);
+  var to = toEl.value || S.workDate;
+  var supplier = supplierEl ? supplierEl.value : '';
+  var payment = paymentEl ? paymentEl.value : '';
+
+  if (to < from) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    return;
+  }
+
+  box.innerHTML = '<div class="empty">جاري تحميل سجل المشتريات...</div>';
+
+  db.collection('cashPurchases')
+    .where('work_date', '>=', from)
+    .where('work_date', '<=', to)
+    .get()
+    .then(function(snap) {
+      var docs = snap.docs.slice();
+
+      docs = docs.filter(function(d) {
+        var p = d.data() || {};
+
+        if (supplier && (p.supplier_name || '') !== supplier) return false;
+        if (payment && (p.payment_method || 'كاش') !== payment) return false;
+
+        return true;
+      });
+
+      docs.sort(function(a, b) {
+        var ax = a.data() || {};
+        var bx = b.data() || {};
+
+        var ad = ax.work_date || '';
+        var bd = bx.work_date || '';
+
+        if (ad !== bd) {
+          return bd.localeCompare(ad);
+        }
+
+        var at = ax.created_at && ax.created_at.toMillis ? ax.created_at.toMillis() : 0;
+        var bt = bx.created_at && bx.created_at.toMillis ? bx.created_at.toMillis() : 0;
+
+        return bt - at;
+      });
+
+      box.innerHTML = renderPurchaseInvoiceCardsFromDocs(docs);
+    })
+    .catch(function(e) {
+      console.error(e);
+      box.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل سجل المشتريات</div>';
+      toast('خطأ في تحميل سجل المشتريات: ' + e.message, 'error');
+    });
+}
+
+function resetPurchaseLedgerRange() {
+  var fromEl = document.getElementById('purchaseFromDate');
+  var toEl = document.getElementById('purchaseToDate');
+  var supplierEl = document.getElementById('purchaseSupplierFilter');
+  var paymentEl = document.getElementById('purchasePaymentFilter');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+  if (supplierEl) supplierEl.value = '';
+  if (paymentEl) paymentEl.value = '';
+
+  loadPurchaseLedgerRange('purchaseMonthBtn');
 }
 function payManualDebt(docId) {
   if (!confirm('هل تريد دفع هذا الالتزام من النقد؟')) return;
@@ -4563,6 +4783,7 @@ function onCashPurchaseSupplierChange() {
   if (itemsBox) {
     itemsBox.style.display = supplierEl.value ? 'block' : 'none';
   }
+  refreshCashPurchaseItemOptions();
 }
 function getCashPurchaseOptionsHtml() {
   return S.items.map(function(item) {
@@ -4842,6 +5063,53 @@ function applyCashLedgerEntry(batch, data) {
     updated_at: now,
     deleted: false
   }, { merge: true });
+}
+function getPurchaseItemsForSelectedSupplier() {
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+  var otherSupplierEl = document.getElementById('cashPurchaseOtherSupplier');
+
+  var supplierName = supplierEl ? supplierEl.value : '';
+
+  if (supplierName === 'فاتورة أخرى') {
+    supplierName = otherSupplierEl ? otherSupplierEl.value.trim() : '';
+  }
+
+  if (!supplierName) {
+    return S.items || [];
+  }
+
+  var matched = (S.items || []).filter(function(item) {
+    var suppliers = Array.isArray(item.category_suppliers)
+      ? item.category_suppliers
+      : [];
+
+    return suppliers.indexOf(supplierName) !== -1;
+  });
+
+  return matched.length ? matched : (S.items || []);
+}
+
+function buildPurchaseItemOptions() {
+  var items = getPurchaseItemsForSelectedSupplier();
+
+  return items.map(function(item) {
+    return '<option value="' + item.name + '">' + item.name + '</option>';
+  }).join('');
+}
+
+function refreshCashPurchaseItemOptions() {
+  var options = buildPurchaseItemOptions();
+  var selects = document.querySelectorAll('.cashPurchaseItem');
+
+  selects.forEach(function(sel) {
+    var oldValue = sel.value;
+
+    sel.innerHTML = options;
+
+    if (oldValue) {
+      sel.value = oldValue;
+    }
+  });
 }
 function saveCashPurchase() {
   var rows = document.querySelectorAll('.cash-purchase-row');
@@ -5737,7 +6005,7 @@ function renderCashLedgerRowsFromSnap(snap) {
       var x = d.data() || {};
       var delta = Number(x.balance_delta || 0);
       var amount = Number(x.amount || 0);
-      var title = x.title || type || '-';
+var title = x.title || x.type || '-';
       var workDate = x.work_date || '-';
       var sign = delta >= 0 ? '+' : '';
       var color = delta >= 0 ? 'var(--green)' : 'var(--red)';
@@ -9556,6 +9824,19 @@ function renderItemsMgr() {
                 '<button class="btn-sm-add" onclick="addItemCategory()">إضافة فئة</button>' +
               '</div>' +
             '</div>' +
+            '<div style="background:#111;border:1px solid rgba(212,175,55,.45);border-radius:16px;padding:12px;">' +
+  '<div style="color:var(--gold);font-weight:900;margin-bottom:8px;">ربط موردين بفئة</div>' +
+  '<div class="add-row" style="display:grid;grid-template-columns:1fr;gap:8px;">' +
+    '<select id="categorySupplierCat" style="height:44px;border-radius:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);font-family:Cairo;font-weight:800;padding:0 10px;">' +
+      catOptions +
+    '</select>' +
+'<input type="text" id="categorySupplierNames" placeholder="اكتب اسم المورد مثل: البرج">' +
+    '<button class="btn-sm-add" onclick="saveCategorySuppliers()">حفظ موردين الفئة</button>' +
+  '</div>' +
+  '<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.7;">' +
+    'عند اختيار مورد في المشتريات، ستظهر أصناف الفئة المرتبطة به فقط.' +
+  '</div>' +
+'</div>' +
 
             '<div style="background:#111;border:1px solid rgba(231,76,60,.45);border-radius:16px;padding:12px;">' +
               '<div style="color:var(--red);font-weight:900;margin-bottom:8px;">إيقاف فئة كاملة</div>' +
@@ -9607,6 +9888,7 @@ function renderItemsMgr() {
                 '<button class="btn-sm-add" onclick="addItem()" style="grid-column:1 / -1;">إضافة الصنف</button>' +
               '</div>' +
             '</div>' +
+            
 
             '<div style="background:#111;border:1px solid rgba(231,76,60,.45);border-radius:16px;padding:12px;">' +
               '<div style="color:var(--red);font-weight:900;margin-bottom:8px;">إيقاف صنف</div>';
@@ -9816,7 +10098,79 @@ function reactivateSelectedCategory() {
       toast('خطأ أثناء تفعيل الفئة: ' + e.message, 'error');
     });
 }
+function saveCategorySuppliers() {
+  var catEl = document.getElementById('categorySupplierCat');
+  var nameEl = document.getElementById('categorySupplierNames');
 
+  var cat = catEl ? catEl.value : '';
+  var supplierName = nameEl ? nameEl.value.trim() : '';
+
+  if (!cat) {
+    toast('اختر الفئة', 'error');
+    return;
+  }
+
+  if (!supplierName) {
+    toast('اكتب اسم المورد', 'error');
+    return;
+  }
+
+  var itemsInCategory = S.items.filter(function(item) {
+    return (item.category || 'العبوات') === cat;
+  });
+
+  if (!itemsInCategory.length) {
+    toast('لا توجد أصناف داخل هذه الفئة', 'error');
+    return;
+  }
+
+  showLoad('جاري ربط المورد بالفئة...');
+
+  var batch = db.batch();
+
+  itemsInCategory.forEach(function(item) {
+    var oldSuppliers = Array.isArray(item.category_suppliers)
+      ? item.category_suppliers.slice()
+      : [];
+
+    if (oldSuppliers.indexOf(supplierName) === -1) {
+      oldSuppliers.push(supplierName);
+    }
+
+    batch.set(db.collection('items').doc(item.id), {
+      category_suppliers: oldSuppliers,
+      category_suppliers_text: oldSuppliers.join('، '),
+      updated_at: FS.serverTimestamp(),
+      updated_by: S.user ? S.user.email : ''
+    }, { merge: true });
+  });
+
+  batch.set(db.collection('suppliers').doc(encodeURIComponent(supplierName)), {
+    name: supplierName,
+    updated_at: FS.serverTimestamp(),
+    deleted: false
+  }, { merge: true });
+
+  batch.commit()
+    .then(function() {
+      return loadItems();
+    })
+    .then(function() {
+      hideLoad();
+
+      if (nameEl) {
+        nameEl.value = '';
+      }
+
+      renderItemsMgr();
+      toast('تم ربط المورد "' + supplierName + '" بفئة "' + cat + '"', 'success');
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('خطأ أثناء ربط المورد بالفئة: ' + e.message, 'error');
+    });
+}
 function addItemCategory() {
   var nm = document.getElementById('newCatInp').value.trim();
 
