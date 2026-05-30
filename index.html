@@ -5111,6 +5111,53 @@ function refreshCashPurchaseItemOptions() {
     }
   });
 }
+function getPurchaseItemsForSelectedSupplier() {
+  var supplierEl = document.getElementById('cashPurchaseSupplier');
+  var otherSupplierEl = document.getElementById('cashPurchaseOtherSupplier');
+
+  var supplierName = supplierEl ? supplierEl.value : '';
+
+  if (supplierName === 'فاتورة أخرى') {
+    supplierName = otherSupplierEl ? otherSupplierEl.value.trim() : '';
+  }
+
+  if (!supplierName) {
+    return S.items || [];
+  }
+
+  var matched = (S.items || []).filter(function(item) {
+    var suppliers = Array.isArray(item.category_suppliers)
+      ? item.category_suppliers
+      : [];
+
+    return suppliers.indexOf(supplierName) !== -1;
+  });
+
+  return matched.length ? matched : (S.items || []);
+}
+
+function buildPurchaseItemOptions() {
+  var items = getPurchaseItemsForSelectedSupplier();
+
+  return items.map(function(item) {
+    return '<option value="' + item.name + '">' + item.name + '</option>';
+  }).join('');
+}
+
+function refreshCashPurchaseItemOptions() {
+  var options = buildPurchaseItemOptions();
+  var selects = document.querySelectorAll('.cashPurchaseItem');
+
+  selects.forEach(function(sel) {
+    var oldValue = sel.value;
+
+    sel.innerHTML = options;
+
+    if (oldValue && options.indexOf('value="' + oldValue + '"') !== -1) {
+      sel.value = oldValue;
+    }
+  });
+}
 function saveCashPurchase() {
   var rows = document.querySelectorAll('.cash-purchase-row');
 var paymentEl = document.getElementById('cashPurchasePayment');
