@@ -10000,6 +10000,10 @@ function renderItemsMgr() {
       html += '</div>';
 
       body.innerHTML = html;
+      setTimeout(function() {
+  refreshCategoryLinkedSuppliers();
+  setCategorySupplierMode('add');
+}, 100);
     })
     .catch(function(e) {
       console.error(e);
