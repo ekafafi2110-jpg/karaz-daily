@@ -4786,7 +4786,7 @@ function onCashPurchaseSupplierChange() {
   refreshCashPurchaseItemOptions();
 }
 function getCashPurchaseOptionsHtml() {
-  return S.items.map(function(item) {
+  return getPurchaseItemsForSelectedSupplier().map(function(item) {
     return '<option value="' + item.name + '">' + item.name + '</option>';
   }).join('');
 }
@@ -9873,14 +9873,35 @@ function renderItemsMgr() {
             '</div>' +
             '<div style="background:#111;border:1px solid rgba(212,175,55,.45);border-radius:16px;padding:12px;">' +
   '<div style="color:var(--gold);font-weight:900;margin-bottom:8px;">ربط موردين بفئة</div>' +
-  '<div class="add-row" style="display:grid;grid-template-columns:1fr;gap:8px;">' +
-    '<select id="categorySupplierCat" style="height:44px;border-radius:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);font-family:Cairo;font-weight:800;padding:0 10px;">' +
+  '<div style="display:grid;grid-template-columns:1fr;gap:10px;">' +
+
+  '<div class="f-grp">' +
+    '<label class="f-lbl">الفئة</label>' +
+    '<select id="categorySupplierCat" onchange="refreshCategoryLinkedSuppliers()" class="f-sel">' +
       catOptions +
     '</select>' +
-'<input type="text" id="categorySupplierNames" placeholder="اكتب اسم المورد مثل: البرج">' +
-    '<button class="btn-sm-add" onclick="saveCategorySuppliers()">حفظ موردين الفئة</button>' +
   '</div>' +
-  '<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.7;">' +
+
+  '<div class="f-grp">' +
+    '<label class="f-lbl">اسم المورد الجديد</label>' +
+    '<input type="text" class="f-inp2" id="categorySupplierNames" placeholder="مثال: البرج" style="width:100%;">' +
+  '</div>' +
+
+  '<div class="f-grp">' +
+    '<label class="f-lbl">مورد مرتبط لإلغاء الربط</label>' +
+    '<select id="categoryLinkedSupplierSelect" class="f-sel" style="display:none;">' +
+      '<option value="">اختر المورد</option>' +
+    '</select>' +
+  '</div>' +
+
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+    '<button id="categorySupplierSaveBtn" class="btn-sm-add" onclick="setCategorySupplierMode(\'add\');saveCategorySuppliers()">حفظ المورد</button>' +
+    '<button id="categorySupplierRemoveBtn" class="btn-sec" onclick="setCategorySupplierMode(\'remove\');removeCategorySupplier()">إلغاء الربط</button>' +
+  '</div>' +
+
+'</div>' +
+
+'<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.7;">' +
     'عند اختيار مورد في المشتريات، ستظهر أصناف الفئة المرتبطة به فقط.' +
   '</div>' +
 '</div>' +
@@ -10145,13 +10166,143 @@ function reactivateSelectedCategory() {
       toast('خطأ أثناء تفعيل الفئة: ' + e.message, 'error');
     });
 }
-function saveCategorySuppliers() {
+function setCategorySupplierMode(mode) {
+  var nameEl = document.getElementById('categorySupplierNames');
+  var linkedEl = document.getElementById('categoryLinkedSupplierSelect');
+  var saveBtn = document.getElementById('categorySupplierSaveBtn');
+  var removeBtn = document.getElementById('categorySupplierRemoveBtn');
+
+  if (nameEl) nameEl.style.display = mode === 'add' ? 'block' : 'none';
+  if (linkedEl) linkedEl.style.display = mode === 'remove' ? 'block' : 'none';
+
+  if (saveBtn) saveBtn.className = mode === 'add' ? 'btn-sm-add' : 'btn-sec';
+  if (removeBtn) removeBtn.className = mode === 'remove' ? 'btn-stop' : 'btn-sec';
+}
+function getSuppliersForCategory(cat) {
+  var map = {};
+
+  (S.items || []).forEach(function(item) {
+    if ((item.category || 'العبوات') !== cat) return;
+
+    var suppliers = Array.isArray(item.category_suppliers)
+      ? item.category_suppliers
+      : [];
+
+    suppliers.forEach(function(name) {
+      if (name) map[name] = true;
+    });
+  });
+
+  return Object.keys(map).sort();
+}
+
+function refreshCategoryLinkedSuppliers() {
+  var catEl = document.getElementById('categorySupplierCat');
+  var linkedEl = document.getElementById('categoryLinkedSupplierSelect');
+
+  if (!catEl || !linkedEl) return;
+
+  var cat = catEl.value || '';
+  var suppliers = getSuppliersForCategory(cat);
+
+  var html = '<option value="">اختر موردًا مرتبطًا لإلغاء الربط</option>';
+
+  suppliers.forEach(function(name) {
+    html += '<option value="' + name + '">' + name + '</option>';
+  });
+
+  linkedEl.innerHTML = html;
+}
+function removeCategorySupplier() {
   var catEl = document.getElementById('categorySupplierCat');
   var nameEl = document.getElementById('categorySupplierNames');
 
   var cat = catEl ? catEl.value : '';
   var supplierName = nameEl ? nameEl.value.trim() : '';
 
+  if (!cat) {
+    toast('اختر الفئة', 'error');
+    return;
+  }
+
+  if (!supplierName) {
+    toast('اكتب اسم المورد لإلغاء ربطه', 'error');
+    return;
+  }
+
+  var itemsInCategory = S.items.filter(function(item) {
+    return (item.category || 'العبوات') === cat;
+  });
+
+  if (!itemsInCategory.length) {
+    toast('لا توجد أصناف داخل هذه الفئة', 'error');
+    return;
+  }
+
+  if (!confirm('هل تريد إلغاء ربط المورد "' + supplierName + '" من فئة "' + cat + '"؟')) {
+    return;
+  }
+
+  showLoad('جاري إلغاء ربط المورد...');
+
+  var batch = db.batch();
+  var changedCount = 0;
+
+  itemsInCategory.forEach(function(item) {
+    var oldSuppliers = Array.isArray(item.category_suppliers)
+      ? item.category_suppliers.slice()
+      : [];
+
+    var newSuppliers = oldSuppliers.filter(function(name) {
+      return name !== supplierName;
+    });
+
+    if (newSuppliers.length !== oldSuppliers.length) {
+      changedCount++;
+
+      batch.set(db.collection('items').doc(item.id), {
+        category_suppliers: newSuppliers,
+        category_suppliers_text: newSuppliers.join('، '),
+        updated_at: FS.serverTimestamp(),
+        updated_by: S.user ? S.user.email : ''
+      }, { merge: true });
+    }
+  });
+
+  if (!changedCount) {
+    hideLoad();
+    toast('هذا المورد غير مربوط بهذه الفئة', 'info');
+    return;
+  }
+
+  batch.commit()
+    .then(function() {
+      return loadItems();
+    })
+    .then(function() {
+      hideLoad();
+
+      if (nameEl) {
+        nameEl.value = '';
+      }
+
+      renderItemsMgr();
+      toast('تم إلغاء ربط المورد من الفئة', 'success');
+    })
+    .catch(function(e) {
+      hideLoad();
+      console.error(e);
+      toast('خطأ أثناء إلغاء الربط: ' + e.message, 'error');
+    });
+}
+function saveCategorySuppliers() {
+  var catEl = document.getElementById('categorySupplierCat');
+var nameEl = document.getElementById('categorySupplierNames');
+var linkedEl = document.getElementById('categoryLinkedSupplierSelect');
+  var cat = catEl ? catEl.value : '';
+var supplierName = linkedEl && linkedEl.value
+  ? linkedEl.value
+  : (nameEl ? nameEl.value.trim() : '');
   if (!cat) {
     toast('اختر الفئة', 'error');
     return;
@@ -10210,6 +10361,7 @@ function saveCategorySuppliers() {
       }
 
       renderItemsMgr();
+      setTimeout(refreshCategoryLinkedSuppliers, 100);
       toast('تم ربط المورد "' + supplierName + '" بفئة "' + cat + '"', 'success');
     })
     .catch(function(e) {
