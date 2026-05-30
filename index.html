@@ -6075,12 +6075,14 @@ var title = x.title || x.type || '-';
       var color = delta >= 0 ? 'var(--green)' : 'var(--red)';
 
       rowsHtml +=
-        '<tr>' +
-          '<td style="font-size:10px;">' + workDate + '</td>' +
-          '<td style="text-align:right;font-size:11px;line-height:1.5;">' +
-  '<strong>' + title + '</strong>' +
-'</td>' +
-        '</tr>';
+  '<tr>' +
+    '<td style="font-size:10px;">' + workDate + '</td>' +
+    '<td style="text-align:right;font-size:11px;line-height:1.5;">' +
+      '<strong>' + title + '</strong>' +
+    '</td>' +
+    '<td style="font-size:10px;">' + amount.toFixed(2) + '</td>' +
+    '<td style="font-size:10px;color:' + color + ';font-weight:900;">' + sign + delta.toFixed(2) + '</td>' +
+  '</tr>';
     });
   } else {
     rowsHtml =
