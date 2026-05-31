@@ -1851,7 +1851,31 @@ function loadOrCreateSession() {
 
       var activeSession = null;
 
-      if (S.shift === 'B') {
+var returnedSessions = openSessions.filter(function(row) {
+  return row.data.returned_for_edit === true || row.data.status === 'returned_for_edit';
+});
+
+if (returnedSessions.length) {
+  returnedSessions.sort(function(a, b) {
+    var ta = a.data.returned_at && a.data.returned_at.toMillis ? a.data.returned_at.toMillis() : 0;
+    var tb = b.data.returned_at && b.data.returned_at.toMillis ? b.data.returned_at.toMillis() : 0;
+    return tb - ta;
+  });
+
+  var returnedSession = returnedSessions[0];
+
+  if (S.shift === 'A' && returnedSession.data.shift_a_sent === true && returnedSession.data.shift_b_sent !== true) {
+    activeSession = returnedSession;
+    toast('تم فتح جرد مرتجع للتعديل - شفت A', 'info');
+  }
+
+  if (S.shift === 'B' && returnedSession.data.shift_a_sent === true) {
+    activeSession = returnedSession;
+    toast('تم فتح جرد مرتجع للتعديل - شفت B', 'info');
+  }
+}
+
+if (!activeSession && S.shift === 'B') {
   var pendingForB = openSessions.filter(function(row) {
     return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
   });
@@ -1861,14 +1885,18 @@ function loadOrCreateSession() {
     return false;
   }
 
-  if (pendingForB.length === 1) {
-    activeSession = pendingForB[0];
-  } else {
-    S.pendingSessionsForB = pendingForB;
-    hideLoad();
-    showBSessionPicker(pendingForB);
-    return false;
-  }
+  var hasReturnedForB = pendingForB.some(function(row) {
+  return row.data.returned_for_edit === true || row.data.status === 'returned_for_edit';
+});
+
+if (pendingForB.length === 1 && !hasReturnedForB) {
+  activeSession = pendingForB[0];
+} else {
+  S.pendingSessionsForB = pendingForB;
+  hideLoad();
+  showBSessionPicker(pendingForB);
+  return false;
+}
 }
       if (S.shift === 'A') {
   activeSession = null;
@@ -1921,13 +1949,19 @@ function showBSessionPicker(sessions) {
 
   sessions.forEach(function(row) {
     var tracking = row.data.tracking_id || row.id;
-    var dateTxt = row.data.work_date ? fmtDate(row.data.work_date) : row.id;
+var dateTxt = row.data.work_date ? fmtDate(row.data.work_date) : row.id;
+var isReturned = row.data.returned_for_edit === true || row.data.status === 'returned_for_edit';
+
+var typeBadge = isReturned
+  ? '<div style="display:inline-block;margin-top:6px;background:rgba(231,76,60,.14);border:1px solid var(--red);color:var(--red);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;">جرد مرتجع للتعديل</div>'
+  : '<div style="display:inline-block;margin-top:6px;background:rgba(212,175,55,.12);border:1px solid var(--gold);color:var(--gold);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;">قادم من شفت A</div>';
 
     html +=
       '<div class="sess-item" onclick="selectSessionForB(\'' + row.id + '\')">' +
         '<div class="sess-date">' + dateTxt + '</div>' +
         '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
-        '<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لاختيار هذا الجرد</div>' +
+typeBadge +
+'<div style="margin-top:4px;color:var(--text2);font-size:12px;">اضغط لاختيار هذا الجرد</div>' +
       '</div>';
   });
 
@@ -2022,7 +2056,26 @@ function initMainScreen() {
   sb.textContent='شفت '+S.shift; sb.className='sbadge '+S.shift;
   document.getElementById('hDate').textContent=fmtDate(S.workDate);
   document.getElementById('hUser').textContent=S.profile.name||S.user.email;
-  renderInventory(); renderExpenses(); renderCash();
+
+var returnedBadgeEl = document.getElementById('returnedInventoryBadge');
+
+if (returnedBadgeEl) {
+  returnedBadgeEl.remove();
+}
+
+if (S.sessionData && (S.sessionData.returned_for_edit === true || S.sessionData.status === 'returned_for_edit')) {
+  var header = document.querySelector('.head');
+
+  if (header) {
+    var badge = document.createElement('div');
+    badge.id = 'returnedInventoryBadge';
+    badge.style.cssText = 'margin:8px 0 0;background:rgba(231,76,60,.14);border:1px solid var(--red);color:var(--red);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;text-align:center;';
+    badge.textContent = 'جرد مرتجع للتعديل';
+    header.appendChild(badge);
+  }
+}
+
+renderInventory(); renderExpenses(); renderCash();
 }
 
 function switchTab(tab) {
@@ -9180,15 +9233,26 @@ function mgrOpen(type) {
 
      pending.forEach(function(row) {
   var tracking = row.data.tracking_id || row.id;
-  var statusTxt = row.data.status === 'complete'
-    ? 'مكتمل - بانتظار اعتماد المدير'
-    : 'بانتظار شفت B أو اعتماد المدير';
+  var isReturned = row.data.returned_for_edit === true || row.data.status === 'returned_for_edit';
+
+var statusTxt = isReturned
+  ? 'جرد مرتجع - بانتظار تعديل الموظف'
+  : (
+      row.data.status === 'complete'
+        ? 'مكتمل - بانتظار اعتماد المدير'
+        : 'بانتظار شفت B أو اعتماد المدير'
+    );
+
+var returnedBadge = isReturned
+  ? '<div style="display:inline-block;margin-top:6px;background:rgba(231,76,60,.14);border:1px solid var(--red);color:var(--red);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900;">جرد مرتجع</div>'
+  : '';
 
   html +=
     '<div class="sess-item" onclick="openPendingSessDet(\'' + row.id + '\')">' +
       '<div class="sess-date">' + fmtDate(row.data.work_date) + '</div>' +
       '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + tracking + '</div>' +
       '<div style="margin-top:4px;">' + statusTxt + '</div>' +
+returnedBadge +
     '</div>';
 });
       document.getElementById('modalBody').innerHTML = html;
@@ -9394,6 +9458,98 @@ html +=
   }
 }
 
+function setInventoryLogActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('inventoryLogSearchBtn');
+  var monthBtn = document.getElementById('inventoryLogMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'inventoryLogSearchBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'inventoryLogMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+
+function resetInventoryLogRange() {
+  var fromEl = document.getElementById('inventoryLogFromDate');
+  var toEl = document.getElementById('inventoryLogToDate');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+
+  setInventoryLogActiveButton('inventoryLogMonthBtn');
+  loadInventoryLogRange();
+}
+
+function loadInventoryLogRange() {
+  var box = document.getElementById('inventoryLogRowsBox');
+  var fromEl = document.getElementById('inventoryLogFromDate');
+  var toEl = document.getElementById('inventoryLogToDate');
+
+  if (!box) return;
+
+  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
+
+  if (toDate < fromDate) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    return;
+  }
+
+  box.innerHTML = '<div class="empty">جاري تحميل سجل الجرد...</div>';
+
+  db.collection('inventorySessions')
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(snap) {
+      if (snap.empty) {
+        box.innerHTML = '<div class="empty">لا توجد سجلات ضمن الفترة المحددة</div>';
+        return;
+      }
+
+      var stMap = {new:'جديد', waiting_B:'بانتظار شفت B', complete:'مكتمل', approved:'معتمد'};
+      var stCls = {new:'sb-new', waiting_B:'sb-wait', complete:'sb-done', approved:'sb-appr'};
+
+      var rows = snap.docs.map(function(d) {
+        return { id: d.id, data: d.data() || {} };
+      });
+
+      rows.sort(function(a, b) {
+        var ad = a.data.work_date || '';
+        var bd = b.data.work_date || '';
+
+        if (ad !== bd) return bd.localeCompare(ad);
+
+        var at = a.data.updated_at && a.data.updated_at.toMillis ? a.data.updated_at.toMillis() : 0;
+        var bt = b.data.updated_at && b.data.updated_at.toMillis ? b.data.updated_at.toMillis() : 0;
+
+        return bt - at;
+      });
+
+      box.innerHTML = rows.map(function(row) {
+        var s = row.data;
+        var st = s.status || 'new';
+
+        var salesTxt = s.sales_done === true
+          ? '<div style="margin-top:4px;color:var(--gold);font-size:12px;font-weight:900;">المبيعات: ' + Number(s.sales_total_qty || 0) + '</div>'
+          : '<div style="margin-top:4px;color:var(--text3);font-size:12px;">المبيعات: غير مدخلة</div>';
+
+        return '<div class="sess-item" onclick="openSessDet(\'' + row.id + '\')">' +
+          '<div class="sess-date">' + fmtDate(s.work_date) + '</div>' +
+          '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + (s.tracking_id || row.id) + '</div>' +
+          '<div style="margin-top:4px;"><span class="sb ' + (stCls[st] || 'sb-new') + '">' + (stMap[st] || st) + '</span></div>' +
+          salesTxt +
+        '</div>';
+      }).join('');
+    })
+    .catch(function(e) {
+      console.error(e);
+      box.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل سجل الجرد: ' + e.message + '</div>';
+    });
+}
+
 function openSessDet(sessId) {
   setModal('تفاصيل الجرد');
   showLoad('جاري التحميل...');
@@ -9593,13 +9749,33 @@ function openPendingSessDet(sessId) {
     .then(function(det) {
       hideLoad();
 
-      document.getElementById('modalBody').innerHTML =
+      var isReturned = det.session && (
+  det.session.returned_for_edit === true ||
+  det.session.status === 'returned_for_edit'
+);
+
+var actionsHtml = '';
+
+if (isReturned) {
+  actionsHtml =
+    '<div style="margin-top:12px;background:rgba(231,76,60,.12);border:1px solid var(--red);color:var(--red);border-radius:14px;padding:12px;font-size:13px;font-weight:900;line-height:1.8;text-align:center;">' +
+      'هذا الجرد مرتجع للموظف للتعديل.<br>لا يمكن للمدير اعتماد الجرد أو إرجاعه مرة أخرى حتى يعيد الموظف إرساله.' +
+    '</div>';
+} else {
+  actionsHtml =
+    '<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px;">' +
+      '<button class="wa-btn" onclick="approveSessionToArchive(\'' + sessId + '\')">' +
+        'حفظ واعتماد الجرد في السجل' +
+      '</button>' +
+      '<button class="btn-sec" style="border-color:var(--red);color:var(--red);" onclick="returnPendingInventoryToEmployee(\'' + sessId + '\')">' +
+        'إرجاع الجرد للموظف للتعديل' +
+      '</button>' +
+    '</div>';
+}
+
+document.getElementById('modalBody').innerHTML =
   renderReport(det, sessId) +
-  '<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px;">' +
-    '<button class="wa-btn" onclick="approveSessionToArchive(\'' + sessId + '\')">' +
-      'حفظ واعتماد الجرد في السجل' +
-    '</button>' +
-  '</div>' +
+  actionsHtml +
   '<div id="dailyArchiveMsg"></div>';
     })
     .catch(function(e) {
@@ -9608,6 +9784,48 @@ function openPendingSessDet(sessId) {
       document.getElementById('modalBody').innerHTML =
         '<div class="empty">حدث خطأ أثناء فتح تفاصيل الجرد</div>';
     });
+}
+
+function returnPendingInventoryToEmployee(sessId) {
+  if (!sessId) return;
+
+  var reason = prompt('اكتب سبب إرجاع الجرد للموظف للتعديل:');
+
+  if (reason === null) return;
+
+  reason = (reason || '').trim();
+
+  if (!reason) {
+    toast('يجب كتابة سبب الإرجاع', 'error');
+    return;
+  }
+
+  if (!confirm('هل تريد إرجاع هذا الجرد للموظف؟\nسيبقى الجرد غير معتمد ولن يدخل في السجل الكامل.')) {
+    return;
+  }
+
+  showLoad('جاري إرجاع الجرد للموظف...');
+
+  db.collection('inventorySessions').doc(sessId).set({
+    status: 'returned_for_edit',
+    archived: false,
+    ready_for_manager: false,
+    returned_for_edit: true,
+    return_reason: reason,
+    returned_by: S.user ? S.user.email : '',
+    returned_at: firebase.firestore.FieldValue.serverTimestamp(),
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true })
+  .then(function() {
+    hideLoad();
+    toast('تم إرجاع الجرد للموظف للتعديل', 'success');
+    mgrOpen('today');
+  })
+  .catch(function(e) {
+    hideLoad();
+    console.error(e);
+    toast('خطأ أثناء إرجاع الجرد: ' + e.message, 'error');
+  });
 }
 
 function setInventoryLogActiveButton(activeBtnId) {
