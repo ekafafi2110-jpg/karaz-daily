@@ -3405,6 +3405,11 @@ var supplierOptions =
       '<div style="font-size:22px;font-weight:900;color:var(--gold);margin-top:4px;">' + totalDebts.toFixed(2) + '</div>' +
       '<div style="font-size:11px;color:var(--text3);">دينار</div>' +
     '</div>' +
+        '<div class="mgr-card grape" onclick="openExpenseReportPopup()" style="cursor:pointer;">' +
+      '<div class="mgr-icon">📊</div><div class="mgr-lbl" style="font-size:15px;color:var(--grape2);">تقارير المصاريف</div>' +
+      '<div id="expenseReportCardTotal" style="font-size:22px;font-weight:900;color:var(--grape2);margin-top:4px;">...</div>' +
+      '<div style="font-size:11px;color:var(--text3);">إجمالي الشهر</div>' +
+    '</div>' +
 
   '</div>' +
         '<div id="cashBalanceDetails" style="display:' + (openPanel === 'balance' ? 'block' : 'none') + ';">' +
@@ -3694,6 +3699,7 @@ var supplierOptions =
 '</div>';
 
 document.getElementById('modalBody').innerHTML = html;
+setTimeout(loadExpenseReportCardTotal, 80);
     })
     .catch(function(e) {
   hideLoad();
@@ -3888,6 +3894,350 @@ function resetPurchaseLedgerRange() {
   if (paymentEl) paymentEl.value = '';
 
   loadPurchaseLedgerRange('purchaseMonthBtn');
+}
+function openExpenseReportPopup() {
+  setModal('تقارير المصاريف');
+
+  document.getElementById('modalBody').innerHTML =
+    '<div class="detail-sec">' +
+      '<div class="sec-title">تقارير المصاريف</div>' +
+
+      '<div style="font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:10px;">' +
+        'العرض الافتراضي للشهر الحالي، ويمكن تغيير الفترة من الفلاتر.' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+        '<div>' +
+          '<label class="f-lbl">من تاريخ</label>' +
+          '<input type="date" class="f-inp2" id="expenseReportFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
+        '</div>' +
+        '<div>' +
+          '<label class="f-lbl">إلى تاريخ</label>' +
+          '<input type="date" class="f-inp2" id="expenseReportToDate" value="' + S.workDate + '">' +
+        '</div>' +
+      '</div>' +
+
+      
+
+     
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
+        '<button class="btn-add" onclick="loadExpenseReportSummary()">بحث</button>' +
+        '<button class="btn-sec" onclick="resetExpenseReportSummary()">الشهر الحالي</button>' +
+      '</div>' +
+
+      '<div id="expenseReportSummaryBox">' +
+        '<div class="empty">اختر الفلاتر ثم اضغط بحث</div>' +
+      '</div>' +
+    '</div>';
+
+  openModal();
+}
+function getExpenseReportTypesForCategory() {
+  var catEl = document.getElementById('expenseReportMainCategory');
+  var cat = catEl ? catEl.value : 'all';
+
+  var types = [];
+
+  if (cat === 'all' || cat === 'operational') {
+    types = types.concat(['عبوات', 'مواد خام', 'فواكه', 'بوظة', 'بسكويت', 'مشروبات', 'أخرى مشتريات']);
+  }
+
+  if (cat === 'all' || cat === 'setup') {
+    types = types.concat(['ايجار', 'كهرباء', 'رواتب', 'صيانه واصلاح', 'سحوبات', 'ادوات محل', 'ماكينات', 'أخرى مصروفات']);
+  }
+
+  if (cat === 'all' || cat === 'shop') {
+    types = types.concat(['زيت', 'طحين', 'فاين', 'سكر', 'غاز', 'أخرى شفتات']);
+  }
+
+  return types;
+}
+
+function renderExpenseReportTypeFilters() {
+  var box = document.getElementById('expenseReportTypeFilters');
+  if (!box) return;
+
+  box.innerHTML =
+    '<button class="btn-sec" onclick="openExpenseTypePicker()">اختيار أنواع المصاريف</button>' +
+    '<div id="expenseReportSelectedTypesText" style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.7;">كل الأنواع</div>';
+}
+function openExpenseTypePicker() {
+  var types = getExpenseReportTypesForCategory();
+  var selected = getSelectedExpenseReportTypes();
+
+  var html =
+    '<div id="expenseTypePickerOv" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:flex-end;justify-content:center;">' +
+  '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:22px 22px 0 0;width:min(100%,560px);max-height:75vh;overflow-y:auto;padding:16px;">' +        '<div class="sec-title">اختيار أنواع المصاريف</div>' +
+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">';
+
+  types.forEach(function(name) {
+    var checked = selected.indexOf(name) !== -1 ? 'checked' : '';
+
+    html +=
+      '<label style="display:flex;align-items:center;gap:7px;background:#111;border:1px solid #333;border-radius:12px;padding:10px 8px;font-size:12px;font-weight:900;">' +
+        '<input type="checkbox" class="expenseReportTypeCheckTemp" value="' + name + '" ' + checked + '>' +
+        '<span>' + name + '</span>' +
+      '</label>';
+  });
+
+  html +=
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+          '<button class="btn-add" onclick="applyExpenseTypePicker()">تطبيق</button>' +
+          '<button class="btn-sec" onclick="closeExpenseTypePicker()">إغلاق</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function closeExpenseTypePicker() {
+  var ov = document.getElementById('expenseTypePickerOv');
+  if (ov) ov.remove();
+}
+
+function applyExpenseTypePicker() {
+  var selected = [];
+
+  document.querySelectorAll('.expenseReportTypeCheckTemp:checked').forEach(function(ch) {
+    selected.push(ch.value);
+  });
+
+  window.expenseReportSelectedTypes = selected;
+
+  var text = document.getElementById('expenseReportSelectedTypesText');
+
+  if (text) {
+    text.textContent = selected.length ? selected.join('، ') : 'كل الأنواع';
+  }
+
+  closeExpenseTypePicker();
+}
+
+function getSelectedExpenseReportTypes() {
+  return window.expenseReportSelectedTypes || [];
+}
+function getExpenseTypeNameById(typeId, fallback) {
+  var found = (S.expTypes || []).find(function(t) {
+    return t.id === typeId;
+  });
+
+  return found ? (found.name || found.title || found.label || fallback) : (fallback || 'مصروف شفت');
+}
+
+function getExpenseRowTime(row) {
+  var t = row.created_at || row.createdAt || row.updated_at || null;
+  if (t && t.toMillis) return t.toMillis();
+  if (t && t.toDate) return t.toDate().getTime();
+  return 0;
+}
+
+function getExpenseMainCategoryFilter() {
+  var el = document.getElementById('expenseReportMainCategory');
+  return el ? el.value : 'all';
+}
+
+function loadExpenseReportSummary() {
+  var box = document.getElementById('expenseReportSummaryBox');
+  var fromEl = document.getElementById('expenseReportFromDate');
+  var toEl = document.getElementById('expenseReportToDate');
+
+  if (!box) return;
+
+  var fromDate = fromEl ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl ? toEl.value : S.workDate;
+  var mainCat = getExpenseMainCategoryFilter();
+  var selectedTypes = getSelectedExpenseReportTypes();
+
+  if (toDate < fromDate) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    return;
+  }
+
+  box.innerHTML = '<div class="empty">جاري تحميل تقرير المصاريف...</div>';
+
+  Promise.all([
+    db.collection('cashPurchases').where('work_date', '>=', fromDate).where('work_date', '<=', toDate).get(),
+    db.collection('cashExpenses').where('work_date', '>=', fromDate).where('work_date', '<=', toDate).get(),
+    db.collection('inventorySessions').where('work_date', '>=', fromDate).where('work_date', '<=', toDate).get()
+  ])
+  .then(function(results) {
+    var rows = [];
+    var promises = [];
+
+    results[0].docs.forEach(function(d) {
+      var p = Object.assign({ docId: d.id }, d.data() || {});
+      if (p.deleted === true) return;
+
+      var amount = Number(p.amount || 0);
+      if (!amount || amount <= 0) return;
+
+      if (p.items && p.items.length) {
+        p.items.forEach(function(it) {
+          var itemAmount = Number(it.amount || 0);
+          if (!itemAmount || itemAmount <= 0) return;
+
+          rows.push({
+            group: 'operational',
+            source: 'مشتريات',
+            work_date: p.work_date || S.workDate,
+            title: it.item_name || 'مشتريات',
+            amount: itemAmount,
+            details: 'فاتورة: ' + (p.invoice_no || '-') + ' / ' + (p.supplier_name || '-'),
+            created_at: p.created_at
+          });
+        });
+      } else {
+        rows.push({
+          group: 'operational',
+          source: 'مشتريات',
+          work_date: p.work_date || S.workDate,
+          title: p.title || 'مشتريات',
+          amount: amount,
+          details: 'فاتورة: ' + (p.invoice_no || '-') + ' / ' + (p.supplier_name || '-'),
+          created_at: p.created_at
+        });
+      }
+    });
+
+    results[1].docs.forEach(function(d) {
+      var x = Object.assign({ docId: d.id }, d.data() || {});
+      if (x.deleted === true) return;
+
+      var amount = Number(x.amount || 0);
+      if (!amount || amount <= 0) return;
+
+      rows.push({
+        group: 'setup',
+        source: 'مصروفات',
+        work_date: x.work_date || S.workDate,
+        title: x.type || 'مصروف',
+        amount: amount,
+        details: x.note || '',
+        created_at: x.created_at
+      });
+    });
+
+    results[2].docs.forEach(function(d) {
+      var s = d.data() || {};
+
+      promises.push(
+        db.collection('expenses')
+          .where('inventory_session_id', '==', d.id)
+          .get()
+          .then(function(expSnap) {
+            expSnap.docs.forEach(function(ed) {
+              var e = Object.assign({ docId: ed.id }, ed.data() || {});
+              var amount = Number(e.amount || 0);
+              if (!amount || amount <= 0) return;
+
+              rows.push({
+                group: 'shop',
+                source: 'مصاريف الشفتات',
+                work_date: s.work_date || S.workDate,
+                title: e.custom_expense_name || getExpenseTypeNameById(e.expense_type_id, 'مصروف شفت'),
+                amount: amount,
+                details: (e.shift ? 'شفت ' + e.shift : '') + (e.note ? ' - ' + e.note : ''),
+                created_at: e.created_at
+              });
+            });
+          })
+      );
+    });
+
+    return Promise.all(promises).then(function() {
+      rows = rows.filter(function(r) {
+        if (mainCat !== 'all' && r.group !== mainCat) return false;
+        if (selectedTypes.length && selectedTypes.indexOf(r.title) === -1) return false;
+        return true;
+      });
+
+      rows.sort(function(a, b) {
+        if ((a.work_date || '') !== (b.work_date || '')) {
+          return (b.work_date || '').localeCompare(a.work_date || '');
+        }
+        return getExpenseRowTime(b) - getExpenseRowTime(a);
+      });
+
+      window.expenseReportRowsCache = rows;
+      renderExpenseReportSummaryRows(rows);
+    });
+  })
+  .catch(function(e) {
+    console.error(e);
+    box.innerHTML = '<div class="empty">خطأ في تحميل التقرير: ' + e.message + '</div>';
+  });
+}
+function renderExpenseReportSummaryRows(rows) {
+  var box = document.getElementById('expenseReportSummaryBox');
+  if (!box) return;
+
+  var op = 0, setup = 0, shop = 0, total = 0;
+  var byTitle = {};
+
+  rows.forEach(function(r) {
+    var amount = Number(r.amount || 0);
+
+    if (r.group === 'operational') op += amount;
+    if (r.group === 'setup') setup += amount;
+    if (r.group === 'shop') shop += amount;
+
+    total += amount;
+    byTitle[r.title] = (byTitle[r.title] || 0) + amount;
+  });
+
+  var topRows = '';
+
+  Object.keys(byTitle).sort(function(a, b) {
+    return byTitle[b] - byTitle[a];
+  }).slice(0, 10).forEach(function(name) {
+    topRows +=
+      '<tr>' +
+        '<td style="text-align:right;font-weight:900;">' + name + '</td>' +
+        '<td><strong>' + byTitle[name].toFixed(2) + '</strong></td>' +
+      '</tr>';
+  });
+
+  if (!topRows) {
+    topRows = '<tr><td colspan="2"><div class="empty">لا توجد مصاريف ضمن الفلتر</div></td></tr>';
+  }
+
+  box.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">' +
+      '<div class="mgr-card cherry"><div class="mgr-lbl" style="color:var(--cherry2);">تشغيلية</div><strong style="font-size:22px;color:var(--cherry2);">' + op.toFixed(2) + '</strong></div>' +
+      '<div class="mgr-card gold"><div class="mgr-lbl" style="color:var(--gold);">مصروفات شهرية</div><strong style="font-size:22px;color:var(--gold);">' + setup.toFixed(2) + '</strong></div>' +
+'<div class="mgr-card green"><div class="mgr-lbl" style="color:var(--green);">مشتريات محل</div><strong style="font-size:22px;color:var(--green);">' + shop.toFixed(2) + '</strong></div>' +
+      '<div class="mgr-card grape"><div class="mgr-lbl" style="color:var(--grape2);">الإجمالي</div><strong style="font-size:22px;color:var(--grape2);">' + total.toFixed(2) + '</strong></div>' +
+    '</div>' +
+
+    '<div class="detail-sec">' +
+      '<div class="sec-title">أكثر البنود إنفاقًا</div>' +
+      '<table class="rpt-table">' +
+        '<thead><tr><th>البند</th><th>المبلغ</th></tr></thead>' +
+        '<tbody>' + topRows + '</tbody>' +
+      '</table>' +
+    '</div>';
+}
+function resetExpenseReportSummary() {
+  var fromEl = document.getElementById('expenseReportFromDate');
+  var toEl = document.getElementById('expenseReportToDate');
+  var catEl = document.getElementById('expenseReportMainCategory');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+  if (catEl) catEl.value = 'all';
+
+  renderExpenseReportTypeFilters();
+  loadExpenseReportSummary();
+}
+
+function loadExpenseReportCardTotal() {
+  var el = document.getElementById('expenseReportCardTotal');
+  if (!el) return;
+
+  el.textContent = '...';
 }
 function payManualDebt(docId) {
   if (!confirm('هل تريد دفع هذا الالتزام من النقد؟')) return;
