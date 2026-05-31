@@ -3921,8 +3921,8 @@ function openExpenseReportPopup() {
 
      
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
-        '<button class="btn-add" onclick="loadExpenseReportSummary()">بحث</button>' +
-        '<button class="btn-sec" onclick="resetExpenseReportSummary()">الشهر الحالي</button>' +
+        '<button id="expenseReportSearchBtn" class="btn-sec" onclick="setExpenseReportActiveButton(\'expenseReportSearchBtn\');loadExpenseReportSummary()">بحث</button>' +
+'<button id="expenseReportMonthBtn" class="btn-add" onclick="setExpenseReportActiveButton(\'expenseReportMonthBtn\');resetExpenseReportSummary()">الشهر الحالي</button>' +
       '</div>' +
 
       '<div id="expenseReportSummaryBox">' +
@@ -3931,93 +3931,23 @@ function openExpenseReportPopup() {
     '</div>';
 
   openModal();
+setTimeout(function() {
+  setExpenseReportActiveButton('expenseReportMonthBtn');
+  loadExpenseReportSummary();
+}, 80);
 }
-function getExpenseReportTypesForCategory() {
-  var catEl = document.getElementById('expenseReportMainCategory');
-  var cat = catEl ? catEl.value : 'all';
 
-  var types = [];
+function setExpenseReportActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('expenseReportSearchBtn');
+  var monthBtn = document.getElementById('expenseReportMonthBtn');
 
-  if (cat === 'all' || cat === 'operational') {
-    types = types.concat(['عبوات', 'مواد خام', 'فواكه', 'بوظة', 'بسكويت', 'مشروبات', 'أخرى مشتريات']);
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'expenseReportSearchBtn' ? 'btn-add' : 'btn-sec';
   }
 
-  if (cat === 'all' || cat === 'setup') {
-    types = types.concat(['ايجار', 'كهرباء', 'رواتب', 'صيانه واصلاح', 'سحوبات', 'ادوات محل', 'ماكينات', 'أخرى مصروفات']);
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'expenseReportMonthBtn' ? 'btn-add' : 'btn-sec';
   }
-
-  if (cat === 'all' || cat === 'shop') {
-    types = types.concat(['زيت', 'طحين', 'فاين', 'سكر', 'غاز', 'أخرى شفتات']);
-  }
-
-  return types;
-}
-
-function renderExpenseReportTypeFilters() {
-  var box = document.getElementById('expenseReportTypeFilters');
-  if (!box) return;
-
-  box.innerHTML =
-    '<button class="btn-sec" onclick="openExpenseTypePicker()">اختيار أنواع المصاريف</button>' +
-    '<div id="expenseReportSelectedTypesText" style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.7;">كل الأنواع</div>';
-}
-function openExpenseTypePicker() {
-  var types = getExpenseReportTypesForCategory();
-  var selected = getSelectedExpenseReportTypes();
-
-  var html =
-    '<div id="expenseTypePickerOv" style="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:flex-end;justify-content:center;">' +
-  '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:22px 22px 0 0;width:min(100%,560px);max-height:75vh;overflow-y:auto;padding:16px;">' +        '<div class="sec-title">اختيار أنواع المصاريف</div>' +
-
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">';
-
-  types.forEach(function(name) {
-    var checked = selected.indexOf(name) !== -1 ? 'checked' : '';
-
-    html +=
-      '<label style="display:flex;align-items:center;gap:7px;background:#111;border:1px solid #333;border-radius:12px;padding:10px 8px;font-size:12px;font-weight:900;">' +
-        '<input type="checkbox" class="expenseReportTypeCheckTemp" value="' + name + '" ' + checked + '>' +
-        '<span>' + name + '</span>' +
-      '</label>';
-  });
-
-  html +=
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
-          '<button class="btn-add" onclick="applyExpenseTypePicker()">تطبيق</button>' +
-          '<button class="btn-sec" onclick="closeExpenseTypePicker()">إغلاق</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
-
-  document.body.insertAdjacentHTML('beforeend', html);
-}
-
-function closeExpenseTypePicker() {
-  var ov = document.getElementById('expenseTypePickerOv');
-  if (ov) ov.remove();
-}
-
-function applyExpenseTypePicker() {
-  var selected = [];
-
-  document.querySelectorAll('.expenseReportTypeCheckTemp:checked').forEach(function(ch) {
-    selected.push(ch.value);
-  });
-
-  window.expenseReportSelectedTypes = selected;
-
-  var text = document.getElementById('expenseReportSelectedTypesText');
-
-  if (text) {
-    text.textContent = selected.length ? selected.join('، ') : 'كل الأنواع';
-  }
-
-  closeExpenseTypePicker();
-}
-
-function getSelectedExpenseReportTypes() {
-  return window.expenseReportSelectedTypes || [];
 }
 function getExpenseTypeNameById(typeId, fallback) {
   var found = (S.expTypes || []).find(function(t) {
@@ -4048,8 +3978,7 @@ function loadExpenseReportSummary() {
 
   var fromDate = fromEl ? fromEl.value : getMonthStartDate(S.workDate);
   var toDate = toEl ? toEl.value : S.workDate;
-  var mainCat = getExpenseMainCategoryFilter();
-  var selectedTypes = getSelectedExpenseReportTypes();
+ 
 
   if (toDate < fromDate) {
     toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
@@ -4083,7 +4012,7 @@ function loadExpenseReportSummary() {
             group: 'operational',
             source: 'مشتريات',
             work_date: p.work_date || S.workDate,
-            title: it.item_name || 'مشتريات',
+            title: it.category || it.item_category || getWithdrawalItemCategoryByName(it.item_name || '') || 'مشتريات',
             amount: itemAmount,
             details: 'فاتورة: ' + (p.invoice_no || '-') + ' / ' + (p.supplier_name || '-'),
             created_at: p.created_at
@@ -4148,11 +4077,7 @@ function loadExpenseReportSummary() {
     });
 
     return Promise.all(promises).then(function() {
-      rows = rows.filter(function(r) {
-        if (mainCat !== 'all' && r.group !== mainCat) return false;
-        if (selectedTypes.length && selectedTypes.indexOf(r.title) === -1) return false;
-        return true;
-      });
+      
 
       rows.sort(function(a, b) {
         if ((a.work_date || '') !== (b.work_date || '')) {
@@ -4205,12 +4130,12 @@ function renderExpenseReportSummaryRows(rows) {
   }
 
   box.innerHTML =
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">' +
-      '<div class="mgr-card cherry"><div class="mgr-lbl" style="color:var(--cherry2);">تشغيلية</div><strong style="font-size:22px;color:var(--cherry2);">' + op.toFixed(2) + '</strong></div>' +
-      '<div class="mgr-card gold"><div class="mgr-lbl" style="color:var(--gold);">مصروفات شهرية</div><strong style="font-size:22px;color:var(--gold);">' + setup.toFixed(2) + '</strong></div>' +
-'<div class="mgr-card green"><div class="mgr-lbl" style="color:var(--green);">مشتريات محل</div><strong style="font-size:22px;color:var(--green);">' + shop.toFixed(2) + '</strong></div>' +
-      '<div class="mgr-card grape"><div class="mgr-lbl" style="color:var(--grape2);">الإجمالي</div><strong style="font-size:22px;color:var(--grape2);">' + total.toFixed(2) + '</strong></div>' +
-    '</div>' +
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">' +
+    '<div class="mgr-card cherry" style="cursor:pointer;" onclick="openExpenseReportDetails(\'operational\')"><div class="mgr-lbl" style="color:var(--cherry2);">تشغيلية</div><strong style="font-size:22px;color:var(--cherry2);">' + op.toFixed(2) + '</strong><div style="font-size:10px;color:var(--text2);margin-top:4px;">اضغط للكشف</div></div>' +
+    '<div class="mgr-card gold" style="cursor:pointer;" onclick="openExpenseReportDetails(\'setup\')"><div class="mgr-lbl" style="color:var(--gold);">مصروفات شهرية</div><strong style="font-size:22px;color:var(--gold);">' + setup.toFixed(2) + '</strong><div style="font-size:10px;color:var(--text2);margin-top:4px;">اضغط للكشف</div></div>' +
+    '<div class="mgr-card green" style="cursor:pointer;" onclick="openExpenseReportDetails(\'shop\')"><div class="mgr-lbl" style="color:var(--green);">مشتريات محل</div><strong style="font-size:22px;color:var(--green);">' + shop.toFixed(2) + '</strong><div style="font-size:10px;color:var(--text2);margin-top:4px;">اضغط للكشف</div></div>' +
+    '<div class="mgr-card grape" style="cursor:pointer;" onclick="openExpenseReportDetails(\'all\')"><div class="mgr-lbl" style="color:var(--grape2);">الإجمالي</div><strong style="font-size:22px;color:var(--grape2);">' + total.toFixed(2) + '</strong><div style="font-size:10px;color:var(--text2);margin-top:4px;">كل النفقات</div></div>' +
+  '</div>' +
 
     '<div class="detail-sec">' +
       '<div class="sec-title">أكثر البنود إنفاقًا</div>' +
@@ -4220,19 +4145,188 @@ function renderExpenseReportSummaryRows(rows) {
       '</table>' +
     '</div>';
 }
+
+function openExpenseReportDetails(group) {
+  var allRows = window.expenseReportRowsCache || [];
+
+  var title =
+    group === 'operational' ? 'كشف المصاريف التشغيلية' :
+    group === 'setup' ? 'كشف المصروفات الشهرية' :
+    group === 'shop' ? 'كشف مشتريات المحل' :
+    'كشف كل النفقات';
+
+  var rows = allRows.filter(function(r) {
+    if (group === 'all') return true;
+    return r.group === group;
+  });
+
+  rows.sort(function(a, b) {
+    if ((a.work_date || '') !== (b.work_date || '')) {
+      return (b.work_date || '').localeCompare(a.work_date || '');
+    }
+    return getExpenseRowTime(b) - getExpenseRowTime(a);
+  });
+
+  window.expenseReportDetailRowsCache = rows;
+
+  var typeOptions = '<option value="">كل الأنواع</option>';
+  var seen = {};
+
+  rows.forEach(function(r) {
+    var name = r.title || 'غير محدد';
+    if (seen[name]) return;
+    seen[name] = true;
+    typeOptions += '<option value="' + name + '">' + name + '</option>';
+  });
+
+  setModal(title);
+
+  document.getElementById('modalBody').innerHTML =
+    '<div class="detail-sec">' +
+      '<div class="sec-title">' + title + '</div>' +
+
+      '<div style="margin-bottom:10px;">' +
+        '<label class="f-lbl">فلتر نوع المصروف</label>' +
+        '<select class="f-sel" id="expenseReportDetailType" onchange="filterExpenseReportDetailsTable()">' +
+          typeOptions +
+        '</select>' +
+      '</div>' +
+
+      '<div id="expenseReportDetailsBox">' +
+        renderExpenseReportDetailsTable(rows) +
+      '</div>' +
+
+      '<button class="btn-sec" style="margin-top:12px;" onclick="openExpenseReportPopup();setTimeout(loadExpenseReportSummary,80);">رجوع لتقارير المصاريف</button>' +
+    '</div>';
+}
+function renderExpenseReportDetailsTable(rows) {
+  var total = 0;
+
+  if (!rows || !rows.length) {
+    return '<div class="empty">لا توجد حركات ضمن هذا الكشف</div>';
+  }
+
+  var grouped = {};
+
+  rows.forEach(function(r) {
+    var amount = Number(r.amount || 0);
+    var key = '';
+
+    if (r.group === 'operational') {
+      key = [
+        r.group,
+        r.work_date || '',
+        r.title || '',
+        r.details || ''
+      ].join('|');
+    } else {
+      key = [
+        r.group,
+        r.title || ''
+      ].join('|');
+    }
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        work_date: r.group === 'operational' ? (r.work_date || '-') : 'الفترة',
+        source: r.source || '-',
+        title: r.title || '-',
+        amount: 0,
+        details: r.group === 'operational' ? (r.details || '-') : 'مجموع الحركات',
+        group: r.group,
+        time: getExpenseRowTime(r)
+      };
+    }
+
+    grouped[key].amount += amount;
+
+    if (getExpenseRowTime(r) > grouped[key].time) {
+      grouped[key].time = getExpenseRowTime(r);
+      if (r.group !== 'operational') {
+        grouped[key].work_date = r.work_date || grouped[key].work_date;
+      }
+    }
+  });
+
+  var finalRows = Object.keys(grouped).map(function(k) {
+    return grouped[k];
+  });
+
+  finalRows.sort(function(a, b) {
+    if ((a.work_date || '') !== (b.work_date || '')) {
+      return (b.work_date || '').localeCompare(a.work_date || '');
+    }
+    return b.time - a.time;
+  });
+
+  var showSourceCol = rows.some(function(r) {
+  return r.group !== rows[0].group;
+});
+
+var html =
+    '<table class="rpt-table">' +
+      '<thead>' +
+        '<tr>' +
+          '<th>التاريخ</th>' +
+          (showSourceCol ? '<th>المصدر</th>' : '') +
+          '<th>النوع</th>' +
+          '<th>المبلغ</th>' +
+          '<th>تفاصيل / فاتورة</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>';
+
+  finalRows.forEach(function(r) {
+    var amount = Number(r.amount || 0);
+    total += amount;
+
+    html +=
+      '<tr>' +
+        '<td style="font-size:10px;">' + (r.work_date || '-') + '</td>' +
+        (showSourceCol ? '<td style="font-size:10px;">' + (r.source || '-') + '</td>' : '') +
+        '<td style="text-align:right;font-size:11px;font-weight:900;">' + (r.title || '-') + '</td>' +
+        '<td><strong>' + amount.toFixed(2) + '</strong></td>' +
+        '<td style="font-size:10px;line-height:1.6;">' + (r.details || '-') + '</td>' +
+      '</tr>';
+  });
+
+  html +=
+      '</tbody>' +
+    '</table>' +
+    '<div class="total-bar" style="margin-top:10px;">' +
+      '<div class="total-lbl">مجموع الكشف</div>' +
+      '<div class="total-amt">' + total.toFixed(2) + ' دينار</div>' +
+    '</div>';
+
+  return html;
+}
+
+function filterExpenseReportDetailsTable() {
+  var box = document.getElementById('expenseReportDetailsBox');
+  var typeEl = document.getElementById('expenseReportDetailType');
+
+  if (!box) return;
+
+  var type = typeEl ? typeEl.value : '';
+  var rows = window.expenseReportDetailRowsCache || [];
+
+  if (type) {
+    rows = rows.filter(function(r) {
+      return (r.title || '') === type;
+    });
+  }
+
+  box.innerHTML = renderExpenseReportDetailsTable(rows);
+}
 function resetExpenseReportSummary() {
   var fromEl = document.getElementById('expenseReportFromDate');
   var toEl = document.getElementById('expenseReportToDate');
-  var catEl = document.getElementById('expenseReportMainCategory');
 
   if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
   if (toEl) toEl.value = S.workDate;
-  if (catEl) catEl.value = 'all';
 
-  renderExpenseReportTypeFilters();
   loadExpenseReportSummary();
 }
-
 function loadExpenseReportCardTotal() {
   var el = document.getElementById('expenseReportCardTotal');
   if (!el) return;
