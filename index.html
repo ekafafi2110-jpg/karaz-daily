@@ -1313,7 +1313,7 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">
-<button class="modal-x" onclick="var t=document.getElementById('modalTitleTxt').textContent;if(t==='تفاصيل الفاتورة'){showManagerCash('balance')}else if(t==='النقد'){showManagerCash(null)}else{closeModal()}">x</button>      <span id="modalTitleTxt"></span>
+<button class="modal-x" onclick="var t=document.getElementById('modalTitleTxt').textContent;if(t==='تفاصيل الفاتورة'){showManagerCash('balance')}else if(t==='النقد'||t==='تقارير المصاريف'||t.indexOf('كشف المصاريف')===0||t.indexOf('كشف المصروفات')===0||t.indexOf('كشف مشتريات')===0||t==='كشف كل النفقات'){showManagerCash(null)}else{closeModal()}">x</button>     <span id="modalTitleTxt"></span>
     </div>
     <div id="modalBody"></div>
   </div>
@@ -6863,66 +6863,132 @@ function showWarehouseSalesLog() {
 
   var modalBody = document.getElementById('modalBody');
   modalBody.innerHTML = '';
-  modalBody.appendChild(section);
+modalBody.appendChild(section);
+
+document.getElementById('warehouseSalesLogList').innerHTML =
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+    '<div>' +
+      '<label class="f-lbl">من تاريخ</label>' +
+      '<input type="date" class="f-inp2" id="salesLogFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
+    '</div>' +
+    '<div>' +
+      '<label class="f-lbl">إلى تاريخ</label>' +
+      '<input type="date" class="f-inp2" id="salesLogToDate" value="' + S.workDate + '">' +
+    '</div>' +
+  '</div>' +
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+    '<button id="salesLogSearchBtn" class="btn-sec" onclick="setSalesLogActiveButton(\'salesLogSearchBtn\');loadWarehouseSalesLog()">بحث</button>' +
+    '<button id="salesLogMonthBtn" class="btn-add" onclick="resetWarehouseSalesLogRange()">الشهر الحالي</button>' +
+  '</div>' +
+  '<div id="warehouseSalesLogRowsBox"><div class="empty">جاري تحميل سجل المبيعات...</div></div>';
 
   openModal();
 
   loadWarehouseSalesLog();
 }
 function loadWarehouseSalesLog() {
-  var box = document.getElementById('warehouseSalesLogList');
+  var box = document.getElementById('warehouseSalesLogRowsBox') || document.getElementById('warehouseSalesLogList');
   if (!box) return;
 
-  box.innerHTML = 'جاري تحميل سجل المبيعات...';
+  var fromEl = document.getElementById('salesLogFromDate');
+  var toEl = document.getElementById('salesLogToDate');
+
+  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
+
+  if (toDate < fromDate) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    return;
+  }
+
+  box.innerHTML = '<div class="empty">جاري تحميل سجل المبيعات...</div>';
 
   db.collection('inventorySessions')
-    .where('work_date', '==', S.workDate)
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
     .where('sales_done', '==', true)
     .get()
     .then(function(sessionSnap) {
       if (sessionSnap.empty) {
-        box.innerHTML = '<div class="empty">لا توجد مبيعات محفوظة لهذا اليوم</div>';
+        box.innerHTML = '<div class="empty">لا توجد مبيعات محفوظة ضمن الفترة المحددة</div>';
         return;
       }
 
+      var rows = sessionSnap.docs.map(function(d) {
+        var s = d.data() || {};
+
+        var t = 0;
+        if (s.sales_updated_at && s.sales_updated_at.toMillis) {
+          t = s.sales_updated_at.toMillis();
+        } else if (s.created_at && s.created_at.toMillis) {
+          t = s.created_at.toMillis();
+        }
+
+        return {
+          id: d.id,
+          data: s,
+          time: t
+        };
+      });
+
+      rows.sort(function(a, b) {
+        var ad = a.data.work_date || '';
+        var bd = b.data.work_date || '';
+
+        if (ad !== bd) {
+          return bd.localeCompare(ad);
+        }
+
+        return b.time - a.time;
+      });
+
       var html = '';
 
-     var rows = sessionSnap.docs.map(function(d) {
-  var s = d.data() || {};
+      rows.forEach(function(row) {
+        var s = row.data || {};
+        var shift = s.shift || '-';
+        var total = parseFloat(s.sales_total_qty || 0);
 
-  var t = 0;
-  if (s.sales_updated_at && s.sales_updated_at.toMillis) {
-    t = s.sales_updated_at.toMillis();
-  } else if (s.created_at && s.created_at.toMillis) {
-    t = s.created_at.toMillis();
+        html += '<div class="balance-card">';
+        html += '<div class="balance-title">رقم الجرد: ' + (s.tracking_id || row.id) + '</div>';
+        html += '<div class="balance-row"><span>التاريخ</span><strong>' + (s.work_date || '-') + '</strong></div>';
+        html += '<div class="balance-row"><span>الشفت</span><strong>' + shift + '</strong></div>';
+        html += '<div class="balance-row total"><span>إجمالي المبيعات</span><strong>' + total + '</strong></div>';
+        html += '<button class="warehouse-action-btn" onclick="editWarehouseSalesSession(\'' + row.id + '\')">تعديل المبيعات</button>';
+        html += '</div>';
+      });
+
+      box.innerHTML = html;
+    })
+    .catch(function(e) {
+      console.error(e);
+      box.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل سجل المبيعات</div>';
+      toast('خطأ في تحميل سجل المبيعات: ' + e.message, 'error');
+    });
+}
+
+function setSalesLogActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('salesLogSearchBtn');
+  var monthBtn = document.getElementById('salesLogMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'salesLogSearchBtn' ? 'btn-add' : 'btn-sec';
   }
 
-  return {
-    id: d.id,
-    data: s,
-    time: t
-  };
-});
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'salesLogMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
 
-rows.sort(function(a, b) {
-  return b.time - a.time;
-});
+function resetWarehouseSalesLogRange() {
+  var fromEl = document.getElementById('salesLogFromDate');
+  var toEl = document.getElementById('salesLogToDate');
 
-rows.forEach(function(row) {
-  var d = { id: row.id };
-  var s = row.data || {};
-  var shift = s.shift || '-';
-  var total = parseFloat(s.sales_total_qty || 0);
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
 
-  html += '<div class="balance-card">';
-  html += '<div class="balance-title">رقم الجرد: ' + (s.tracking_id || row.id) + '</div>';
-  html += '<div class="balance-row"><span>الشفت</span><strong>' + shift + '</strong></div>';
-  html += '<div class="balance-row total"><span>إجمالي المبيعات</span><strong>' + total + '</strong></div>';
-  html += '<button class="warehouse-action-btn" onclick="editWarehouseSalesSession(\'' + row.id + '\')">تعديل المبيعات</button>';
-  html += '</div>';
-});
-      box.innerHTML = html;
-    });
+  setSalesLogActiveButton('salesLogMonthBtn');
+  loadWarehouseSalesLog();
 }
 function editWarehouseSalesSession(sessionId) {
   restoreWarehouseSections();
