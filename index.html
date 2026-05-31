@@ -1862,19 +1862,29 @@ if (returnedSessions.length) {
     return tb - ta;
   });
 
-  var returnedSession = returnedSessions[0];
+  if (S.shift === 'A') {
+    var returnedForA = returnedSessions.find(function(row) {
+      return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
+    });
 
-  if (S.shift === 'A' && returnedSession.data.shift_a_sent === true && returnedSession.data.shift_b_sent !== true) {
-    activeSession = returnedSession;
-    toast('تم فتح جرد مرتجع للتعديل - شفت A', 'info');
+    if (returnedForA) {
+      activeSession = returnedForA;
+      toast('تم فتح جرد مرتجع للتعديل - شفت A', 'info');
+    }
   }
 
-  if (S.shift === 'B' && returnedSession.data.shift_a_sent === true) {
-    activeSession = returnedSession;
-    toast('تم فتح جرد مرتجع للتعديل - شفت B', 'info');
+  if (S.shift === 'B') {
+    S.pendingSessionsForB = openSessions.filter(function(row) {
+      return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
+    });
+
+    if (S.pendingSessionsForB.length) {
+      hideLoad();
+      showBSessionPicker(S.pendingSessionsForB);
+      return false;
+    }
   }
 }
-
 if (!activeSession && S.shift === 'B') {
   var pendingForB = openSessions.filter(function(row) {
     return row.data.shift_a_sent === true && row.data.shift_b_sent !== true;
@@ -9072,6 +9082,8 @@ promises.push(cashBatch.commit());
     var updateData = {
   status: newStatus,
   archived: false,
+  returned_for_edit: false,
+  ready_for_manager: S.shift === 'B',
   updated_at: FS.serverTimestamp()
 };
 
@@ -9088,7 +9100,7 @@ if (S.shift === 'B') {
   updateData.shift_b_sent = true;
   updateData.shift_b_sent_at = FS.serverTimestamp();
   updateData.ready_for_manager = true;
-
+  updateData.return_resolved_at = FS.serverTimestamp();
   if (shiftNote) {
     updateData.shift_b_note = shiftNote;
   }
