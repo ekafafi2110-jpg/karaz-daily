@@ -6949,13 +6949,14 @@ function loadWarehouseSalesLog() {
         var shift = s.shift || '-';
         var total = parseFloat(s.sales_total_qty || 0);
 
-        html += '<div class="balance-card">';
-        html += '<div class="balance-title">رقم الجرد: ' + (s.tracking_id || row.id) + '</div>';
-        html += '<div class="balance-row"><span>التاريخ</span><strong>' + (s.work_date || '-') + '</strong></div>';
-        html += '<div class="balance-row"><span>الشفت</span><strong>' + shift + '</strong></div>';
-        html += '<div class="balance-row total"><span>إجمالي المبيعات</span><strong>' + total + '</strong></div>';
-        html += '<button class="warehouse-action-btn" onclick="editWarehouseSalesSession(\'' + row.id + '\')">تعديل المبيعات</button>';
-        html += '</div>';
+        html += '<div class="balance-card" style="padding:12px 14px;margin-bottom:8px;border-bottom:1px solid #333;">';
+html += '<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:6px;">' + (s.tracking_id || row.id) + '</div>';
+html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);margin-bottom:6px;">';
+html += '<span>' + (s.work_date || '-') + '</span>';
+html += '<strong style="color:var(--gold);font-size:15px;">' + total + '</strong>';
+html += '</div>';
+html += '<button class="btn-sec" style="padding:9px 10px;font-size:12px;width:100%;" onclick="editWarehouseSalesSession(\'' + row.id + '\')">تعديل</button>';
+html += '</div>';
       });
 
       box.innerHTML = html;
@@ -9200,26 +9201,38 @@ function mgrOpen(type) {
     });
 }
   else if (type==='sessions') {
-    setModal('سجل الجرد');
-    showLoad('جاري التحميل...');
-    db.collection('inventorySessions').orderBy('work_date','desc').get()
-      .then(function(snap){
-        hideLoad();
-        if (snap.empty) { document.getElementById('modalBody').innerHTML='<div class="empty"><div class="empty-icon">📅</div><div class="empty-txt">لا توجد سجلات</div></div>'; return; }
-        var stMap={new:'جديد',waiting_B:'بانتظار شفت B',complete:'مكتمل',approved:'معتمد'};
-        var stCls={new:'sb-new',waiting_B:'sb-wait',complete:'sb-done',approved:'sb-appr'};
-        document.getElementById('modalBody').innerHTML=snap.docs.map(function(d){
-          var s=d.data(), st=s.status||'new';
-var salesTxt = s.sales_done === true
-  ? '<div style="margin-top:4px;color:var(--gold);font-size:12px;font-weight:900;">المبيعات: ' + Number(s.sales_total_qty || 0) + '</div>'
-  : '<div style="margin-top:4px;color:var(--text3);font-size:12px;">المبيعات: غير مدخلة</div>';
-          return '<div class="sess-item" onclick="openSessDet(\''+d.id+'\')">'+
-            '<div class="sess-date">'+fmtDate(s.work_date)+'</div>'+
-'<div style="margin-top:4px;"><span class="sb '+(stCls[st]||'sb-new')+'">'+(stMap[st]||st)+'</span></div>' +
-salesTxt +
-'</div>';        }).join('');
-      }).catch(function(e){ hideLoad(); console.error(e); });
-  }
+  setModal('سجل الجرد');
+
+  document.getElementById('modalBody').innerHTML =
+    '<div class="detail-sec">' +
+      '<div class="sec-title">سجل الجرد</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+        '<div>' +
+          '<label class="f-lbl">من تاريخ</label>' +
+          '<input type="date" class="f-inp2" id="inventoryLogFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
+        '</div>' +
+        '<div>' +
+          '<label class="f-lbl">إلى تاريخ</label>' +
+          '<input type="date" class="f-inp2" id="inventoryLogToDate" value="' + S.workDate + '">' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
+        '<button id="inventoryLogSearchBtn" class="btn-sec" onclick="setInventoryLogActiveButton(\'inventoryLogSearchBtn\');loadInventoryLogRange()">بحث</button>' +
+        '<button id="inventoryLogMonthBtn" class="btn-add" onclick="resetInventoryLogRange()">الشهر الحالي</button>' +
+      '</div>' +
+
+      '<button class="wa-btn" style="margin-bottom:12px;" onclick="openAggregateDiffReport()">تقرير الفروقات التجميعي</button>' +
+
+      '<div id="inventoryLogRowsBox"><div class="empty">جاري تحميل سجل الجرد...</div></div>' +
+    '</div>';
+
+  setTimeout(function() {
+    setInventoryLogActiveButton('inventoryLogMonthBtn');
+    loadInventoryLogRange();
+  }, 80);
+}
   else if(type==='cash') {
   setModal('تقارير الكاش');
   showLoad('جاري تحميل آخر 10 كاشات...');
@@ -9594,6 +9607,103 @@ function openPendingSessDet(sessId) {
       console.error(e);
       document.getElementById('modalBody').innerHTML =
         '<div class="empty">حدث خطأ أثناء فتح تفاصيل الجرد</div>';
+    });
+}
+
+function setInventoryLogActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('inventoryLogSearchBtn');
+  var monthBtn = document.getElementById('inventoryLogMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'inventoryLogSearchBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'inventoryLogMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+
+function resetInventoryLogRange() {
+  var fromEl = document.getElementById('inventoryLogFromDate');
+  var toEl = document.getElementById('inventoryLogToDate');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+
+  setInventoryLogActiveButton('inventoryLogMonthBtn');
+  loadInventoryLogRange();
+}
+
+function loadInventoryLogRange() {
+  var box = document.getElementById('inventoryLogRowsBox');
+  var fromEl = document.getElementById('inventoryLogFromDate');
+  var toEl = document.getElementById('inventoryLogToDate');
+
+  if (!box) return;
+
+  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
+
+  if (toDate < fromDate) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    return;
+  }
+
+  box.innerHTML = '<div class="empty">جاري تحميل سجل الجرد...</div>';
+
+  db.collection('inventorySessions')
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(snap) {
+      if (snap.empty) {
+        box.innerHTML = '<div class="empty"><div class="empty-icon">📅</div><div class="empty-txt">لا توجد سجلات ضمن الفترة المحددة</div></div>';
+        return;
+      }
+
+      var stMap = {new:'جديد', waiting_B:'بانتظار شفت B', complete:'مكتمل', approved:'معتمد'};
+      var stCls = {new:'sb-new', waiting_B:'sb-wait', complete:'sb-done', approved:'sb-appr'};
+
+      var rows = snap.docs.map(function(d) {
+        return {
+          id: d.id,
+          data: d.data() || {}
+        };
+      });
+
+      rows.sort(function(a, b) {
+        var ad = a.data.work_date || '';
+        var bd = b.data.work_date || '';
+
+        if (ad !== bd) {
+          return bd.localeCompare(ad);
+        }
+
+        var at = a.data.updated_at && a.data.updated_at.toMillis ? a.data.updated_at.toMillis() : 0;
+        var bt = b.data.updated_at && b.data.updated_at.toMillis ? b.data.updated_at.toMillis() : 0;
+
+        return bt - at;
+      });
+
+      box.innerHTML = rows.map(function(row) {
+        var s = row.data;
+        var st = s.status || 'new';
+
+        var salesTxt = s.sales_done === true
+          ? '<div style="margin-top:4px;color:var(--gold);font-size:12px;font-weight:900;">المبيعات: ' + Number(s.sales_total_qty || 0) + '</div>'
+          : '<div style="margin-top:4px;color:var(--text3);font-size:12px;">المبيعات: غير مدخلة</div>';
+
+        return '<div class="sess-item" onclick="openSessDet(\'' + row.id + '\')">' +
+          '<div class="sess-date">' + fmtDate(s.work_date) + '</div>' +
+          '<div style="margin-top:4px;color:var(--gold);font-weight:700;">' + (s.tracking_id || row.id) + '</div>' +
+          '<div style="margin-top:4px;"><span class="sb ' + (stCls[st] || 'sb-new') + '">' + (stMap[st] || st) + '</span></div>' +
+          salesTxt +
+        '</div>';
+      }).join('');
+    })
+    .catch(function(e) {
+      console.error(e);
+      box.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل سجل الجرد: ' + e.message + '</div>';
     });
 }
 
@@ -10295,6 +10405,294 @@ function sendPreparedDiffWA() {
   }
 
   window.open('https://wa.me/?text=' + encodeURIComponent(lastDiffWhatsAppMessage), '_blank');
+}
+function buildInventoryDiffRowsFromDetails(det, sessId) {
+  var entries = det.entries || [];
+  var withdrawals = det.withdrawals || [];
+  var sales = det.sales || [];
+  var previousActualMap = det.previousActualMap || {};
+  var sessionData = det.session || {};
+
+  var invMap = {};
+  var withdrawalsMap = {};
+  var salesMap = {};
+  var rows = [];
+
+  entries.forEach(function(e) {
+    if (!invMap[e.item_id]) {
+      invMap[e.item_id] = { A: '', B: '' };
+    }
+
+    invMap[e.item_id][e.shift] = e.quantity;
+  });
+
+  withdrawals.forEach(function(w) {
+    var name = String(w.item_name || '').trim();
+    if (!name) return;
+    withdrawalsMap[name] = (withdrawalsMap[name] || 0) + Number(w.quantity || 0);
+  });
+
+  sales.forEach(function(s) {
+    var name = String(s.item_name || s.name || s.item || '').trim();
+    if (!name) return;
+    salesMap[name] = (salesMap[name] || 0) + Number(s.quantity || 0);
+  });
+
+  S.items.forEach(function(item) {
+    var row = invMap[item.id] || {};
+    var rawA = row.A;
+    var rawB = row.B;
+
+    var qA = rawA !== undefined && rawA !== null && rawA !== '' ? Number(rawA) : 0;
+    var qB = rawB !== undefined && rawB !== null && rawB !== '' ? Number(rawB) : 0;
+
+    var actualQty = rawB !== undefined && rawB !== null && rawB !== '' ? qB : qA;
+    var previousRaw = previousActualMap[item.name];
+
+    var hasPreviousActual =
+      previousRaw !== undefined &&
+      previousRaw !== null &&
+      previousRaw !== '';
+
+    if (!hasPreviousActual) return;
+
+    var withdrawalQty = withdrawalsMap[item.name] || 0;
+    var saleQty = salesMap[item.name] || 0;
+    var accountingQty = Number(previousRaw || 0) + withdrawalQty - saleQty;
+    var diff = actualQty - accountingQty;
+
+    if (diff !== 0) {
+      rows.push({
+        work_date: sessionData.work_date || '',
+        session_id: sessId,
+        employee: (rawB !== undefined && rawB !== null && rawB !== '' ? 'شفت B' : 'شفت A') + ' - ' + (sessionData.tracking_id || sessId),
+        shift: rawB !== undefined && rawB !== null && rawB !== '' ? 'B' : 'A',
+        category: item.category || 'العبوات',
+        item_name: item.name,
+        actualQty: actualQty,
+        accountingQty: accountingQty,
+        diff: diff
+      });
+    }
+  });
+
+  return rows;
+}
+
+function openAggregateDiffReport() {
+  setModal('تقرير الفروقات التجميعي');
+
+  document.getElementById('modalBody').innerHTML =
+    '<div class="detail-sec">' +
+      '<div class="sec-title">تقرير الفروقات التجميعي</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+        '<div>' +
+          '<label class="f-lbl">من تاريخ</label>' +
+          '<input type="date" class="f-inp2" id="aggDiffFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
+        '</div>' +
+        '<div>' +
+          '<label class="f-lbl">إلى تاريخ</label>' +
+          '<input type="date" class="f-inp2" id="aggDiffToDate" value="' + S.workDate + '">' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
+        '<button id="aggDiffSearchBtn" class="btn-sec" onclick="setAggregateDiffActiveButton(\'aggDiffSearchBtn\');loadAggregateDiffReport()">بحث</button>' +
+        '<button id="aggDiffMonthBtn" class="btn-add" onclick="resetAggregateDiffReport()">الشهر الحالي</button>' +
+      '</div>' +
+
+      '<div id="aggregateDiffBox"><div class="empty">جاري تحميل فروقات الشهر...</div></div>' +
+    '</div>';
+
+  setTimeout(function() {
+    setAggregateDiffActiveButton('aggDiffMonthBtn');
+    loadAggregateDiffReport();
+  }, 80);
+}
+
+function setAggregateDiffActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('aggDiffSearchBtn');
+  var monthBtn = document.getElementById('aggDiffMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'aggDiffSearchBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'aggDiffMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+
+function resetAggregateDiffReport() {
+  var fromEl = document.getElementById('aggDiffFromDate');
+  var toEl = document.getElementById('aggDiffToDate');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+
+  setAggregateDiffActiveButton('aggDiffMonthBtn');
+  loadAggregateDiffReport();
+}
+
+function loadAggregateDiffReport() {
+  var box = document.getElementById('aggregateDiffBox');
+  var fromEl = document.getElementById('aggDiffFromDate');
+  var toEl = document.getElementById('aggDiffToDate');
+
+  if (!box) return;
+
+  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
+  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
+
+  if (toDate < fromDate) {
+    toast('تاريخ إلى يجب أن يكون بعد أو يساوي تاريخ من', 'error');
+    return;
+  }
+
+  box.innerHTML = '<div class="empty">جاري تحميل الفروقات...</div>';
+
+  db.collection('inventorySessions')
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(sessionSnap) {
+      var sessions = [];
+
+      sessionSnap.docs.forEach(function(d) {
+        var s = d.data() || {};
+        if (s.status !== 'complete' && s.status !== 'approved') return;
+
+        sessions.push({
+          id: d.id,
+          data: s
+        });
+      });
+
+      sessions.sort(function(a, b) {
+        return (b.data.work_date || '').localeCompare(a.data.work_date || '');
+      });
+
+      return Promise.all(sessions.map(function(row) {
+        return loadSessionDetails(row.id)
+          .then(function(det) {
+            return buildInventoryDiffRowsFromDetails(det, row.id);
+          });
+      }));
+    })
+    .then(function(results) {
+      var rows = [];
+
+      results.forEach(function(list) {
+        rows = rows.concat(list || []);
+      });
+
+      rows.sort(function(a, b) {
+        if ((a.work_date || '') !== (b.work_date || '')) {
+          return (b.work_date || '').localeCompare(a.work_date || '');
+        }
+
+        return String(a.item_name || '').localeCompare(String(b.item_name || ''), 'ar');
+      });
+
+      window.aggregateDiffRowsCache = rows;
+      renderAggregateDiffReport(rows);
+    })
+    .catch(function(e) {
+      console.error(e);
+      box.innerHTML = '<div class="empty">حدث خطأ أثناء تحميل تقرير الفروقات: ' + e.message + '</div>';
+    });
+}
+
+function renderAggregateDiffReport(rows) {
+  var box = document.getElementById('aggregateDiffBox');
+  if (!box) return;
+
+  if (!rows || !rows.length) {
+    box.innerHTML = '<div class="empty">لا توجد فروقات ضمن الفترة المحددة</div>';
+    return;
+  }
+
+  var shortage = 0;
+  var surplus = 0;
+
+  rows.forEach(function(r) {
+    if (r.diff < 0) shortage += Math.abs(Number(r.diff || 0));
+    if (r.diff > 0) surplus += Number(r.diff || 0);
+  });
+
+  var html =
+    '<div class="total-bar" style="margin-bottom:10px;">' +
+      '<div class="total-lbl">العجز</div>' +
+      '<div class="total-amt" style="color:var(--red);">' + shortage + '</div>' +
+    '</div>' +
+
+    '<div class="total-bar" style="margin-bottom:10px;">' +
+      '<div class="total-lbl">الزيادة</div>' +
+      '<div class="total-amt" style="color:var(--green);">' + surplus + '</div>' +
+    '</div>' +
+
+    '<table class="rpt-table">' +
+      '<thead>' +
+        '<tr>' +
+          '<th>التاريخ</th>' +
+          '<th>الموظف</th>' +
+          '<th>الصنف</th>' +
+          '<th>العدد</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>';
+
+  rows.forEach(function(r) {
+    var diffLabel = r.diff > 0 ? ('+' + r.diff) : String(r.diff);
+
+    html +=
+      '<tr>' +
+        '<td style="font-size:10px;">' + (r.work_date || '-') + '</td>' +
+        '<td style="font-size:10px;">' + (r.employee || '-') + '</td>' +
+        '<td style="text-align:right;font-weight:900;font-size:11px;">' + (r.item_name || '-') + '</td>' +
+        '<td><strong class="' + (r.diff > 0 ? 'd-pos' : 'd-neg') + '">' + diffLabel + '</strong></td>' +
+      '</tr>';
+  });
+
+  html +=
+      '</tbody>' +
+    '</table>' +
+
+    '<button class="wa-btn" style="margin-top:12px;" onclick="copyAggregateDiffReport()">نسخ التقرير للموظفين</button>';
+
+  box.innerHTML = html;
+}
+
+function copyAggregateDiffReport() {
+  var rows = window.aggregateDiffRowsCache || [];
+
+  if (!rows.length) {
+    toast('لا يوجد تقرير لنسخه', 'error');
+    return;
+  }
+
+  var msg = 'تقرير الفروقات التجميعي\n';
+  msg += 'كرز وعنب - القويسمة\n\n';
+
+  rows.forEach(function(r) {
+    var diffLabel = r.diff > 0 ? ('زيادة ' + r.diff) : ('عجز ' + Math.abs(r.diff));
+
+    msg +=
+      (r.work_date || '-') + ' | ' +
+      (r.employee || '-') + ' | ' +
+      (r.item_name || '-') + ' | ' +
+      diffLabel + '\n';
+  });
+
+  navigator.clipboard.writeText(msg)
+    .then(function() {
+      toast('تم نسخ تقرير الفروقات', 'success');
+    })
+    .catch(function() {
+      lastDiffWhatsAppMessage = msg;
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    });
 }
 
 // ==================== MANAGE ====================
