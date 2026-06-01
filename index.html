@@ -114,11 +114,36 @@ body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);
   padding:4px 9px;color:var(--cherry2);font-family:'Cairo',sans-serif;font-size:12px;cursor:pointer;}
 
 /* TABS */
-.tabs-bar{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);}
-.tab-btn{flex:1;padding:12px 6px;background:none;border:none;color:var(--text3);
-  font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;cursor:pointer;
-  border-bottom:3px solid transparent;transition:all .2s;}
-.tab-btn.active{color:var(--cherry2);border-bottom-color:var(--cherry2);background:rgba(231,76,60,.05);}
+.tabs-bar{
+  display:flex;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  gap:4px;
+  padding:6px 6px 0;
+}
+
+.tab-btn{
+  flex:1;
+  padding:12px 6px;
+  background:rgba(255,255,255,.03);
+  border:1px solid transparent;
+  color:var(--text);
+  font-family:'Cairo',sans-serif;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  border-radius:12px 12px 0 0;
+  border-bottom:3px solid transparent;
+  transition:all .2s;
+}
+
+.tab-btn.active{
+  color:#fff;
+  border-color:rgba(231,76,60,.45);
+  border-bottom-color:var(--cherry2);
+  background:linear-gradient(135deg,rgba(192,57,43,.45),rgba(231,76,60,.18));
+  box-shadow:0 -2px 14px rgba(231,76,60,.18);
+}
 .tab-pane{display:none;flex:1;overflow-y:auto;padding:14px 14px 90px;}
 .tab-pane.active{display:block;}
 
@@ -3774,6 +3799,7 @@ var supplierOptions =
 '</div>';
 
 document.getElementById('modalBody').innerHTML = html;
+loadExpenseReportCardTotal();
 setTimeout(loadExpenseReportCardTotal, 80);
     })
     .catch(function(e) {
@@ -3969,6 +3995,81 @@ function resetPurchaseLedgerRange() {
   if (paymentEl) paymentEl.value = '';
 
   loadPurchaseLedgerRange('purchaseMonthBtn');
+}
+
+function loadExpenseReportCardTotal() {
+  var el = document.getElementById('expenseReportCardTotal');
+  if (!el) return;
+
+  var fromDate = getMonthStartDate(S.workDate);
+  var toDate = S.workDate;
+
+  el.textContent = '...';
+
+  Promise.all([
+    db.collection('cashPurchases')
+      .where('work_date', '>=', fromDate)
+      .where('work_date', '<=', toDate)
+      .get(),
+
+    db.collection('cashExpenses')
+      .where('work_date', '>=', fromDate)
+      .where('work_date', '<=', toDate)
+      .get(),
+
+    db.collection('inventorySessions')
+      .where('work_date', '>=', fromDate)
+      .where('work_date', '<=', toDate)
+      .get()
+  ])
+  .then(function(results) {
+    var total = 0;
+    var promises = [];
+
+    results[0].docs.forEach(function(d) {
+      var p = d.data() || {};
+      if (p.deleted === true) return;
+
+      if (p.items && p.items.length) {
+        p.items.forEach(function(it) {
+          total += Number(it.amount || 0);
+        });
+      } else {
+        total += Number(p.amount || 0);
+      }
+    });
+
+    results[1].docs.forEach(function(d) {
+      var x = d.data() || {};
+      if (x.deleted === true) return;
+
+      total += Number(x.amount || 0);
+    });
+
+    results[2].docs.forEach(function(d) {
+      promises.push(
+        db.collection('expenses')
+          .where('inventory_session_id', '==', d.id)
+          .get()
+          .then(function(expSnap) {
+            expSnap.docs.forEach(function(ed) {
+              var e = ed.data() || {};
+              if (e.approved !== true) return;
+
+              total += Number(e.amount || 0);
+            });
+          })
+      );
+    });
+
+    return Promise.all(promises).then(function() {
+      el.textContent = total.toFixed(2);
+    });
+  })
+  .catch(function(e) {
+    console.error('loadExpenseReportCardTotal error:', e);
+    el.textContent = 'خطأ';
+  });
 }
 function openExpenseReportPopup() {
   setModal('تقارير المصاريف');
@@ -9161,9 +9262,24 @@ function jumpAndClose(idx){ closeModal(); switchTab('inventory'); jumpTo(idx); }
 
 // ==================== MANAGER ====================
 function showManagerScreen() {
-  document.getElementById('mgrDate').textContent=fmtDate(S.workDate);
-  document.getElementById('mgrUser').textContent=S.profile.name||S.user.email;
+  document.getElementById('mgrDate').textContent = fmtDate(S.workDate);
+  document.getElementById('mgrUser').textContent = S.profile.name || S.user.email;
+
   showScreen('manager');
+
+  setAdminTabActive('home');
+
+  var grid = document.querySelector('.mgr-grid');
+  var warehouse = document.getElementById('warehouseAdminSection');
+
+  if (grid) grid.style.display = 'grid';
+  if (warehouse) warehouse.style.display = 'none';
+
+  if (typeof hideWarehouseSections === 'function') {
+    hideWarehouseSections();
+  }
+
+  closeModal();
 }
 function openPendingDailyInventory(snapshotId) {
 
