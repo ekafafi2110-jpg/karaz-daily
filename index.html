@@ -3423,8 +3423,7 @@ if (supplierBalancesSnap && supplierBalancesSnap.docs) {
           '<div style="font-weight:900;color:var(--gold);font-size:16px;">المورد: ' + supplierName + '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">' +
             '<div><div style="font-size:10px;color:var(--text2);">الرصيد الكامل</div><strong style="color:var(--gold);">' + balance.toFixed(2) + '</strong></div>' +
-            '<div><div style="font-size:10px;color:var(--text2);">كشف البطاقة</div><strong style="color:var(--text);font-size:11px;">الشهر الحالي</strong></div>' +
-          '</div>' +
+'<div><div style="font-size:10px;color:var(--text2);">كشف البطاقة</div><strong style="color:var(--text);font-size:11px;">كل الحركات</strong></div>' +          '</div>' +
           '<div style="width:100%;margin-top:10px;">' +
             '<button class="btn-add" style="background:var(--green);" onclick="event.stopPropagation(); paySupplierDebt(\'' + encodeURIComponent(supplierName) + '\',' + balance + ')">دفع</button>' +
           '</div>' +
@@ -4752,22 +4751,22 @@ function openSupplierDebtPopup(nameEncoded, el) {
   bodyEl.innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
 
-      '<div>' +
-        '<label class="f-lbl">من تاريخ</label>' +
-        '<input type="date" class="f-inp2" id="supplierDebtFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
-      '</div>' +
+  '<div>' +
+    '<label class="f-lbl">من تاريخ</label>' +
+    '<input type="date" class="f-inp2" id="supplierDebtFromDate" value="">' +
+  '</div>' +
 
-      '<div>' +
-        '<label class="f-lbl">إلى تاريخ</label>' +
-        '<input type="date" class="f-inp2" id="supplierDebtToDate" value="' + S.workDate + '">' +
-      '</div>' +
+  '<div>' +
+    '<label class="f-lbl">إلى تاريخ</label>' +
+    '<input type="date" class="f-inp2" id="supplierDebtToDate" value="">' +
+  '</div>' +
 
-    '</div>' +
+'</div>' +
 
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
-      '<button class="btn-add" onclick="loadSupplierDebtLedgerRange()">بحث</button>' +
-      '<button class="btn-sec" onclick="resetSupplierDebtLedgerRange()">الشهر الحالي</button>' +
-    '</div>' +
+  '<button class="btn-sec" onclick="loadSupplierDebtLedgerRange()">بحث</button>' +
+  '<button class="btn-add" onclick="resetSupplierDebtLedgerRange()">كل الحركات</button>' +
+'</div>' +
 
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">' +
       '<button class="btn-sec" onclick="filterSupplierDebtRows(\'all\')">الكل</button>' +
@@ -4807,25 +4806,30 @@ function loadSupplierDebtLedgerRange() {
   if (!bodyEl || !tbody) return;
 
   var supplierName = bodyEl.getAttribute('data-supplier') || '';
-  var fromDate = fromEl && fromEl.value ? fromEl.value : getMonthStartDate(S.workDate);
-  var toDate = toEl && toEl.value ? toEl.value : S.workDate;
-
+  var fromDate = fromEl && fromEl.value ? fromEl.value : '';
+var toDate = toEl && toEl.value ? toEl.value : '';
   if (!supplierName) {
     tbody.innerHTML = '<tr><td colspan="4"><div class="empty">اسم المورد غير محدد</div></td></tr>';
     return;
   }
 
-  if (fromDate > toDate) {
-    toast('تاريخ البداية يجب أن يكون قبل تاريخ النهاية', 'error');
-    return;
-  }
-
+  if (fromDate && toDate && fromDate > toDate) {
+  toast('تاريخ البداية يجب أن يكون قبل تاريخ النهاية', 'error');
+  return;
+}
   tbody.innerHTML = '<tr><td colspan="4"><div class="empty">جاري تحميل كشف المورد...</div></td></tr>';
 
-  db.collection('supplierLedger')
-  .where('work_date', '>=', fromDate)
-  .where('work_date', '<=', toDate)
-  .get()
+  var q = db.collection('supplierLedger');
+
+if (fromDate) {
+  q = q.where('work_date', '>=', fromDate);
+}
+
+if (toDate) {
+  q = q.where('work_date', '<=', toDate);
+}
+
+q.get()
   .then(function(snap) {
     var rows = [];
 
@@ -4861,8 +4865,8 @@ function resetSupplierDebtLedgerRange() {
   var fromEl = document.getElementById('supplierDebtFromDate');
   var toEl = document.getElementById('supplierDebtToDate');
 
-  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
-  if (toEl) toEl.value = S.workDate;
+  if (fromEl) fromEl.value = '';
+  if (toEl) toEl.value = '';
 
   loadSupplierDebtLedgerRange();
 }
