@@ -4006,71 +4006,115 @@ function loadExpenseReportCardTotal() {
 
   el.textContent = '...';
 
+  var purchasesTotalPromise = db.collection('cashPurchases')
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(snap) {
+      var total = 0;
+
+      snap.docs.forEach(function(d) {
+        var p = d.data() || {};
+        if (p.deleted === true) return;
+
+        if (p.items && p.items.length) {
+          p.items.forEach(function(it) {
+            total += Number(it.amount || 0);
+          });
+        } else {
+          total += Number(p.amount || 0);
+        }
+      });
+
+      return total;
+    })
+    .catch(function(e) {
+      console.warn('expense card purchases total failed:', e);
+      return 0;
+    });
+
+  var cashExpensesTotalPromise = db.collection('cashExpenses')
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(snap) {
+      var total = 0;
+
+      snap.docs.forEach(function(d) {
+        var x = d.data() || {};
+        if (x.deleted === true) return;
+
+        total += Number(x.amount || 0);
+      });
+
+      return total;
+    })
+    .catch(function(e) {
+      console.warn('expense card cash expenses total failed:', e);
+      return 0;
+    });
+
+  var shiftExpensesTotalPromise = db.collection('inventorySessions')
+    .where('work_date', '>=', fromDate)
+    .where('work_date', '<=', toDate)
+    .get()
+    .then(function(sessionSnap) {
+      var promises = [];
+
+      sessionSnap.docs.forEach(function(d) {
+        promises.push(
+          db.collection('expenses')
+            .where('inventory_session_id', '==', d.id)
+            .get()
+            .then(function(expSnap) {
+              var subtotal = 0;
+
+              expSnap.docs.forEach(function(ed) {
+                var e = ed.data() || {};
+                if (e.approved !== true) return;
+
+                subtotal += Number(e.amount || 0);
+              });
+
+              return subtotal;
+            })
+            .catch(function(e) {
+              console.warn('expense card shift expenses query failed:', e);
+              return 0;
+            })
+        );
+      });
+
+      return Promise.all(promises).then(function(values) {
+        return values.reduce(function(sum, n) {
+          return sum + Number(n || 0);
+        }, 0);
+      });
+    })
+    .catch(function(e) {
+      console.warn('expense card sessions query failed:', e);
+      return 0;
+    });
+
   Promise.all([
-    db.collection('cashPurchases')
-      .where('work_date', '>=', fromDate)
-      .where('work_date', '<=', toDate)
-      .get(),
-
-    db.collection('cashExpenses')
-      .where('work_date', '>=', fromDate)
-      .where('work_date', '<=', toDate)
-      .get(),
-
-    db.collection('inventorySessions')
-      .where('work_date', '>=', fromDate)
-      .where('work_date', '<=', toDate)
-      .get()
+    purchasesTotalPromise,
+    cashExpensesTotalPromise,
+    shiftExpensesTotalPromise
   ])
-  .then(function(results) {
-    var total = 0;
-    var promises = [];
+  .then(function(values) {
+    var total =
+      Number(values[0] || 0) +
+      Number(values[1] || 0) +
+      Number(values[2] || 0);
 
-    results[0].docs.forEach(function(d) {
-      var p = d.data() || {};
-      if (p.deleted === true) return;
-
-      if (p.items && p.items.length) {
-        p.items.forEach(function(it) {
-          total += Number(it.amount || 0);
-        });
-      } else {
-        total += Number(p.amount || 0);
-      }
-    });
-
-    results[1].docs.forEach(function(d) {
-      var x = d.data() || {};
-      if (x.deleted === true) return;
-
-      total += Number(x.amount || 0);
-    });
-
-    results[2].docs.forEach(function(d) {
-      promises.push(
-        db.collection('expenses')
-          .where('inventory_session_id', '==', d.id)
-          .get()
-          .then(function(expSnap) {
-            expSnap.docs.forEach(function(ed) {
-              var e = ed.data() || {};
-              if (e.approved !== true) return;
-
-              total += Number(e.amount || 0);
-            });
-          })
-      );
-    });
-
-    return Promise.all(promises).then(function() {
-      el.textContent = total.toFixed(2);
-    });
+    el.textContent = total.toFixed(2);
   })
   .catch(function(e) {
-    console.error('loadExpenseReportCardTotal error:', e);
-    el.textContent = 'خطأ';
+    console.error('loadExpenseReportCardTotal final error:', e);
+    el.textContent = '0.00';
   });
 }
+
 function openExpenseReportPopup() {
   setModal('تقارير المصاريف');
 
@@ -4291,6 +4335,10 @@ function renderExpenseReportSummaryRows(rows) {
     total += amount;
     byTitle[r.title] = (byTitle[r.title] || 0) + amount;
   });
+  var cardTotalEl = document.getElementById('expenseReportCardTotal');
+if (cardTotalEl) {
+  cardTotalEl.textContent = total.toFixed(2);
+}
 
   var topRows = '';
 
@@ -4505,12 +4553,6 @@ function resetExpenseReportSummary() {
   if (toEl) toEl.value = S.workDate;
 
   loadExpenseReportSummary();
-}
-function loadExpenseReportCardTotal() {
-  var el = document.getElementById('expenseReportCardTotal');
-  if (!el) return;
-
-  el.textContent = '...';
 }
 function payManualDebt(docId) {
   if (!confirm('هل تريد دفع هذا الالتزام من النقد؟')) return;
