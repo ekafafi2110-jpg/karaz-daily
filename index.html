@@ -2276,11 +2276,20 @@ function addExpense() {
   if (typeNm==='أخرى'&&!custom) { toast('يرجى كتابة نوع المصروف','error'); return; }
   showLoad('جاري الحفظ...');
   var data={
-    inventory_session_id:S.sessionId, shift:S.shift,
-    expense_type_id:typeId, custom_expense_name:custom,
-    amount:Number(amt), note:note, created_by:S.user.uid,
-    created_at:FS.serverTimestamp()
-  };
+  inventory_session_id:S.sessionId,
+  work_date:S.workDate,
+  shift:S.shift,
+  expense_type_id:typeId,
+  custom_expense_name:custom,
+  expense_name:typeNm,
+  amount:Number(amt),
+  note:note,
+  approved:false,
+  approved_at:null,
+  created_by:S.user.uid,
+  created_by_email:S.user ? S.user.email : '',
+  created_at:FS.serverTimestamp()
+};
   db.collection('expenses').add(data)
     .then(function(ref) {
       S.expenses.push(Object.assign({docId:ref.id},data));
@@ -2289,7 +2298,7 @@ function addExpense() {
       document.getElementById('customExpName').value='';
       renderExpList();
       hideLoad();
-      toast('تم إضافة المصروف','success');
+      toast('تم حفظ المصروف كمسودة بانتظار اعتماد المدير','success');
     }).catch(function(e){ hideLoad(); toast('خطا: '+e.message,'error'); });
 }
 
@@ -8167,16 +8176,6 @@ var collectionName = 'warehouseOpeningStock';
 
 var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(item.name));
 
-batch.set(stockRef, {
-  item_name: item.name,
-  qty: qty,
-  category: item.category,
-  unit: item.unit || '',
-  source: 'manual_stock_reset',
-  updated_by: S.user ? S.user.uid : '',
-  updated_by_email: S.user ? S.user.email : '',
-  updated_at: FS.serverTimestamp()
-}, { merge: true });
 
 var logRef = db.collection('warehouseLog').doc('manual_reset_' + docId);
 
@@ -8800,67 +8799,38 @@ function addWithdrawal() {
   showLoad('جاري حفظ السحب...');
 
   var now = firebase.firestore.FieldValue.serverTimestamp();
-  var batch = db.batch();
-
   var withdrawalRef = db.collection('stockWithdrawals').doc();
-  var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(item.name));
-  var logRef = db.collection('warehouseLog').doc();
 
-  batch.set(withdrawalRef, {
+  withdrawalRef.set({
     inventory_session_id: S.sessionId,
+    work_date: S.workDate,
     shift: S.shift,
     item_id: itemId,
     item_name: item.name,
     item_category: item.category || 'العبوات',
     quantity: qty,
     note: note || '',
+    approved: false,
+    approved_at: null,
     created_by: S.user ? S.user.uid : '',
     created_by_email: S.user ? S.user.email : '',
     created_at: now
+  })
+  .then(function() {
+    hideLoad();
+
+    document.getElementById('withdrawQty').value = '';
+    document.getElementById('withdrawNote').value = '';
+
+    toast('تم حفظ السحب كمسودة بانتظار اعتماد المدير', 'success');
+    loadWithdrawals();
+  })
+  .catch(function(e) {
+    hideLoad();
+    console.error(e);
+    toast('خطأ: ' + e.message, 'error');
   });
-
-  batch.set(stockRef, {
-    item_name: item.name,
-    qty: firebase.firestore.FieldValue.increment(-qty),
-    category: item.category || 'العبوات',
-    unit: item.unit || '',
-    updated_at: now
-  }, { merge: true });
-
-  batch.set(logRef, {
-    work_date: S.workDate,
-    type: 'withdrawal',
-    source_doc_id: withdrawalRef.id,
-    inventory_session_id: S.sessionId,
-    shift: S.shift,
-    item_name: item.name,
-    item_category: item.category || 'العبوات',
-    qty: qty,
-    quantity: qty,
-    note: note || '',
-    created_by: S.user ? S.user.uid : '',
-    created_by_email: S.user ? S.user.email : '',
-    created_at: now,
-    deleted: false
-  });
-
-  batch.commit()
-    .then(function() {
-      hideLoad();
-
-      document.getElementById('withdrawQty').value = '';
-      document.getElementById('withdrawNote').value = '';
-
-      toast('تم حفظ السحب وتحديث رصيد المستودع', 'success');
-      loadWithdrawals();
-    })
-    .catch(function(e) {
-      hideLoad();
-      console.error(e);
-      toast('خطأ: ' + e.message, 'error');
-    });
 }
-
 function checkShiftBInventoryIncreaseWarning() {
   if (S.shift !== 'B') {
     return Promise.resolve(true);
@@ -9043,27 +9013,8 @@ if (isNewCashEntry) {
   cashBatch.update(cashRef, cashData);
 }
 
-if (S.shift === 'B') {
-  var cashDelta = isNewCashEntry ? submit : (submit - oldCashToSubmit);
-
-  if (cashDelta !== 0) {
-    applyCashLedgerEntry(cashBatch, {
-      amount: Math.abs(cashDelta),
-      direction: cashDelta > 0 ? 'in' : 'out',
-      type: isNewCashEntry ? 'shift_b_cash_submit' : 'shift_b_cash_submit_adjust',
-      source_collection: 'cashEntries',
-      source_doc_id: cashRef.id,
-      ledger_doc_id: isNewCashEntry
-        ? ('cashEntries_' + cashRef.id)
-        : ('cashEntries_adjust_' + cashRef.id + '_' + Date.now()),
-      title: isNewCashEntry ? 'كاش شفت B المراد تسليمه' : 'تعديل كاش شفت B المراد تسليمه',
-      note: S.sessionId || '',
-      work_date: S.workDate,
-      now: FS.serverTimestamp()
-    });
-  }
-}
-
+// لا يتم ترحيل كاش شفت B إلى رصيد النقد إلا بعد اعتماد المدير للجرد.
+// يبقى الكاش محفوظًا داخل cashEntries كمسودة مرتبطة بالجرد غير المعتمد.
 promises.push(cashBatch.commit());
   Promise.all(promises).then(function(){
     // Upload images
@@ -9823,6 +9774,7 @@ function returnPendingInventoryToEmployee(sessId) {
     archived: false,
     ready_for_manager: false,
     returned_for_edit: true,
+    shift_b_sent: false,
     return_reason: reason,
     returned_by: S.user ? S.user.email : '',
     returned_at: firebase.firestore.FieldValue.serverTimestamp(),
@@ -9972,27 +9924,125 @@ function approveSessionToArchive(sessId) {
   }
 
   loadSessionDetails(sessId)
-    .then(function(det) {
-     var sessionData = det.session || {};
+  .then(function(det) {
+    var sessionData = det.session || {};
 
-var archiveData = {
-  session_id: sessId,
-  tracking_id: sessId,
-  work_date: sessId.replace('ALMAZLOUB-', ''),
-  archived_by: S.user ? S.user.email : '',
-  archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  entries: det.entries || [],
-  expenses: det.expenses || [],
-  cash: det.cash || [],
-  accounting: det.accounting || [],
-  withdrawals: det.withdrawals || [],
-  shift_a_note: sessionData.shift_a_note || '',
-  shift_b_note: sessionData.shift_b_note || ''
-};
-      return db.collection('dailyInventoryArchive')
-        .doc(sessId)
-        .set(archiveData);
-    })
+    if (sessionData.returned_for_edit === true || sessionData.status === 'returned_for_edit') {
+      throw new Error('لا يمكن اعتماد جرد مرتجع قبل أن يعيده الموظف');
+    }
+
+    var archiveData = {
+      session_id: sessId,
+      tracking_id: sessionData.tracking_id || sessId,
+      work_date: sessionData.work_date || '',
+      archived_by: S.user ? S.user.email : '',
+      archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      entries: det.entries || [],
+      expenses: det.expenses || [],
+      cash: det.cash || [],
+      accounting: det.accounting || [],
+      withdrawals: det.withdrawals || [],
+      shift_a_note: sessionData.shift_a_note || '',
+      shift_b_note: sessionData.shift_b_note || ''
+    };
+
+    var batch = db.batch();
+
+    var archiveRef = db.collection('dailyInventoryArchive').doc(sessId);
+    batch.set(archiveRef, archiveData);
+
+    var cashB = (det.cash || []).find(function(c) {
+      return c.shift === 'B';
+    });
+
+    if (cashB && cashB.cash_to_submit !== undefined && cashB.cash_to_submit !== null && cashB.cash_to_submit !== '') {
+      var submitAmount = Number(cashB.cash_to_submit || 0);
+
+      if (submitAmount !== 0) {
+        applyCashLedgerEntry(batch, {
+          amount: Math.abs(submitAmount),
+          direction: submitAmount > 0 ? 'in' : 'out',
+          type: 'approved_shift_b_cash_submit',
+          source_collection: 'inventorySessions',
+          source_doc_id: sessId,
+          ledger_doc_id: 'approved_cash_' + sessId,
+          title: 'كاش شفت B المعتمد',
+          note: sessionData.tracking_id || sessId,
+          work_date: sessionData.work_date || S.workDate,
+          now: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+
+    (det.withdrawals || []).forEach(function(w) {
+      if (w.approved === true) return;
+
+      var itemName = w.item_name || '';
+      var qty = Number(w.quantity || 0);
+
+      if (!itemName || !qty) return;
+
+      var withdrawalDocId = w.docId || w.id || '';
+
+      var stockRef = db.collection('warehouseStock').doc(encodeURIComponent(itemName));
+      var logRef = db.collection('warehouseLog').doc('approved_withdrawal_' + sessId + '_' + encodeURIComponent(itemName) + '_' + withdrawalDocId);
+
+      batch.set(stockRef, {
+        item_name: itemName,
+        qty: firebase.firestore.FieldValue.increment(-qty),
+        category: w.item_category || w.category || 'العبوات',
+        unit: w.unit || '',
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      batch.set(logRef, {
+        work_date: sessionData.work_date || S.workDate,
+        type: 'withdrawal',
+        source_doc_id: withdrawalDocId,
+        inventory_session_id: sessId,
+        shift: w.shift || '',
+        item_name: itemName,
+        item_category: w.item_category || w.category || 'العبوات',
+        qty: qty,
+        quantity: qty,
+        note: w.note || '',
+        approved: true,
+        approved_at: firebase.firestore.FieldValue.serverTimestamp(),
+        created_by: w.created_by || '',
+        created_by_email: w.created_by_email || '',
+        created_at: w.created_at || firebase.firestore.FieldValue.serverTimestamp(),
+        deleted: false
+      }, { merge: true });
+
+      if (withdrawalDocId) {
+        batch.set(db.collection('stockWithdrawals').doc(withdrawalDocId), {
+          approved: true,
+          approved_at: firebase.firestore.FieldValue.serverTimestamp(),
+          approved_by: S.user ? S.user.email : ''
+        }, { merge: true });
+      }
+    });
+    (det.expenses || []).forEach(function(e) {
+  if (e.approved === true) return;
+
+  var amount = Number(e.amount || 0);
+  if (!amount) return;
+
+  var expenseDocId = e.docId || e.id || '';
+  var expenseName = e.custom_expense_name || e.expense_name || getExpNm(e.expense_type_id) || 'مصروف شفت';
+
+  
+  if (expenseDocId) {
+    batch.set(db.collection('expenses').doc(expenseDocId), {
+      approved: true,
+      approved_at: firebase.firestore.FieldValue.serverTimestamp(),
+      approved_by: S.user ? S.user.email : ''
+    }, { merge: true });
+  }
+});
+
+    return batch.commit();
+  })
     .then(function() {
       return db.collection('inventorySessions')
         .doc(sessId)
