@@ -4130,20 +4130,23 @@ function loadExpenseReportSummary() {
           .get()
           .then(function(expSnap) {
             expSnap.docs.forEach(function(ed) {
-              var e = Object.assign({ docId: ed.id }, ed.data() || {});
-              var amount = Number(e.amount || 0);
-              if (!amount || amount <= 0) return;
+  var e = Object.assign({ docId: ed.id }, ed.data() || {});
 
-              rows.push({
-                group: 'shop',
-                source: 'مصاريف الشفتات',
-                work_date: s.work_date || S.workDate,
-                title: e.custom_expense_name || getExpenseTypeNameById(e.expense_type_id, 'مصروف شفت'),
-                amount: amount,
-                details: (e.shift ? 'شفت ' + e.shift : '') + (e.note ? ' - ' + e.note : ''),
-                created_at: e.created_at
-              });
-            });
+  if (e.approved !== true) return;
+
+  var amount = Number(e.amount || 0);
+  if (!amount || amount <= 0) return;
+
+  rows.push({
+    group: 'shop',
+    source: 'مصاريف الشفتات',
+    work_date: s.work_date || S.workDate,
+    title: e.custom_expense_name || getExpenseTypeNameById(e.expense_type_id, 'مصروف شفت'),
+    amount: amount,
+    details: (e.shift ? 'شفت ' + e.shift : '') + (e.note ? ' - ' + e.note : ''),
+    created_at: e.created_at
+  });
+});
           })
       );
     });
