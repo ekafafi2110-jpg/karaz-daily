@@ -3583,11 +3583,11 @@ var supplierOptions =
 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
   '<div>' +
     '<label class="f-lbl">من تاريخ</label>' +
-    '<input type="date" class="f-inp2" id="cashExpenseFromDate" onchange="filterCashExpensesTable()">' +
+    '<input type="date" class="f-inp2" id="cashExpenseFromDate" value="' + getMonthStartDate(S.workDate) + '">' +
   '</div>' +
   '<div>' +
     '<label class="f-lbl">إلى تاريخ</label>' +
-    '<input type="date" class="f-inp2" id="cashExpenseToDate" onchange="filterCashExpensesTable()">' +
+    '<input type="date" class="f-inp2" id="cashExpenseToDate" value="' + S.workDate + '">' +
   '</div>' +
 '</div>' +
 
@@ -3616,7 +3616,10 @@ var supplierOptions =
   '</div>' +
 '</div>' +
 
-'<button class="btn-sec" style="margin-bottom:10px;" onclick="clearCashExpensesFilters()">عرض الكل</button>' +
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">' +
+  '<button id="cashExpenseSearchBtn" class="btn-sec" onclick="setCashExpenseActiveButton(\'cashExpenseSearchBtn\');filterCashExpensesTable()">بحث</button>' +
+  '<button id="cashExpenseMonthBtn" class="btn-add" onclick="resetCashExpensesMonth()">الشهر الحالي</button>' +
+'</div>' +
 
 '<div id="cashExpenseNoRows" class="empty" style="display:none;margin-bottom:10px;">لا توجد مصروفات ضمن الفلتر المحدد</div>' +
 
@@ -6766,6 +6769,33 @@ function filterCashExpensesTable() {
   table.style.display = visibleCount === 0 ? 'none' : 'table';
 }
 
+function setCashExpenseActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('cashExpenseSearchBtn');
+  var monthBtn = document.getElementById('cashExpenseMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'cashExpenseSearchBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'cashExpenseMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+
+function resetCashExpensesMonth() {
+  var fromEl = document.getElementById('cashExpenseFromDate');
+  var toEl = document.getElementById('cashExpenseToDate');
+  var typeEl = document.getElementById('cashExpenseFilterType');
+  var sortEl = document.getElementById('cashExpenseSortAmount');
+
+  if (fromEl) fromEl.value = getMonthStartDate(S.workDate);
+  if (toEl) toEl.value = S.workDate;
+  if (typeEl) typeEl.value = '';
+  if (sortEl) sortEl.value = '';
+
+  setCashExpenseActiveButton('cashExpenseMonthBtn');
+  filterCashExpensesTable();
+}
 function clearCashExpensesFilters() {
   var fromEl = document.getElementById('cashExpenseFromDate');
   var toEl = document.getElementById('cashExpenseToDate');
@@ -8284,13 +8314,16 @@ setModal('سجل المستودع');
 
       '<div style="height:10px"></div>' +
 
-      '<label class="f-lbl">من تاريخ</label>' +
-'<input id="adminWithdrawFromDateSearch" class="f-inp2" type="date" value="' + getMonthStartDate(S.workDate) + '">' +
-
-'<div style="height:10px"></div>' +
-
-'<label class="f-lbl">إلى تاريخ</label>' +
-'<input id="adminWithdrawToDateSearch" class="f-inp2" type="date" value="' + S.workDate + '">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">' +
+  '<div>' +
+    '<label class="f-lbl">من تاريخ</label>' +
+    '<input id="adminWithdrawFromDateSearch" class="f-inp2" type="date" value="' + getMonthStartDate(S.workDate) + '">' +
+  '</div>' +
+  '<div>' +
+    '<label class="f-lbl">إلى تاريخ</label>' +
+    '<input id="adminWithdrawToDateSearch" class="f-inp2" type="date" value="' + S.workDate + '">' +
+  '</div>' +
+'</div>' +
 
 '<div style="height:10px"></div>' +
 
@@ -8303,8 +8336,11 @@ setModal('سجل المستودع');
 
 '<div style="height:10px"></div>' +
 
-'<button class="btn-add" onclick="loadAdminWithdrawalsLog()">بحث</button>' +
-'<button class="btn-sec" style="margin-top:8px;" onclick="clearAdminWithdrawalsSearch()">مسح البحث</button>' +    '</div>' +
+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">' +
+  '<button id="adminWithdrawSearchBtn" class="btn-sec" onclick="setAdminWithdrawalsActiveButton(\'adminWithdrawSearchBtn\');loadAdminWithdrawalsLog()">بحث</button>' +
+  '<button id="adminWithdrawMonthBtn" class="btn-add" onclick="resetAdminWithdrawalsMonth()">الشهر الحالي</button>' +
+'</div>' +
+'</div>' +
 
     '<div id="adminWithdrawalsResults">' +
       '<div class="empty">جاري تحميل السجل...</div>' +
@@ -8319,7 +8355,20 @@ function loadAdminWithdrawalItems() {
 
   select.innerHTML = '<option value="">كل أصناف الفئة</option>';
 }
-function clearAdminWithdrawalsSearch() {
+
+function setAdminWithdrawalsActiveButton(activeBtnId) {
+  var searchBtn = document.getElementById('adminWithdrawSearchBtn');
+  var monthBtn = document.getElementById('adminWithdrawMonthBtn');
+
+  if (searchBtn) {
+    searchBtn.className = activeBtnId === 'adminWithdrawSearchBtn' ? 'btn-add' : 'btn-sec';
+  }
+
+  if (monthBtn) {
+    monthBtn.className = activeBtnId === 'adminWithdrawMonthBtn' ? 'btn-add' : 'btn-sec';
+  }
+}
+function resetAdminWithdrawalsMonth() {
   var item = document.getElementById('adminWithdrawItemSearch');
   var from = document.getElementById('adminWithdrawFromDateSearch');
   var to = document.getElementById('adminWithdrawToDateSearch');
@@ -8330,8 +8379,10 @@ function clearAdminWithdrawalsSearch() {
   if (to) to.value = S.workDate;
   if (type) type.value = '';
 
+  setAdminWithdrawalsActiveButton('adminWithdrawMonthBtn');
   loadAdminWithdrawalsLog();
 }
+
 function formatWithdrawTime(x) {
   var t = x.createdAt || x.created_at;
 
